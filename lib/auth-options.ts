@@ -4,17 +4,27 @@ import { getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import type { UsuarioRow } from "@/types/models";
 
+function isUserActive(value: string | undefined): boolean {
+  const v = String(value || "")
+    .trim()
+    .toUpperCase();
+  return v === "TRUE" || v === "SI" || v === "SÍ" || v === "YES" || v === "1";
+}
+
 async function loadUsuarioByEmail(email: string): Promise<UsuarioRow | null> {
+  const normalizedEmail = email.trim().toLowerCase();
   try {
     const rows = await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS);
     const usuarios = rowsToObjects<UsuarioRow>(rows);
     const found = usuarios.find(
-      (u) =>
-        u.Correos?.toLowerCase() === email.toLowerCase() &&
-        String(u.UserActive || "").toUpperCase() === "TRUE"
+      (u) => u.Correos?.trim().toLowerCase() === normalizedEmail && isUserActive(u.UserActive)
     );
     return found ?? null;
-  } catch {
+  } catch (e) {
+    console.error(
+      "[MiCaja auth] Error leyendo hoja Usuarios (Sheets API). ¿Variables GOOGLE_* en Vercel y hoja compartida con el service account?",
+      e instanceof Error ? e.message : e
+    );
     return null;
   }
 }
