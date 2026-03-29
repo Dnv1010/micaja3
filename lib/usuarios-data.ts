@@ -9,17 +9,31 @@ export type UsuarioRowWithSource = UsuarioRow & {
   _usuariosSpreadsheetId?: string;
 };
 
-/** Orden de lectura: explícito → Petty Cash → libro MiCaja (misma pestaña "Usuarios"). */
+/** Nombre de la pestaña (debe coincidir con Google Sheets). */
+function usuariosTabName(): string {
+  return process.env.USUARIOS_SHEET_NAME?.trim() || SHEET_NAMES.USUARIOS;
+}
+
+/**
+ * Todos los spreadsheets donde buscar "Usuarios" (sin duplicar ID).
+ * Importante: USUARIOS_SPREADSHEET_ID es *adicional*, no reemplaza a Petty/MiCaja
+ * (antes si estaba mal configurado, solo se leía un archivo y fallaba el login).
+ */
 function idsToScanUsuarios(): { id: string; source: "PETTY_CASH" | "MICAJA" }[] {
-  const explicit = process.env.USUARIOS_SPREADSHEET_ID?.trim();
-  if (explicit) {
-    return [{ id: explicit, source: "PETTY_CASH" }];
-  }
+  const seen = new Set<string>();
   const out: { id: string; source: "PETTY_CASH" | "MICAJA" }[] = [];
-  const petty = SPREADSHEET_IDS.PETTY_CASH?.trim();
-  const micaja = SPREADSHEET_IDS.MICAJA?.trim();
-  if (petty) out.push({ id: petty, source: "PETTY_CASH" });
-  if (micaja && micaja !== petty) out.push({ id: micaja, source: "MICAJA" });
+
+  const add = (raw: string | undefined, source: "PETTY_CASH" | "MICAJA") => {
+    const id = raw?.trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    out.push({ id, source });
+  };
+
+  add(SPREADSHEET_IDS.PETTY_CASH, "PETTY_CASH");
+  add(SPREADSHEET_IDS.MICAJA, "MICAJA");
+  add(process.env.USUARIOS_SPREADSHEET_ID, "MICAJA");
+
   return out;
 }
 
@@ -29,7 +43,7 @@ export async function loadUsuariosMerged(): Promise<UsuarioRowWithSource[]> {
 
   for (const { id, source } of idsToScanUsuarios()) {
     try {
-      const rows = await getSheetDataBySpreadsheetId(id, SHEET_NAMES.USUARIOS);
+      const rows = await getSheetDataBySpreadsheetId(id, usuariosTabName());
       if (rows.length < 2) continue;
       const list = rowsToObjects<UsuarioRow>(rows);
       for (const u of list) {
@@ -52,7 +66,7 @@ export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioR
 
   for (const { id } of idsToScanUsuarios()) {
     try {
-      const rows = await getSheetDataBySpreadsheetId(id, SHEET_NAMES.USUARIOS);
+      const rows = await getSheetDataBySpreadsheetId(id, usuariosTabName());
       if (rows.length < 2) continue;
       const usuarios = rowsToObjects<UsuarioRow>(rows);
       const found = usuarios.find((u) => normalizeEmailForAuth(String(u.Correos ?? "")) === want);
