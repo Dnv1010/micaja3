@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "cross-env NODE_OPTIONS=--disable-warning=DEP0169 next dev",
+    "build": "cross-env NODE_OPTIONS=--disable-warning=DEP0169 next build",
+    "start": "cross-env NODE_OPTIONS=--disable-warning=DEP0169 next start",
     "lint": "next lint"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-signature-canvas": "^1.0.7",
+    "cross-env": "^10.1.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.18",
     "postcss": "^8",

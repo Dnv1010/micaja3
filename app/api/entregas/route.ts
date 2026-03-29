@@ -4,8 +4,9 @@ import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { filterEntregasWithUsuarios, type SessionCtx } from "@/lib/roles";
-import type { EntregaRow, UsuarioRow } from "@/types/models";
+import type { EntregaRow } from "@/types/models";
 
 function sessionCtx(session: Session | null): SessionCtx | null {
   if (!session) return null;
@@ -26,12 +27,11 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const [entRows, userRows] = await Promise.all([
+    const [entRows, usuarios] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.ENTREGAS),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
     ]);
     const entregas = rowsToObjects<EntregaRow>(entRows);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
     const filtered = filterEntregasWithUsuarios(entregas, ctx, usuarios);
     return NextResponse.json({ data: filtered });
   } catch (e) {

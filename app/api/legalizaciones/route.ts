@@ -10,10 +10,11 @@ import {
   getSheetId,
   rowsToObjects,
 } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { buildAppendRow, mergeUpdateRow } from "@/lib/sheet-row";
 import { uniqueSheetKey } from "@/lib/ids";
 import { filterFacturas, filterLegalizaciones, type SessionCtx } from "@/lib/roles";
-import type { FacturaRow, LegalizacionRow, UsuarioRow } from "@/types/models";
+import type { FacturaRow, LegalizacionRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
 
 function sessionCtx(session: Session | null): SessionCtx | null {
@@ -41,12 +42,11 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const [legRows, userRows] = await Promise.all([
+    const [legRows, usuarios] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
     ]);
     const legalizaciones = rowsToObjects<LegalizacionRow>(legRows);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
     const filtered = filterLegalizaciones(legalizaciones, ctx, usuarios);
     return NextResponse.json({ data: filtered });
   } catch (e) {
@@ -69,9 +69,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Factura ya legalizada" }, { status: 400 });
     }
 
-    const usuariosForFact = rowsToObjects<UsuarioRow>(
-      await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS)
-    );
+    const usuariosForFact = await loadUsuariosMerged();
     if (!filterFacturas([factura], ctx, usuariosForFact).length) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
@@ -135,9 +133,7 @@ export async function DELETE(req: NextRequest) {
     const row = list.find((l) => l.ID_Legalización === id && l.ID_Factura === idFactura);
     if (!row) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
-    const usuarios = rowsToObjects<UsuarioRow>(
-      await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS)
-    );
+    const usuarios = await loadUsuariosMerged();
     const visible = filterLegalizaciones([row], ctx, usuarios);
     if (!visible.length) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 

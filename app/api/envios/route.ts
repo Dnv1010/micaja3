@@ -8,10 +8,11 @@ import {
   getSheetData,
   rowsToObjects,
 } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { buildAppendRow } from "@/lib/sheet-row";
 import { uniqueSheetKey } from "@/lib/ids";
 import { filterEnvios, coordinadorAssignableUsers, type SessionCtx } from "@/lib/roles";
-import type { EnvioRow, UsuarioRow } from "@/types/models";
+import type { EnvioRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
 import { todayISO } from "@/lib/format";
 
@@ -39,12 +40,11 @@ export async function GET() {
   }
 
   try {
-    const [envRows, userRows] = await Promise.all([
+    const [envRows, usuarios] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.ENVIO),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
     ]);
     const envios = rowsToObjects<EnvioRow>(envRows);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
     const filtered = filterEnvios(envios, ctx, usuarios);
     return NextResponse.json({ data: filtered });
   } catch (e) {
@@ -66,8 +66,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Record<string, string>;
     const responsable = body.Responsable || "";
-    const userRows = await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
+    const usuarios = await loadUsuariosMerged();
     const assignable = coordinadorAssignableUsers(usuarios, ctx);
     if (rol === "coordinador") {
       const ok = assignable.some((u) => u.Responsable === responsable);

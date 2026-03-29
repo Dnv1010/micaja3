@@ -4,8 +4,9 @@ import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { filterFacturas, type SessionCtx } from "@/lib/roles";
-import type { FacturaRow, UsuarioRow } from "@/types/models";
+import type { FacturaRow } from "@/types/models";
 
 function sessionCtx(session: Session | null): SessionCtx | null {
   if (!session) return null;
@@ -40,15 +41,14 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const [factRows, userRows] = await Promise.all([
+    const [factRows, usuarios] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
     ]);
     const headers = factRows[0];
     if (!headers) return NextResponse.json({ error: "Vacío" }, { status: 500 });
 
     const facturas = rowsToObjects<FacturaRow>(factRows);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
     const filtered = filterFacturas(facturas, ctx, usuarios);
 
     const dataRows = filtered.map((f) => {

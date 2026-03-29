@@ -1,17 +1,42 @@
 import { sheets, SPREADSHEET_IDS, assertSheetsConfigured, type SpreadsheetKey } from "./google-sheets";
 
+export async function getSheetDataBySpreadsheetId(
+  spreadsheetId: string,
+  sheetName: string,
+  range?: string
+): Promise<string[][]> {
+  assertSheetsConfigured();
+  if (!spreadsheetId?.trim()) return [];
+  const fullRange = range ? `${sheetName}!${range}` : sheetName;
+  const response = await sheets!.spreadsheets.values.get({
+    spreadsheetId: spreadsheetId.trim(),
+    range: fullRange,
+  });
+  return response.data.values ?? [];
+}
+
 export async function getSheetData(
   spreadsheetKey: SpreadsheetKey,
   sheetName: string,
   range?: string
 ): Promise<string[][]> {
+  const id = SPREADSHEET_IDS[spreadsheetKey];
+  return getSheetDataBySpreadsheetId(id, sheetName, range);
+}
+
+export async function updateSheetRowBySpreadsheetId(
+  spreadsheetId: string,
+  sheetName: string,
+  rowIndex: number,
+  values: unknown[]
+): Promise<void> {
   assertSheetsConfigured();
-  const fullRange = range ? `${sheetName}!${range}` : sheetName;
-  const response = await sheets!.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
-    range: fullRange,
+  await sheets!.spreadsheets.values.update({
+    spreadsheetId: spreadsheetId.trim(),
+    range: `${sheetName}!A${rowIndex}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [values as string[]] },
   });
-  return response.data.values ?? [];
 }
 
 export async function appendSheetRow(
@@ -88,7 +113,10 @@ export function rowsToObjects<T>(rows: string[][]): T[] {
   return rows.slice(1).map((row, index) => {
     const obj: Record<string, string | number> = { _rowIndex: index + 2 };
     headers.forEach((header, i) => {
-      obj[header] = row[i] ?? "";
+      const key = String(header ?? "").trim();
+      if (!key) return;
+      const cell = String(row[i] ?? "").trim();
+      obj[key] = cell;
     });
     return obj as T;
   });

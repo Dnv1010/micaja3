@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { mergeUpdateRow } from "@/lib/sheet-row";
-import type { EnvioRow, LegalizacionRow, UsuarioRow } from "@/types/models";
+import type { EnvioRow, LegalizacionRow } from "@/types/models";
 import { sedeFromUsuarioSector } from "@/lib/saldo";
 import { parseCOPString } from "@/lib/format";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
@@ -23,16 +24,15 @@ export async function GET() {
   }
 
   try {
-    const [envRows, legRows, userRows, balRows] = await Promise.all([
+    const [envRows, legRows, usuarios, balRows] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.ENVIO),
       getSheetData("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
       getSheetData("MICAJA", SHEET_NAMES.BALANCE),
     ]);
 
     const envios = rowsToObjects<EnvioRow>(envRows);
     const legalizaciones = rowsToObjects<LegalizacionRow>(legRows);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
     const byName = new Map(usuarios.map((u) => [u.Responsable, u] as const));
 
     type Sede = "Bogota" | "Costa Caribe";

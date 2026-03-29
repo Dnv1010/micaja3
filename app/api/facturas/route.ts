@@ -8,11 +8,12 @@ import {
   getSheetData,
   rowsToObjects,
 } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { buildAppendRow } from "@/lib/sheet-row";
 import { uniqueSheetKey } from "@/lib/ids";
 import { filterFacturas, type SessionCtx } from "@/lib/roles";
 import { CENTRO_COSTO_INFO, todayISO } from "@/lib/format";
-import type { FacturaRow, UsuarioRow } from "@/types/models";
+import type { FacturaRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
 
 function sessionCtx(session: Session | null): SessionCtx | null {
@@ -34,12 +35,11 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const [factRows, userRows] = await Promise.all([
+    const [factRows, usuarios] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
     ]);
     const facturas = rowsToObjects<FacturaRow>(factRows);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
     const filtered = filterFacturas(facturas, ctx, usuarios);
     return NextResponse.json({ data: filtered });
   } catch (e) {

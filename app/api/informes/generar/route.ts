@@ -8,11 +8,12 @@ import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { drive, assertSheetsConfigured } from "@/lib/google-sheets";
 import { getSheetData, rowsToObjects, appendSheetRow } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { mergeUpdateRow } from "@/lib/sheet-row";
 import { filterFacturas, type SessionCtx } from "@/lib/roles";
 import { uniqueSheetKey } from "@/lib/ids";
 import { InformePdfDocument } from "@/components/informes/informe-pdf";
-import type { FacturaRow, UsuarioRow } from "@/types/models";
+import type { FacturaRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -77,12 +78,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Falta GOOGLE_DRIVE_INFORMES_FOLDER_ID" }, { status: 500 });
     }
 
-    const [factRows, userRows] = await Promise.all([
+    const [factRows, usuarios] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
     ]);
     const todas = rowsToObjects<FacturaRow>(factRows);
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
 
     const selected = todas.filter(
       (f) =>

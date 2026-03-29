@@ -1,32 +1,11 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
-import { SHEET_NAMES } from "@/lib/google-sheets";
+import { findUsuarioByEmailForAuth } from "@/lib/usuarios-data";
 import type { UsuarioRow } from "@/types/models";
-
-function isUserActive(value: string | undefined): boolean {
-  const v = String(value || "")
-    .trim()
-    .toUpperCase();
-  return v === "TRUE" || v === "SI" || v === "SÍ" || v === "YES" || v === "1";
-}
+import { normalizeEmailForAuth } from "@/lib/email-normalize";
 
 async function loadUsuarioByEmail(email: string): Promise<UsuarioRow | null> {
-  const normalizedEmail = email.trim().toLowerCase();
-  try {
-    const rows = await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS);
-    const usuarios = rowsToObjects<UsuarioRow>(rows);
-    const found = usuarios.find(
-      (u) => u.Correos?.trim().toLowerCase() === normalizedEmail && isUserActive(u.UserActive)
-    );
-    return found ?? null;
-  } catch (e) {
-    console.error(
-      "[MiCaja auth] Error leyendo hoja Usuarios (Sheets API). ¿Variables GOOGLE_* en Vercel y hoja compartida con el service account?",
-      e instanceof Error ? e.message : e
-    );
-    return null;
-  }
+  return findUsuarioByEmailForAuth(email);
 }
 
 export const authOptions: NextAuthOptions = {
@@ -50,8 +29,9 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user }) {
-      if (!user.email?.endsWith("@bia.app")) return false;
-      const u = await loadUsuarioByEmail(user.email);
+      const mail = user.email ? normalizeEmailForAuth(user.email) : "";
+      if (!mail.endsWith("@bia.app")) return false;
+      const u = await loadUsuarioByEmail(user.email!);
       return !!u;
     },
     async jwt({ token, user, trigger, session }) {

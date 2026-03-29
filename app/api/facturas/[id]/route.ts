@@ -9,10 +9,11 @@ import {
   getSheetId,
   rowsToObjects,
 } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { mergeUpdateRow } from "@/lib/sheet-row";
 import { filterFacturas, canEditVerificado, type SessionCtx } from "@/lib/roles";
 import { CENTRO_COSTO_INFO } from "@/lib/format";
-import type { FacturaRow, UsuarioRow } from "@/types/models";
+import type { FacturaRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
 
 function sessionCtx(session: Session | null): SessionCtx | null {
@@ -49,9 +50,7 @@ export async function GET(
   const found = await getFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
-  const usuarios = rowsToObjects<UsuarioRow>(
-    await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS)
-  );
+  const usuarios = await loadUsuariosMerged();
   const allowed = filterFacturas([found.row], ctx, usuarios);
   if (!allowed.length) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
@@ -70,9 +69,7 @@ export async function PUT(
   const found = await getFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
-  const usuarios = rowsToObjects<UsuarioRow>(
-    await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS)
-  );
+  const usuarios = await loadUsuariosMerged();
   const allowed = filterFacturas([found.row], ctx, usuarios);
   if (!allowed.length) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
@@ -103,9 +100,7 @@ export async function DELETE(
   const found = await getFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
-  const usuarios = rowsToObjects<UsuarioRow>(
-    await getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS)
-  );
+  const usuarios = await loadUsuariosMerged();
   const allowed = filterFacturas([found.row], ctx, usuarios);
   if (!allowed.length) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 

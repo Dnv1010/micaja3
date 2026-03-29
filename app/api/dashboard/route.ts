@@ -4,13 +4,14 @@ import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
+import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import {
   filterEntregasWithUsuarios,
   filterFacturas,
   type SessionCtx,
 } from "@/lib/roles";
 import { computeSaldoResponsable } from "@/lib/saldo";
-import type { EntregaRow, FacturaRow, LegalizacionRow, UsuarioRow } from "@/types/models";
+import type { EntregaRow, FacturaRow, LegalizacionRow } from "@/types/models";
 import { parseCOPString } from "@/lib/format";
 
 function sessionCtx(session: Session | null): SessionCtx | null {
@@ -32,14 +33,12 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const [entRows, factRows, legRows, userRows] = await Promise.all([
+    const [entRows, factRows, legRows, usuarios] = await Promise.all([
       getSheetData("PETTY_CASH", SHEET_NAMES.ENTREGAS),
       getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS),
       getSheetData("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES),
-      getSheetData("PETTY_CASH", SHEET_NAMES.USUARIOS),
+      loadUsuariosMerged(),
     ]);
-
-    const usuarios = rowsToObjects<UsuarioRow>(userRows);
     const entregas = filterEntregasWithUsuarios(rowsToObjects<EntregaRow>(entRows), ctx, usuarios);
     const facturas = filterFacturas(rowsToObjects<FacturaRow>(factRows), ctx, usuarios);
     const legalizaciones = rowsToObjects<LegalizacionRow>(legRows);
