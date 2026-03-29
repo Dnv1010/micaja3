@@ -30,12 +30,19 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       const mail = user.email ? normalizeEmailForAuth(user.email) : "";
-      if (!mail.endsWith("@bia.app")) return false;
-      const u = await loadUsuarioByEmail(user.email!);
+      if (!mail.endsWith("@bia.app")) {
+        console.warn("[MiCaja auth] Dominio no permitido o sin email:", mail || "(vacío)");
+        return false;
+      }
+      const u = await loadUsuarioByEmail(mail);
+      if (!u) {
+        console.warn("[MiCaja auth] Acceso denegado para:", mail);
+      }
       return !!u;
     },
     async jwt({ token, user, trigger, session }) {
-      const email = (user?.email || token.email) as string | undefined;
+      const emailRaw = (user?.email || token.email) as string | undefined;
+      const email = emailRaw ? normalizeEmailForAuth(emailRaw) : undefined;
       if (email) {
         const u = await loadUsuarioByEmail(email);
         if (u) {

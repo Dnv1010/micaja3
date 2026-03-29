@@ -1,7 +1,22 @@
 import { SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetDataBySpreadsheetId, rowsToObjects } from "@/lib/sheets-helpers";
 import { normalizeEmailForAuth } from "@/lib/email-normalize";
+import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import type { UsuarioRow } from "@/types/models";
+
+function rowRecord(u: UsuarioRow): Record<string, unknown> {
+  return u as unknown as Record<string, unknown>;
+}
+
+function usuarioEmailFromRow(u: UsuarioRow): string {
+  return normalizeEmailForAuth(
+    getCellCaseInsensitive(rowRecord(u), "Correos", "Correo", "Email", "E-mail", "Correo electrónico", "Correo electronico")
+  );
+}
+
+function usuarioUserActiveFromRow(u: UsuarioRow): string {
+  return getCellCaseInsensitive(rowRecord(u), "UserActive", "User Active", "Activo", "USERACTIVE", "User_Active");
+}
 
 export type UsuarioRowWithSource = UsuarioRow & {
   _usuariosSource?: "PETTY_CASH" | "MICAJA";
@@ -47,7 +62,7 @@ export async function loadUsuariosMerged(): Promise<UsuarioRowWithSource[]> {
       if (rows.length < 2) continue;
       const list = rowsToObjects<UsuarioRow>(rows);
       for (const u of list) {
-        const mail = normalizeEmailForAuth(String(u.Correos ?? ""));
+        const mail = usuarioEmailFromRow(u);
         if (!mail) continue;
         byEmail.set(mail, { ...u, _usuariosSource: source, _usuariosSpreadsheetId: id });
       }
@@ -64,16 +79,38 @@ export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioR
   const want = normalizeEmailForAuth(email);
   if (!want) return null;
 
-  for (const { id } of idsToScanUsuarios()) {
+  const ids = idsToScanUsuarios();
+  if (ids.length === 0) {
+    console.error(
+      "[MiCaja auth] Ningún spreadsheet con Usuarios: define PETTY_CASH_SPREADSHEET_ID, MICAJA_SPREADSHEET_ID y/o USUARIOS_SPREADSHEET_ID en Vercel."
+    );
+    return null;
+  }
+
+  let foundInactive = false;
+
+  for (const { id } of ids) {
     try {
       const rows = await getSheetDataBySpreadsheetId(id, usuariosTabName());
       if (rows.length < 2) continue;
       const usuarios = rowsToObjects<UsuarioRow>(rows);
-      const found = usuarios.find((u) => normalizeEmailForAuth(String(u.Correos ?? "")) === want);
-      if (found && isUserActiveInSheet(found.UserActive)) return found;
+      const found = usuarios.find((u) => usuarioEmailFromRow(u) === want);
+      if (!found) continue;
+      const activeRaw = usuarioUserActiveFromRow(found);
+      if (isUserActiveInSheet(activeRaw)) return found;
+      foundInactive = true;
+      console.warn(
+        `[MiCaja auth] Fila encontrada para ${want} en …${id.slice(-6)} pero UserActive no es activo (valor: "${activeRaw || "(vacío)"}").`
+      );
     } catch (e) {
       console.error(`[MiCaja auth] Error leyendo Usuarios en spreadsheet ${id.slice(0, 8)}…`, e);
     }
+  }
+
+  if (!foundInactive) {
+    console.warn(
+      `[MiCaja auth] Sin fila con correo ${want} en ${ids.length} libro(s). Revisa encabezado tipo Correos/Email y pestaña "${usuariosTabName()}".`
+    );
   }
 
   return null;
@@ -83,5 +120,12 @@ export function isUserActiveInSheet(value: string | undefined): boolean {
   const v = String(value || "")
     .trim()
     .toUpperCase();
-  return v === "TRUE" || v === "SI" || v === "SÍ" || v === "YES" || v === "1";
+  return (
+    v === "TRUE" ||
+    v === "SI" ||
+    v === "SÍ" ||
+    v === "YES" ||
+    v === "1" ||
+    v === "VERDADERO"
+  );
 }
