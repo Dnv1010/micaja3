@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { findUsuarioByEmailForAuth } from "@/lib/usuarios-data";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { findUsuarioByEmailForAuth, usuarioPinFromRow } from "@/lib/usuarios-data";
 import type { UsuarioRow } from "@/types/models";
 import { normalizeEmailForAuth, isBiaAppEmail } from "@/lib/email-normalize";
 
@@ -20,6 +21,31 @@ export const authOptions: NextAuthOptions = {
         },
       },
     }),
+    CredentialsProvider({
+      id: "credentials",
+      name: "PIN",
+      credentials: {
+        email: { label: "Correo", type: "email", placeholder: "correo@bia.app" },
+        pin: { label: "PIN", type: "password", placeholder: "PIN de 4 dígitos" },
+      },
+      async authorize(credentials) {
+        const rawEmail = credentials?.email;
+        const rawPin = credentials?.pin;
+        if (rawEmail == null || rawPin == null) return null;
+        const email = normalizeEmailForAuth(String(rawEmail));
+        if (!isBiaAppEmail(email)) return null;
+        const u = await findUsuarioByEmailForAuth(email);
+        if (!u) return null;
+        const stored = usuarioPinFromRow(u).trim();
+        if (!stored) return null;
+        if (stored !== String(rawPin).trim()) return null;
+        return {
+          id: email,
+          email,
+          name: (u.Responsable || "").trim() || email,
+        };
+      },
+    }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
@@ -28,7 +54,10 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   callbacks: {
-    async signIn({ user, profile }) {
+    async signIn({ user, profile, account }) {
+      if (account?.provider === "credentials") {
+        return true;
+      }
       const raw =
         user.email ??
         (profile && typeof profile === "object" && "email" in profile

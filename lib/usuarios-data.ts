@@ -18,6 +18,11 @@ function usuarioUserActiveFromRow(u: UsuarioRow): string {
   return getCellCaseInsensitive(rowRecord(u), "UserActive", "User Active", "Activo", "USERACTIVE", "User_Active");
 }
 
+/** Valor de la columna PIN (mayúsculas/minúsculas en encabezado). */
+export function usuarioPinFromRow(u: UsuarioRow): string {
+  return getCellCaseInsensitive(rowRecord(u), "PIN", "Pin", "pin");
+}
+
 export type UsuarioRowWithSource = UsuarioRow & {
   _usuariosSource?: "PETTY_CASH" | "MICAJA";
   /** ID del spreadsheet donde está la fila (para PATCH). */

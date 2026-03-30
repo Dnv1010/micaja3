@@ -11,6 +11,8 @@ export interface UsuarioRow {
   Cargo: string;
   Cedula: string;
   Sector: string;
+  /** PIN de 4 dígitos en Sheet; si está vacío, solo login con Google. */
+  PIN?: string;
 }
 
 export interface EntregaRow {
