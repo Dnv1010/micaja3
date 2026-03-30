@@ -1,5 +1,11 @@
 import { sheets, SPREADSHEET_IDS, assertSheetsConfigured, type SpreadsheetKey } from "./google-sheets";
 
+/** Nombre de pestaña en notación A1 (comillas simples y escape de '). */
+export function quoteSheetTitleForRange(sheetName: string): string {
+  const t = sheetName.trim();
+  return `'${t.replace(/'/g, "''")}'`;
+}
+
 export async function getSheetDataBySpreadsheetId(
   spreadsheetId: string,
   sheetName: string,
@@ -7,7 +13,8 @@ export async function getSheetDataBySpreadsheetId(
 ): Promise<string[][]> {
   assertSheetsConfigured();
   if (!spreadsheetId?.trim()) return [];
-  const fullRange = range ? `${sheetName}!${range}` : sheetName;
+  const quoted = quoteSheetTitleForRange(sheetName);
+  const fullRange = range ? `${quoted}!${range}` : quoted;
   const response = await sheets!.spreadsheets.values.get({
     spreadsheetId: spreadsheetId.trim(),
     range: fullRange,
@@ -33,7 +40,7 @@ export async function updateSheetRowBySpreadsheetId(
   assertSheetsConfigured();
   await sheets!.spreadsheets.values.update({
     spreadsheetId: spreadsheetId.trim(),
-    range: `${sheetName}!A${rowIndex}`,
+    range: `${quoteSheetTitleForRange(sheetName)}!A${rowIndex}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [values as string[]] },
   });
@@ -47,7 +54,7 @@ export async function appendSheetRow(
   assertSheetsConfigured();
   await sheets!.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
-    range: sheetName,
+    range: quoteSheetTitleForRange(sheetName),
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [values as string[]] },
   });
@@ -62,7 +69,7 @@ export async function updateSheetRow(
   assertSheetsConfigured();
   await sheets!.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
-    range: `${sheetName}!A${rowIndex}`,
+    range: `${quoteSheetTitleForRange(sheetName)}!A${rowIndex}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [values as string[]] },
   });

@@ -2,7 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { findUsuarioByEmailForAuth } from "@/lib/usuarios-data";
 import type { UsuarioRow } from "@/types/models";
-import { normalizeEmailForAuth } from "@/lib/email-normalize";
+import { normalizeEmailForAuth, isBiaAppEmail } from "@/lib/email-normalize";
 
 async function loadUsuarioByEmail(email: string): Promise<UsuarioRow | null> {
   return findUsuarioByEmailForAuth(email);
@@ -28,9 +28,14 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   callbacks: {
-    async signIn({ user }) {
-      const mail = user.email ? normalizeEmailForAuth(user.email) : "";
-      if (!mail.endsWith("@bia.app")) {
+    async signIn({ user, profile }) {
+      const raw =
+        user.email ??
+        (profile && typeof profile === "object" && "email" in profile
+          ? String((profile as { email?: string }).email ?? "")
+          : "");
+      const mail = raw ? normalizeEmailForAuth(raw) : "";
+      if (!isBiaAppEmail(mail)) {
         console.warn("[MiCaja auth] Dominio no permitido o sin email:", mail || "(vacío)");
         return false;
       }

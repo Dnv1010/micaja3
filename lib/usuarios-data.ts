@@ -1,4 +1,4 @@
-import { SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
+import { SPREADSHEET_IDS, SHEET_NAMES, sheets } from "@/lib/google-sheets";
 import { getSheetDataBySpreadsheetId, rowsToObjects } from "@/lib/sheets-helpers";
 import { normalizeEmailForAuth } from "@/lib/email-normalize";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
@@ -78,6 +78,13 @@ export async function loadUsuariosMerged(): Promise<UsuarioRowWithSource[]> {
 export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioRow | null> {
   const want = normalizeEmailForAuth(email);
   if (!want) return null;
+
+  if (!sheets) {
+    console.error(
+      "[MiCaja auth] Google Sheets no configurado: GOOGLE_SERVICE_ACCOUNT_EMAIL y GOOGLE_PRIVATE_KEY en Vercel (en la clave, los saltos de línea suelen ir como \\n en una sola línea)."
+    );
+    return null;
+  }
 
   const ids = idsToScanUsuarios();
   if (ids.length === 0) {

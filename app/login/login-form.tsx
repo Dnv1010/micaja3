@@ -14,7 +14,7 @@ const ERROR_MESSAGES: Record<string, { title: string; body: string }> = {
   AccessDenied: {
     title: "Acceso denegado",
     body:
-      "Debes estar en la pestaña Usuarios con UserActive activo. En Vercel: MICAJA_SPREADSHEET_ID = ID del archivo (entre /d/ y /edit en la URL de Google Sheets). Comparte el archivo con el email de la service account. Si definiste USUARIOS_SPREADSHEET_ID erróneo, quítalo o corrígelo.",
+      "El correo con el que entras debe coincidir con la columna de correo en la pestaña Usuarios y UserActive debe ser activo (TRUE/Sí/1). Cuentas @bia.app o @algo.bia.app están permitidas. En Vercel: MICAJA_SPREADSHEET_ID = ID entre /d/ y /edit; GOOGLE_SERVICE_ACCOUNT_EMAIL y GOOGLE_PRIVATE_KEY correctos; comparte el Sheet con el client_email de la service account. Revisa logs [MiCaja auth] en Vercel → Functions.",
   },
   Callback: {
     title: "Error en el inicio de sesión con Google",
