@@ -2,6 +2,13 @@ import "next-auth";
 import { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
+  interface User {
+    rol?: string;
+    area?: string;
+    sector?: string;
+    cargo?: string;
+  }
+
   interface Session {
     user: {
       rol?: string;
