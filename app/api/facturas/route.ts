@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import {
@@ -11,51 +10,44 @@ import {
 import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { buildAppendRow } from "@/lib/sheet-row";
 import { uniqueSheetKey } from "@/lib/ids";
-import { filterFacturas, type SessionCtx } from "@/lib/roles";
+import { filterFacturas } from "@/lib/roles";
 import { CENTRO_COSTO_INFO, todayISO } from "@/lib/format";
 import type { FacturaRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
-
-function sessionCtx(session: Session | null): SessionCtx | null {
-  if (!session) return null;
-  const email = session.user?.email;
-  if (!email) return null;
-  return {
-    email,
-    rol: session.user.rol || "user",
-    responsable: session.user.responsable || "",
-    area: session.user.area || "",
-    sector: session.user.sector || "",
-  };
-}
+import { sessionCtxFromSession } from "@/lib/session-ctx";
+import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const ctx = session ? sessionCtx(session) : null;
+  const ctx = sessionCtxFromSession(session);
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const key = spreadsheetKeyForSession(ctx);
 
   try {
     const [factRows, usuarios] = await Promise.all([
-      getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS),
+      getSheetData(key, SHEET_NAMES.FACTURAS),
       loadUsuariosMerged(),
     ]);
     const facturas = rowsToObjects<FacturaRow>(factRows);
     const filtered = filterFacturas(facturas, ctx, usuarios);
     return NextResponse.json({ data: filtered });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
+    const msg = e instanceof Error ? e.message : "Error al leer facturas";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const ctx = session ? sessionCtx(session) : null;
+  const ctx = sessionCtxFromSession(session);
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const key = spreadsheetKeyForSession(ctx);
 
   try {
     const body = (await req.json()) as Record<string, string>;
-    const rows = await getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS);
+    const rows = await getSheetData(key, SHEET_NAMES.FACTURAS);
     const headers = rows[0];
     if (!headers?.length) {
       return NextResponse.json({ error: "Hoja Facturas sin encabezados" }, { status: 500 });
@@ -75,8 +67,8 @@ export async function POST(req: NextRequest) {
     };
 
     const line = buildAppendRow(headers, data);
-    await appendSheetRow("PETTY_CASH", SHEET_NAMES.FACTURAS, line);
-    revalidateSheet("PETTY_CASH", SHEET_NAMES.FACTURAS);
+    await appendSheetRow(key, SHEET_NAMES.FACTURAS, line);
+    revalidateSheet(key, SHEET_NAMES.FACTURAS);
 
     return NextResponse.json({ ok: true, id: data.ID_Factura });
   } catch (e) {

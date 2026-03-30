@@ -15,64 +15,109 @@ export interface UsuarioRow {
   PIN?: string;
 }
 
-export interface EntregaRow {
+/**
+ * Fila de hoja (encabezados variables). Usar `getCellCaseInsensitive` vía `lib/row-fields.ts`.
+ */
+export type FacturaRow = {
   _rowIndex: number;
-  ID_Entrega: string;
-  Fecha_Entrega: string;
-  ID_Envio: string;
-  Responsable: string;
-  Monto_Entregado: string;
-  Saldo_Total_Entregado: string;
-  Aceptar: string;
-  Firma: string;
-  Identificacion: string;
-  Comprobante: string;
-}
+  ID?: string;
+  Fecha?: string;
+  Proveedor?: string;
+  NIT?: string;
+  Concepto?: string;
+  Valor?: string;
+  TipoFactura?: string;
+  Responsable?: string;
+  Area?: string;
+  Sector?: string;
+  Estado?: string;
+  ImagenURL?: string;
+  EntregaID?: string;
+  /** Campos legado frecuentes en hojas actuales */
+  ID_Factura?: string;
+  Num_Factura?: string;
+  Fecha_Factura?: string;
+  Monto_Factura?: string;
+  Tipo_Factura?: string;
+  Tipo_servicio?: string;
+  Nit_Factura?: string;
+  Razon_Social?: string;
+  Nombre_bia?: string;
+  Observacion?: string;
+  Adjuntar_Factura?: string;
+  URL?: string;
+  Legalizado?: string;
+  Verificado?: string;
+  Ciudad?: string;
+  "Centro de Costo"?: string;
+  InfoCentroCosto?: string;
+  [key: string]: string | number | undefined;
+};
 
-export interface FacturaRow {
+export type EntregaRow = {
   _rowIndex: number;
-  ID_Factura: string;
-  Num_Factura: string;
-  Fecha_Factura: string;
-  Monto_Factura: string;
-  Responsable: string;
-  Tipo_servicio: string;
-  Tipo_Factura: string;
-  Nit_Factura: string;
-  Razon_Social: string;
-  Nombre_bia: string;
-  Observacion: string;
-  Adjuntar_Factura: string;
-  URL: string;
-  Legalizado: string;
-  Verificado: string;
-  Ciudad: string;
-  Sector: string;
-  "Centro de Costo": string;
-  InfoCentroCosto: string;
-}
+  ID?: string;
+  Fecha?: string;
+  Responsable?: string;
+  Area?: string;
+  Sector?: string;
+  Monto?: string;
+  Estado?: string;
+  ID_Entrega?: string;
+  Fecha_Entrega?: string;
+  ID_Envio?: string;
+  Monto_Entregado?: string;
+  Saldo_Total_Entregado?: string;
+  Aceptar?: string;
+  Firma?: string;
+  Identificacion?: string;
+  Comprobante?: string;
+  Observaciones?: string;
+  [key: string]: string | number | undefined;
+};
 
-export interface LegalizacionRow {
+export type LegalizacionRow = {
   _rowIndex: number;
-  ID_Legalización: string;
-  Fecha_Legalización: string;
-  ID_Factura: string;
-  Total_Legalizado: string;
-  Monto_Total: string;
-  Total_Caja: string;
-  Responsable: string;
+  ID?: string;
+  Fecha?: string;
+  Responsable?: string;
+  Area?: string;
+  Sector?: string;
+  Total?: string;
+  Estado?: string;
+  AprobadoPor?: string;
+  ID_Legalización?: string;
+  Fecha_Legalización?: string;
+  ID_Factura?: string;
+  Total_Legalizado?: string;
+  Monto_Total?: string;
+  Total_Caja?: string;
   _ComputedKey?: string;
-}
+  [key: string]: string | number | undefined;
+};
 
-export interface EnvioRow {
+export type BalanceRow = {
   _rowIndex: number;
-  IDEnvio: string;
-  Fecha: string;
-  Monto: string;
-  Responsable: string;
-  Comprobante: string;
-  Telefono: string;
-}
+  Fecha?: string;
+  Concepto?: string;
+  Entrada?: string;
+  Salida?: string;
+  Saldo?: string;
+  [key: string]: string | number | undefined;
+};
+
+export type EnvioRow = {
+  _rowIndex: number;
+  IDEnvio?: string;
+  Fecha?: string;
+  Monto?: string;
+  Responsable?: string;
+  Comprobante?: string;
+  Telefono?: string;
+  Sector?: string;
+  Estado?: string;
+  [key: string]: string | number | undefined;
+};
 
 export interface SessionUserContext {
   email: string;

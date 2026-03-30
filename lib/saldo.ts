@@ -1,5 +1,6 @@
 import type { EntregaRow, LegalizacionRow } from "@/types/models";
 import { parseCOPString } from "@/lib/format";
+import { entregaMonto, entregaResponsable, legalizacionResponsable, legalizacionTotal } from "@/lib/row-fields";
 
 export function computeSaldoResponsable(
   responsable: string,
@@ -7,11 +8,11 @@ export function computeSaldoResponsable(
   legalizaciones: LegalizacionRow[]
 ): number {
   const ent = entregas
-    .filter((e) => e.Responsable === responsable)
-    .reduce((a, e) => a + parseCOPString(e.Monto_Entregado || "0"), 0);
+    .filter((e) => entregaResponsable(e) === responsable)
+    .reduce((a, e) => a + parseCOPString(entregaMonto(e) || "0"), 0);
   const leg = legalizaciones
-    .filter((l) => l.Responsable === responsable)
-    .reduce((a, l) => a + parseCOPString(l.Total_Legalizado || "0"), 0);
+    .filter((l) => legalizacionResponsable(l) === responsable)
+    .reduce((a, l) => a + parseCOPString(legalizacionTotal(l) || "0"), 0);
   return ent - leg;
 }
 

@@ -9,6 +9,9 @@ import type { EnvioRow, LegalizacionRow } from "@/types/models";
 import { sedeFromUsuarioSector } from "@/lib/saldo";
 import { parseCOPString } from "@/lib/format";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
+import { sessionCtxFromSession } from "@/lib/session-ctx";
+import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
+import { envioMonto, envioResponsable, legalizacionResponsable, legalizacionTotal } from "@/lib/row-fields";
 
 function parseMonto(s: string): number {
   return parseCOPString(s || "0");
@@ -16,17 +19,21 @@ function parseMonto(s: string): number {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  const ctx = sessionCtxFromSession(session);
+  if (!ctx) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if ((session.user.rol || "").toLowerCase() !== "coordinador") {
-    return NextResponse.json({ error: "Solo coordinador" }, { status: 403 });
+  const rol = ctx.rol.toLowerCase();
+  if (rol !== "coordinador" && rol !== "admin") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
+
+  const key = spreadsheetKeyForSession(ctx);
 
   try {
     const [envRows, legRows, usuarios, balRows] = await Promise.all([
-      getSheetData("PETTY_CASH", SHEET_NAMES.ENVIO),
-      getSheetData("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES),
+      getSheetData(key, SHEET_NAMES.ENVIO),
+      getSheetData(key, SHEET_NAMES.LEGALIZACIONES),
       loadUsuariosMerged(),
       getSheetData("MICAJA", SHEET_NAMES.BALANCE),
     ]);
@@ -38,18 +45,18 @@ export async function GET() {
     type Sede = "Bogota" | "Costa Caribe";
     const sumEnvios = (sede: Sede) =>
       envios.reduce((acc, e) => {
-        const u = byName.get(e.Responsable || "");
+        const u = byName.get(envioResponsable(e) || "");
         if (!u) return acc;
         if (sedeFromUsuarioSector(u.Sector) !== sede) return acc;
-        return acc + parseMonto(e.Monto);
+        return acc + parseMonto(envioMonto(e));
       }, 0);
 
     const sumLeg = (sede: Sede) =>
       legalizaciones.reduce((acc, l) => {
-        const u = byName.get(l.Responsable || "");
+        const u = byName.get(legalizacionResponsable(l) || "");
         if (!u) return acc;
         if (sedeFromUsuarioSector(u.Sector) !== sede) return acc;
-        return acc + parseMonto(l.Total_Legalizado);
+        return acc + parseMonto(legalizacionTotal(l));
       }, 0);
 
     const stored = rowsToObjects<Record<string, string> & { _rowIndex: number }>(balRows);
@@ -81,18 +88,20 @@ export async function GET() {
 
     return NextResponse.json({ data });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
+    const msg = e instanceof Error ? e.message : "Error al leer balance";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  const ctx = sessionCtxFromSession(session);
+  if (!ctx) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if ((session.user.rol || "").toLowerCase() !== "coordinador") {
-    return NextResponse.json({ error: "Solo coordinador" }, { status: 403 });
+  const rol = ctx.rol.toLowerCase();
+  if (rol !== "coordinador" && rol !== "admin") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   try {

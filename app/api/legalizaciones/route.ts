@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import {
@@ -13,59 +12,68 @@ import {
 import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { buildAppendRow, mergeUpdateRow } from "@/lib/sheet-row";
 import { uniqueSheetKey } from "@/lib/ids";
-import { filterFacturas, filterLegalizaciones, type SessionCtx } from "@/lib/roles";
+import { filterFacturas, filterLegalizaciones } from "@/lib/roles";
 import type { FacturaRow, LegalizacionRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
+import { sessionCtxFromSession } from "@/lib/session-ctx";
+import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
+import type { SessionCtx } from "@/lib/roles";
+import {
+  facturaEstado,
+  facturaResponsable,
+  facturaRowId,
+  facturaValor,
+  legalizacionIdFactura,
+  legalizacionRowId,
+} from "@/lib/row-fields";
 
-function sessionCtx(session: Session | null): SessionCtx | null {
-  if (!session) return null;
-  const email = session.user?.email;
-  if (!email) return null;
-  return {
-    email,
-    rol: session.user.rol || "user",
-    responsable: session.user.responsable || "",
-    area: session.user.area || "",
-    sector: session.user.sector || "",
-  };
+async function getFactura(ctx: SessionCtx, id: string): Promise<FacturaRow | null> {
+  const key = spreadsheetKeyForSession(ctx);
+  const rows = await getSheetData(key, SHEET_NAMES.FACTURAS);
+  const list = rowsToObjects<FacturaRow>(rows);
+  return list.find((f) => facturaRowId(f) === id) ?? null;
 }
 
-async function getFactura(id: string): Promise<FacturaRow | null> {
-  const rows = await getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS);
-  const list = rowsToObjects<FacturaRow>(rows);
-  return list.find((f) => f.ID_Factura === id) ?? null;
+function facturaPendienteLegalizar(f: FacturaRow): boolean {
+  const leg = (facturaEstado(f) || f.Legalizado || "").trim().toLowerCase();
+  if (leg.includes("completado")) return false;
+  return leg.includes("pendiente") || leg === "";
 }
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const ctx = session ? sessionCtx(session) : null;
+  const ctx = sessionCtxFromSession(session);
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const key = spreadsheetKeyForSession(ctx);
 
   try {
     const [legRows, usuarios] = await Promise.all([
-      getSheetData("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES),
+      getSheetData(key, SHEET_NAMES.LEGALIZACIONES),
       loadUsuariosMerged(),
     ]);
     const legalizaciones = rowsToObjects<LegalizacionRow>(legRows);
     const filtered = filterLegalizaciones(legalizaciones, ctx, usuarios);
     return NextResponse.json({ data: filtered });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
+    const msg = e instanceof Error ? e.message : "Error al leer legalizaciones";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const ctx = session ? sessionCtx(session) : null;
+  const ctx = sessionCtxFromSession(session);
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const key = spreadsheetKeyForSession(ctx);
 
   try {
     const body = (await req.json()) as { ID_Factura: string };
-    const factura = await getFactura(body.ID_Factura);
+    const factura = await getFactura(ctx, body.ID_Factura);
     if (!factura) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 });
 
-    if (factura.Legalizado !== "Pendiente") {
+    if (!facturaPendienteLegalizar(factura)) {
       return NextResponse.json({ error: "Factura ya legalizada" }, { status: 400 });
     }
 
@@ -75,11 +83,11 @@ export async function POST(req: NextRequest) {
     }
 
     const rol = ctx.rol.toLowerCase();
-    if (rol === "user" && factura.Responsable !== ctx.responsable) {
+    if (rol === "user" && facturaResponsable(factura) !== ctx.responsable) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const legSheet = await getSheetData("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES);
+    const legSheet = await getSheetData(key, SHEET_NAMES.LEGALIZACIONES);
     const headers = legSheet[0];
     if (!headers?.length) {
       return NextResponse.json({ error: "Hoja Legalizaciones sin encabezados" }, { status: 500 });
@@ -87,38 +95,41 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString();
     const idLeg = uniqueSheetKey("LEG");
-    const monto = factura.Monto_Factura || "0";
+    const monto = facturaValor(factura) || factura.Monto_Factura || "0";
+    const idFacturaCell = facturaRowId(factura);
 
     const data: Record<string, string> = {
       ID_Legalización: idLeg,
       Fecha_Legalización: now,
-      ID_Factura: factura.ID_Factura,
+      ID_Factura: idFacturaCell,
       Total_Legalizado: monto,
       Monto_Total: "",
       Total_Caja: "",
-      Responsable: factura.Responsable,
+      Responsable: facturaResponsable(factura),
     };
 
     const line = buildAppendRow(headers, data);
-    await appendSheetRow("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES, line);
-    await mergeUpdateRow("PETTY_CASH", SHEET_NAMES.FACTURAS, factura._rowIndex, {
+    await appendSheetRow(key, SHEET_NAMES.LEGALIZACIONES, line);
+    await mergeUpdateRow(key, SHEET_NAMES.FACTURAS, factura._rowIndex, {
       Legalizado: "Completado",
     });
 
-    revalidateSheet("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES);
-    revalidateSheet("PETTY_CASH", SHEET_NAMES.FACTURAS);
+    revalidateSheet(key, SHEET_NAMES.LEGALIZACIONES);
+    revalidateSheet(key, SHEET_NAMES.FACTURAS);
 
     return NextResponse.json({ ok: true, id: idLeg });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
+    const msg = e instanceof Error ? e.message : "Error al crear legalización";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const ctx = session ? sessionCtx(session) : null;
+  const ctx = sessionCtxFromSession(session);
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const key = spreadsheetKeyForSession(ctx);
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
@@ -128,33 +139,35 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const legRows = await getSheetData("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES);
+    const legRows = await getSheetData(key, SHEET_NAMES.LEGALIZACIONES);
     const list = rowsToObjects<LegalizacionRow>(legRows);
-    const row = list.find((l) => l.ID_Legalización === id && l.ID_Factura === idFactura);
+    const row = list.find(
+      (l) => legalizacionRowId(l) === id && legalizacionIdFactura(l) === idFactura
+    );
     if (!row) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
     const usuarios = await loadUsuariosMerged();
     const visible = filterLegalizaciones([row], ctx, usuarios);
     if (!visible.length) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
-    const sheetId = await getSheetId("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES);
+    const sheetId = await getSheetId(key, SHEET_NAMES.LEGALIZACIONES);
     if (sheetId == null) return NextResponse.json({ error: "sheetId" }, { status: 500 });
 
-    await deleteSheetRow("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES, sheetId, row._rowIndex - 1);
+    await deleteSheetRow(key, SHEET_NAMES.LEGALIZACIONES, sheetId, row._rowIndex - 1);
 
-    const factura = await getFactura(idFactura);
+    const factura = await getFactura(ctx, idFactura);
     if (factura) {
-      await mergeUpdateRow("PETTY_CASH", SHEET_NAMES.FACTURAS, factura._rowIndex, {
+      await mergeUpdateRow(key, SHEET_NAMES.FACTURAS, factura._rowIndex, {
         Legalizado: "Pendiente",
       });
     }
 
-    revalidateSheet("PETTY_CASH", SHEET_NAMES.LEGALIZACIONES);
-    revalidateSheet("PETTY_CASH", SHEET_NAMES.FACTURAS);
+    revalidateSheet(key, SHEET_NAMES.LEGALIZACIONES);
+    revalidateSheet(key, SHEET_NAMES.FACTURAS);
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
+    const msg = e instanceof Error ? e.message : "Error al eliminar";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

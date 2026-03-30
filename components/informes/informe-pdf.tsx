@@ -8,6 +8,17 @@ import {
   Image,
 } from "@react-pdf/renderer";
 import type { FacturaRow } from "@/types/models";
+import { parseCOPString } from "@/lib/format";
+import {
+  facturaCentroCosto,
+  facturaConcepto,
+  facturaFecha,
+  facturaImagenUrl,
+  facturaNumero,
+  facturaRowId,
+  facturaTipo,
+  facturaValor,
+} from "@/lib/row-fields";
 
 const styles = StyleSheet.create({
   page: { padding: 36, fontSize: 9, fontFamily: "Helvetica" },
@@ -139,18 +150,16 @@ export function InformePdfDocument({
           <Text style={styles.cellValor}>VALOR</Text>
         </View>
         {facturas.map((f, i) => (
-          <View key={f.ID_Factura} style={styles.tableRow} wrap={false}>
+          <View key={facturaRowId(f)} style={styles.tableRow} wrap={false}>
             <Text style={styles.cellNo}>{i + 1}</Text>
             <Text style={styles.cellConcepto}>
-              Actividad en {f.Ciudad || ciudadSector}
+              {facturaConcepto(f) || `Actividad en ${f.Ciudad || ciudadSector}`}
             </Text>
-            <Text style={styles.cellFactura}>{f.Num_Factura}</Text>
-            <Text style={styles.cellCc}>{f["Centro de Costo"]}</Text>
-            <Text style={styles.cellCat}>{f.Tipo_servicio}</Text>
-            <Text style={styles.cellFecha}>{f.Fecha_Factura}</Text>
-            <Text style={styles.cellValor}>
-              {formatCop(Number(String(f.Monto_Factura).replace(/\./g, "").replace(",", ".")) || 0)}
-            </Text>
+            <Text style={styles.cellFactura}>{facturaNumero(f)}</Text>
+            <Text style={styles.cellCc}>{facturaCentroCosto(f) || f["Centro de Costo"]}</Text>
+            <Text style={styles.cellCat}>{facturaTipo(f) || f.Tipo_servicio}</Text>
+            <Text style={styles.cellFecha}>{facturaFecha(f)}</Text>
+            <Text style={styles.cellValor}>{formatCop(parseCOPString(facturaValor(f) || "0"))}</Text>
           </View>
         ))}
 
@@ -182,12 +191,12 @@ export function InformePdfDocument({
           Facturas adjuntas
         </Text>
         {facturas.map((f) => (
-          <View key={`img-${f.ID_Factura}`} style={styles.facturaBlock} wrap={false}>
+          <View key={`img-${facturaRowId(f)}`} style={styles.facturaBlock} wrap={false}>
             <Text>
-              Factura: {f.Num_Factura} — Fecha: {f.Fecha_Factura}
+              Factura: {facturaNumero(f)} — Fecha: {facturaFecha(f)}
             </Text>
-            {f.Adjuntar_Factura ? (
-              <Image src={f.Adjuntar_Factura} style={styles.facturaImg} />
+            {facturaImagenUrl(f) ? (
+              <Image src={facturaImagenUrl(f)} style={styles.facturaImg} />
             ) : (
               <Text style={{ color: "#666" }}>(Sin imagen adjunta)</Text>
             )}

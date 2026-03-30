@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
 import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import { Readable } from "stream";
@@ -10,35 +9,21 @@ import { drive, assertSheetsConfigured } from "@/lib/google-sheets";
 import { getSheetData, rowsToObjects, appendSheetRow } from "@/lib/sheets-helpers";
 import { loadUsuariosMerged } from "@/lib/usuarios-data";
 import { mergeUpdateRow } from "@/lib/sheet-row";
-import { filterFacturas, type SessionCtx } from "@/lib/roles";
+import { filterFacturas } from "@/lib/roles";
 import { uniqueSheetKey } from "@/lib/ids";
 import { InformePdfDocument } from "@/components/informes/informe-pdf";
 import type { FacturaRow } from "@/types/models";
 import { revalidateSheet } from "@/lib/revalidate-sheets";
+import { parseSheetDate, parseCOPString } from "@/lib/format";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { sessionCtxFromSession } from "@/lib/session-ctx";
+import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
+import { facturaFecha, facturaResponsable, facturaRowId, facturaVerificado } from "@/lib/row-fields";
 
-function sessionCtx(session: Session | null): SessionCtx | null {
-  if (!session) return null;
-  const email = session.user?.email;
-  if (!email) return null;
-  return {
-    email,
-    rol: session.user.rol || "user",
-    responsable: session.user.responsable || "",
-    area: session.user.area || "",
-    sector: session.user.sector || "",
-  };
-}
-
-function parseMonto(s: string): number {
-  const n = Number(String(s).replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
-}
-
-function inDateRange(iso: string, start: string, end: string): boolean {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return false;
+function inDateRange(fechaStr: string, start: string, end: string): boolean {
+  const d = parseSheetDate(fechaStr);
+  if (!d) return false;
   const a = new Date(start);
   const b = new Date(end);
   b.setHours(23, 59, 59, 999);
@@ -47,15 +32,16 @@ function inDateRange(iso: string, start: string, end: string): boolean {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const ctx = session ? sessionCtx(session) : null;
+  const ctx = sessionCtxFromSession(session);
   if (!ctx || !session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const rol = ctx.rol.toLowerCase();
-  if (!["admin", "coordinador", "verificador"].includes(rol)) {
+  if (!["admin", "verificador"].includes(rol)) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
   const authSession = session;
+  const key = spreadsheetKeyForSession(ctx);
 
   try {
     const body = (await req.json()) as {
@@ -79,17 +65,17 @@ export async function POST(req: NextRequest) {
     }
 
     const [factRows, usuarios] = await Promise.all([
-      getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS),
+      getSheetData(key, SHEET_NAMES.FACTURAS),
       loadUsuariosMerged(),
     ]);
     const todas = rowsToObjects<FacturaRow>(factRows);
 
     const selected = todas.filter(
       (f) =>
-        factura_ids.includes(f.ID_Factura) &&
-        f.Responsable === usuario_responsable &&
-        (f.Verificado || "").toLowerCase() !== "si" &&
-        inDateRange(f.Fecha_Factura, fecha_inicio, fecha_fin)
+        factura_ids.includes(facturaRowId(f)) &&
+        facturaResponsable(f) === usuario_responsable &&
+        (facturaVerificado(f) || "").toLowerCase() !== "si" &&
+        inDateRange(facturaFecha(f), fecha_inicio, fecha_fin)
     );
 
     const visible = filterFacturas(selected, ctx, usuarios);
@@ -103,7 +89,10 @@ export async function POST(req: NextRequest) {
 
     const usuario = usuarios.find((u) => u.Responsable === usuario_responsable);
     const montoAsignado = Number(process.env.NEXT_PUBLIC_MONTO_ASIGNADO || 3_000_000);
-    const valorReembolsar = selected.reduce((acc, f) => acc + parseMonto(f.Monto_Factura), 0);
+    const valorReembolsar = selected.reduce(
+      (acc, f) => acc + parseCOPString(f.Valor || f.Monto_Factura || "0"),
+      0
+    );
     const pct = montoAsignado > 0 ? Math.round((valorReembolsar / montoAsignado) * 100) : 0;
 
     const fechaStr = format(new Date(), "d 'de' MMMM yyyy", { locale: es });
@@ -127,16 +116,16 @@ export async function POST(req: NextRequest) {
     const fileName = `informe_${usuario_responsable.replace(/\s+/g, "_")}_${Date.now()}.pdf`;
 
     for (const f of selected) {
-      await mergeUpdateRow("PETTY_CASH", SHEET_NAMES.FACTURAS, f._rowIndex, { Verificado: "Si" });
+      await mergeUpdateRow(key, SHEET_NAMES.FACTURAS, f._rowIndex, { Verificado: "Si" });
     }
-    revalidateSheet("PETTY_CASH", SHEET_NAMES.FACTURAS);
+    revalidateSheet(key, SHEET_NAMES.FACTURAS);
 
     const paramRows = await getSheetData("MICAJA", SHEET_NAMES.PARAMETROS_PDF);
     const paramHeaders = paramRows[0];
     if (paramHeaders?.length) {
       const id = uniqueSheetKey("PDF");
       const totalAlmac = valorReembolsar.toString();
-      const facturasCsv = selected.map((f) => f.ID_Factura).join(",");
+      const facturasCsv = selected.map((f) => facturaRowId(f)).join(",");
       const line = paramHeaders.map((h) => {
         const map: Record<string, string> = {
           ID: id,

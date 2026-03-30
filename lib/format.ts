@@ -20,9 +20,34 @@ export function parseCOPString(s: string): number {
 
 export function formatDateDisplay(isoOrSheet: string): string {
   if (!isoOrSheet) return "";
-  const d = new Date(isoOrSheet);
-  if (Number.isNaN(d.getTime())) return isoOrSheet;
+  const d = parseSheetDate(isoOrSheet);
+  if (!d) return isoOrSheet;
   return format(d, "d MMM yyyy", { locale: es });
+}
+
+/** dd/MM/yyyy para UI */
+export function formatDateDDMMYYYY(isoOrSheet: string): string {
+  if (!isoOrSheet) return "";
+  const d = parseSheetDate(isoOrSheet);
+  if (!d) return isoOrSheet;
+  return format(d, "dd/MM/yyyy", { locale: es });
+}
+
+/** ISO, dd/MM/yyyy o similar desde celdas de Sheet */
+export function parseSheetDate(s: string): Date | null {
+  if (!s?.trim()) return null;
+  const t = s.trim();
+  const iso = new Date(t);
+  if (!Number.isNaN(iso.getTime()) && t.includes("-")) return iso;
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) {
+    let y = +m[3];
+    if (y < 100) y += 2000;
+    const d = new Date(y, +m[2] - 1, +m[1]);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d2 = new Date(t);
+  return Number.isNaN(d2.getTime()) ? null : d2;
 }
 
 export function todayISO(): string {

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  "/dashboard": LayoutDashboard,
+  "/": LayoutDashboard,
   "/entregas": Wallet,
   "/facturas": FileText,
   "/legalizaciones": Scale,

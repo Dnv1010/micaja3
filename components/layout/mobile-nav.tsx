@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 const SHORT: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
-  { href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
+  { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/facturas", label: "Facturas", icon: FileText },
   { href: "/entregas", label: "Entregas", icon: Wallet },
   { href: "/legalizaciones", label: "Legal.", icon: Scale },
@@ -23,11 +23,15 @@ const SHORT: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
 export function MobileBottomNav({ session }: { session: Session }) {
   const pathname = usePathname();
   const all = filterNavForSession(session);
-  const moreHref = all.find((i) => !SHORT.some((s) => s.href === i.href))?.href || "/dashboard";
+  const allowed = new Set(all.map((i) => i.href));
+  const tabs = SHORT.filter((s) => allowed.has(s.href));
+  const shortTabs = tabs.length ? tabs : [{ href: "/", label: "Inicio", icon: LayoutDashboard }];
+  const moreHref =
+    all.find((i) => !shortTabs.some((s) => s.href === i.href))?.href || "/facturas";
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t bg-background md:hidden safe-area-pb">
-      {SHORT.map(({ href, label, icon: Icon }) => {
+      {shortTabs.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
           <Link
@@ -44,7 +48,7 @@ export function MobileBottomNav({ session }: { session: Session }) {
         );
       })}
       <Link
-        href={moreHref === pathname ? "/dashboard" : "/informes"}
+        href={moreHref === pathname ? "/" : moreHref}
         className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground min-h-[52px]"
       >
         <MoreHorizontal className="h-6 w-6" />

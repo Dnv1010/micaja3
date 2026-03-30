@@ -4,14 +4,22 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { formatCOP, formatDateDisplay } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import type { FacturaRow } from "@/types/models";
 import { cn } from "@/lib/utils";
-
-function parseMonto(s: string): number {
-  const n = Number(String(s).replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
-}
+import {
+  facturaConcepto,
+  facturaEstado,
+  facturaFecha,
+  facturaImagenUrl,
+  facturaNit,
+  facturaNumero,
+  facturaProveedor,
+  facturaResponsable,
+  facturaTipo,
+  facturaValor,
+  facturaVerificado,
+} from "@/lib/row-fields";
 
 export default function FacturaDetallePage() {
   const params = useParams();
@@ -44,20 +52,30 @@ export default function FacturaDetallePage() {
   if (err) return <p className="text-destructive">{err}</p>;
   if (!row) return <p className="text-muted-foreground">Cargando…</p>;
 
+  const img = facturaImagenUrl(row);
+
   return (
     <div className="space-y-6 max-w-lg pb-8">
-      <h1 className="text-2xl font-bold">Factura {row.Num_Factura}</h1>
+      <h1 className="text-2xl font-bold">Factura {facturaNumero(row) || id}</h1>
       <dl className="grid gap-2 text-sm">
         <dt className="text-muted-foreground">Fecha</dt>
-        <dd>{formatDateDisplay(row.Fecha_Factura)}</dd>
+        <dd>{formatDateDDMMYYYY(facturaFecha(row))}</dd>
+        <dt className="text-muted-foreground">Proveedor</dt>
+        <dd>{facturaProveedor(row) || "—"}</dd>
+        <dt className="text-muted-foreground">NIT</dt>
+        <dd>{facturaNit(row) || "—"}</dd>
+        <dt className="text-muted-foreground">Concepto</dt>
+        <dd>{facturaConcepto(row) || "—"}</dd>
+        <dt className="text-muted-foreground">Tipo</dt>
+        <dd>{facturaTipo(row) || "—"}</dd>
         <dt className="text-muted-foreground">Monto</dt>
-        <dd className="text-xl font-bold">{formatCOP(parseMonto(row.Monto_Factura))}</dd>
+        <dd className="text-xl font-bold">{formatCOP(parseCOPString(facturaValor(row) || "0"))}</dd>
         <dt className="text-muted-foreground">Responsable</dt>
-        <dd>{row.Responsable}</dd>
-        <dt className="text-muted-foreground">Legalizado</dt>
-        <dd>{row.Legalizado}</dd>
+        <dd>{facturaResponsable(row)}</dd>
+        <dt className="text-muted-foreground">Estado / Legalizado</dt>
+        <dd>{facturaEstado(row) || row.Legalizado || "—"}</dd>
         <dt className="text-muted-foreground">Verificado</dt>
-        <dd>{row.Verificado}</dd>
+        <dd>{facturaVerificado(row) || row.Verificado || "—"}</dd>
       </dl>
       <div className="flex flex-wrap gap-2">
         <Link
@@ -66,9 +84,9 @@ export default function FacturaDetallePage() {
         >
           Editar
         </Link>
-        {row.Adjuntar_Factura && (
+        {img && (
           <a
-            href={row.Adjuntar_Factura}
+            href={img}
             target="_blank"
             rel="noreferrer"
             className={cn(buttonVariants({ variant: "outline", size: "lg" }), "min-h-11")}

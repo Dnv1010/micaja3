@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { formatCOP, formatDateDisplay, parseCOPString } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import type { EnvioRow } from "@/types/models";
 import { cn } from "@/lib/utils";
+import { envioFecha, envioMonto, envioResponsable, envioRowId } from "@/lib/row-fields";
 
 export default function EnviosPage() {
   const [rows, setRows] = useState<EnvioRow[]>([]);
@@ -27,16 +28,23 @@ export default function EnviosPage() {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {rows.map((e) => (
-          <Card key={e.IDEnvio}>
+          <Card key={envioRowId(e)}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">{e.Responsable}</CardTitle>
+              <CardTitle className="text-base">{envioResponsable(e)}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm space-y-1">
-              <p className="font-semibold tabular-nums">{formatCOP(parseCOPString(e.Monto || "0"))}</p>
-              <p className="text-muted-foreground">{formatDateDisplay(e.Fecha)}</p>
-              <p className="text-xs">ID: {e.IDEnvio}</p>
+              <p className="font-semibold tabular-nums">
+                {formatCOP(parseCOPString(envioMonto(e) || "0"))}
+              </p>
+              <p className="text-muted-foreground">{formatDateDDMMYYYY(envioFecha(e))}</p>
+              <p className="text-xs">ID: {envioRowId(e)}</p>
               {e.Comprobante && (
-                <a href={e.Comprobante} target="_blank" rel="noreferrer" className="text-primary underline text-sm">
+                <a
+                  href={String(e.Comprobante)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary underline text-sm"
+                >
                   Comprobante
                 </a>
               )}

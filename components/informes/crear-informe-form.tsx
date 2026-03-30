@@ -15,8 +15,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { SignaturePad } from "@/components/shared/signature-pad";
 import { HERNAN_EMAIL } from "@/lib/roles";
-import { formatCOP } from "@/lib/format";
+import { formatCOP, parseCOPString, parseSheetDate } from "@/lib/format";
 import type { FacturaRow, UsuarioRow } from "@/types/models";
+import {
+  facturaFecha,
+  facturaNumero,
+  facturaResponsable,
+  facturaRowId,
+  facturaValor,
+  facturaVerificado,
+} from "@/lib/row-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function CrearInformeForm() {
@@ -50,25 +58,23 @@ export function CrearInformeForm() {
     const b = new Date(fechaFin);
     b.setHours(23, 59, 59, 999);
     return facturas.filter((f) => {
-      if (f.Responsable !== responsable) return false;
-      const v = (f.Verificado || "").toLowerCase();
+      if (facturaResponsable(f) !== responsable) return false;
+      const v = (facturaVerificado(f) || "").toLowerCase();
       if (v === "si" || v === "sí") return false;
-      const d = new Date(f.Fecha_Factura);
-      return !Number.isNaN(d.getTime()) && d >= a && d <= b;
+      const d = parseSheetDate(facturaFecha(f));
+      if (!d) return false;
+      return d >= a && d <= b;
     });
   }, [facturas, fechaIni, fechaFin, responsable]);
 
   const total = useMemo(() => {
     return candidatas
-      .filter((f) => selected[f.ID_Factura])
-      .reduce((acc, f) => {
-        const n = Number(String(f.Monto_Factura).replace(/\./g, "").replace(",", "."));
-        return acc + (Number.isFinite(n) ? n : 0);
-      }, 0);
+      .filter((f) => selected[facturaRowId(f)])
+      .reduce((acc, f) => acc + parseCOPString(facturaValor(f) || "0"), 0);
   }, [candidatas, selected]);
 
   async function generar() {
-    const ids = candidatas.filter((f) => selected[f.ID_Factura]).map((f) => f.ID_Factura);
+    const ids = candidatas.filter((f) => selected[facturaRowId(f)]).map((f) => facturaRowId(f));
     if (!ids.length) {
       setError("Seleccione al menos una factura");
       return;
@@ -142,26 +148,27 @@ export function CrearInformeForm() {
       <div className="space-y-2">
         <p className="text-sm font-medium">Facturas no verificadas en el rango</p>
         <p className="text-xs text-muted-foreground">
-          Total seleccionado: {formatCOP(total)} · {candidatas.filter((f) => selected[f.ID_Factura]).length}{" "}
+          Total seleccionado: {formatCOP(total)} · {candidatas.filter((f) => selected[facturaRowId(f)]).length}{" "}
           facturas
         </p>
         <ul className="border rounded-lg divide-y max-h-64 overflow-y-auto">
-          {candidatas.map((f) => (
-            <li key={f.ID_Factura} className="flex items-center gap-3 p-3">
-              <Checkbox
-                checked={!!selected[f.ID_Factura]}
-                onCheckedChange={(c) =>
-                  setSelected((s) => ({ ...s, [f.ID_Factura]: !!c }))
-                }
-              />
-              <div className="flex-1 min-w-0 text-sm">
-                <p className="font-medium truncate">{f.Num_Factura}</p>
-                <p className="text-muted-foreground text-xs">
-                  {f.Fecha_Factura} · {f.Monto_Factura}
-                </p>
-              </div>
-            </li>
-          ))}
+          {candidatas.map((f) => {
+            const id = facturaRowId(f);
+            return (
+              <li key={id} className="flex items-center gap-3 p-3">
+                <Checkbox
+                  checked={!!selected[id]}
+                  onCheckedChange={(c) => setSelected((s) => ({ ...s, [id]: !!c }))}
+                />
+                <div className="flex-1 min-w-0 text-sm">
+                  <p className="font-medium truncate">{facturaNumero(f) || id}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {facturaFecha(f)} · {facturaValor(f)}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
           {!candidatas.length && (
             <li className="p-4 text-sm text-muted-foreground text-center">Sin facturas en el criterio</li>
           )}

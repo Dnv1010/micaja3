@@ -71,7 +71,7 @@ export function LoginForm({ error }: { error?: string }) {
         email: pinEmail.trim(),
         pin: pin.trim(),
         redirect: false,
-        callbackUrl: "/dashboard",
+        callbackUrl: "/",
       });
       if (res?.error) {
         setPinError("Correo o PIN incorrectos, usuario inactivo, o sin PIN en la hoja.");
@@ -108,7 +108,7 @@ export function LoginForm({ error }: { error?: string }) {
             type="button"
             size="lg"
             className="w-full min-h-12 text-base"
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            onClick={() => signIn("google", { callbackUrl: "/" })}
           >
             Continuar con Google
           </Button>

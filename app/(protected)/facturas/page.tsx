@@ -24,23 +24,34 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { formatCOP, formatDateDisplay } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY, parseCOPString, parseSheetDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { FacturaRow } from "@/types/models";
 import { canEditVerificado } from "@/lib/roles";
 import { Plus, Zap, Download } from "lucide-react";
-
-function parseMonto(s: string): number {
-  const n = Number(String(s).replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
-}
+import {
+  facturaEstado,
+  facturaFecha,
+  facturaImagenUrl,
+  facturaNit,
+  facturaProveedor,
+  facturaConcepto,
+  facturaResponsable,
+  facturaRowId,
+  facturaTipo,
+  facturaValor,
+  facturaVerificado,
+} from "@/lib/row-fields";
 
 export default function FacturasPage() {
   const { data: session } = useSession();
   const [rows, setRows] = useState<FacturaRow[]>([]);
   const [filtroResp, setFiltroResp] = useState("");
   const [filtroLeg, setFiltroLeg] = useState<string>("all");
+  const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroVer, setFiltroVer] = useState<string>("all");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
 
   const load = useCallback(() => {
@@ -55,23 +66,40 @@ export default function FacturasPage() {
 
   const filtered = useMemo(() => {
     return rows.filter((f) => {
-      if (filtroResp && !(f.Responsable || "").toLowerCase().includes(filtroResp.toLowerCase())) {
+      const resp = facturaResponsable(f);
+      if (filtroResp && !resp.toLowerCase().includes(filtroResp.toLowerCase())) {
         return false;
       }
-      if (filtroLeg !== "all" && f.Legalizado !== filtroLeg) return false;
-      if (filtroVer === "si" && String(f.Verificado).toLowerCase() !== "si") return false;
-      if (filtroVer === "no" && String(f.Verificado).toLowerCase() === "si") return false;
+      const leg = (f.Legalizado || "").trim();
+      if (filtroLeg !== "all" && leg !== filtroLeg) return false;
+      const est = (facturaEstado(f) || leg || "").trim();
+      if (filtroEstado && est !== filtroEstado) return false;
+      const ver = (facturaVerificado(f) || "").toLowerCase();
+      if (filtroVer === "si" && ver !== "si" && ver !== "sí") return false;
+      if (filtroVer === "no" && (ver === "si" || ver === "sí")) return false;
+      const d = parseSheetDate(facturaFecha(f));
+      if (fechaDesde) {
+        const a = new Date(fechaDesde);
+        if (!d || d < a) return false;
+      }
+      if (fechaHasta) {
+        const b = new Date(fechaHasta);
+        b.setHours(23, 59, 59, 999);
+        if (!d || d > b) return false;
+      }
       return true;
     });
-  }, [rows, filtroResp, filtroLeg, filtroVer]);
+  }, [rows, filtroResp, filtroLeg, filtroEstado, filtroVer, fechaDesde, fechaHasta]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, FacturaRow[]>();
     const sorted = [...filtered].sort(
-      (a, b) => new Date(a.Fecha_Factura).getTime() - new Date(b.Fecha_Factura).getTime()
+      (a, b) =>
+        (parseSheetDate(facturaFecha(a))?.getTime() ?? 0) -
+        (parseSheetDate(facturaFecha(b))?.getTime() ?? 0)
     );
     for (const f of sorted) {
-      const k = f.Responsable || "—";
+      const k = facturaResponsable(f) || "—";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(f);
     }
@@ -107,7 +135,7 @@ export default function FacturasPage() {
         </Link>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="space-y-1">
           <Label className="text-xs">Responsable</Label>
           <Input
@@ -129,6 +157,33 @@ export default function FacturasPage() {
               <SelectItem value="Completado">Completado</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Estado (exacto)</Label>
+          <Input
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            placeholder="Todos"
+            className="min-h-11"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Desde</Label>
+          <Input
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => setFechaDesde(e.target.value)}
+            className="min-h-11"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Hasta</Label>
+          <Input
+            type="date"
+            value={fechaHasta}
+            onChange={(e) => setFechaHasta(e.target.value)}
+            className="min-h-11"
+          />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Verificado</Label>
@@ -174,7 +229,7 @@ export default function FacturasPage() {
       </div>
 
       {Array.from(grouped.entries()).map(([resp, list]) => {
-        const sum = list.reduce((a, f) => a + parseMonto(f.Monto_Factura), 0);
+        const sum = list.reduce((a, f) => a + parseCOPString(facturaValor(f) || "0"), 0);
         return (
           <div key={resp} className="space-y-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -183,13 +238,19 @@ export default function FacturasPage() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {list.map((f) => {
-                const verSi = String(f.Verificado).toLowerCase() === "si";
+                const id = facturaRowId(f);
+                const verSi =
+                  String(facturaVerificado(f)).toLowerCase() === "si" ||
+                  String(facturaVerificado(f)).toLowerCase() === "sí";
                 const showVer = session?.user?.rol && canEditVerificado(session.user.rol);
+                const img = facturaImagenUrl(f);
                 return (
-                  <Card key={f.ID_Factura}>
+                  <Card key={id}>
                     <CardHeader className="pb-2 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-base">{f.Tipo_servicio || "Factura"}</CardTitle>
+                        <CardTitle className="text-base">
+                          {facturaProveedor(f) || facturaConcepto(f) || f.Tipo_servicio || "Factura"}
+                        </CardTitle>
                         {showVer && (
                           <Badge
                             className={cn(
@@ -204,22 +265,27 @@ export default function FacturasPage() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {formatDateDisplay(f.Fecha_Factura)} · {f.Legalizado}
+                        {formatDateDDMMYYYY(facturaFecha(f))} · NIT {facturaNit(f) || "—"} ·{" "}
+                        {facturaEstado(f) || f.Legalizado || "—"}
                       </p>
                     </CardHeader>
                     <CardContent className="space-y-3 text-sm">
-                      <p className="text-lg font-bold tabular-nums">{formatCOP(parseMonto(f.Monto_Factura))}</p>
-                      <p className="text-xs text-muted-foreground truncate">#{f.Num_Factura}</p>
+                      <p className="text-lg font-bold tabular-nums">
+                        {formatCOP(parseCOPString(facturaValor(f) || "0"))}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {facturaTipo(f) ? `${facturaTipo(f)} · ` : ""}#{id}
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         <Link
-                          href={`/facturas/${encodeURIComponent(f.ID_Factura)}`}
+                          href={`/facturas/${encodeURIComponent(id)}`}
                           className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
                         >
                           Detalle
                         </Link>
-                        {f.Adjuntar_Factura && (
+                        {img && (
                           <a
-                            href={f.Adjuntar_Factura}
+                            href={img}
                             target="_blank"
                             rel="noreferrer"
                             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
@@ -227,7 +293,7 @@ export default function FacturasPage() {
                             Imagen
                           </a>
                         )}
-                        {f.URL && (
+                        {f.URL && !img && (
                           <a
                             href={f.URL}
                             target="_blank"

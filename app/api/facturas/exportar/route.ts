@@ -1,25 +1,13 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
 import { loadUsuariosMerged } from "@/lib/usuarios-data";
-import { filterFacturas, type SessionCtx } from "@/lib/roles";
+import { filterFacturas } from "@/lib/roles";
 import type { FacturaRow } from "@/types/models";
-
-function sessionCtx(session: Session | null): SessionCtx | null {
-  if (!session) return null;
-  const email = session.user?.email;
-  if (!email) return null;
-  return {
-    email,
-    rol: session.user.rol || "user",
-    responsable: session.user.responsable || "",
-    area: session.user.area || "",
-    sector: session.user.sector || "",
-  };
-}
+import { sessionCtxFromSession } from "@/lib/session-ctx";
+import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -37,12 +25,14 @@ function toCsv(rows: string[][]): string {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const ctx = session ? sessionCtx(session) : null;
+  const ctx = sessionCtxFromSession(session);
   if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const key = spreadsheetKeyForSession(ctx);
 
   try {
     const [factRows, usuarios] = await Promise.all([
-      getSheetData("PETTY_CASH", SHEET_NAMES.FACTURAS),
+      getSheetData(key, SHEET_NAMES.FACTURAS),
       loadUsuariosMerged(),
     ]);
     const headers = factRows[0];

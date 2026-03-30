@@ -4,14 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { formatCOP, formatDateDisplay } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY, parseCOPString, parseSheetDate } from "@/lib/format";
 import type { LegalizacionRow } from "@/types/models";
 import { cn } from "@/lib/utils";
-
-function parseMonto(s: string): number {
-  const n = Number(String(s).replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
-}
+import {
+  legalizacionAprobadoPor,
+  legalizacionEstado,
+  legalizacionFecha,
+  legalizacionIdFactura,
+  legalizacionResponsable,
+  legalizacionRowId,
+  legalizacionTotal,
+} from "@/lib/row-fields";
 
 export default function LegalizacionesPage() {
   const [rows, setRows] = useState<LegalizacionRow[]>([]);
@@ -29,10 +33,12 @@ export default function LegalizacionesPage() {
   const grouped = useMemo(() => {
     const map = new Map<string, LegalizacionRow[]>();
     const sorted = [...rows].sort(
-      (a, b) => new Date(b.Fecha_Legalización).getTime() - new Date(a.Fecha_Legalización).getTime()
+      (a, b) =>
+        (parseSheetDate(legalizacionFecha(b))?.getTime() ?? 0) -
+        (parseSheetDate(legalizacionFecha(a))?.getTime() ?? 0)
     );
     for (const l of sorted) {
-      const k = l.Responsable || "—";
+      const k = legalizacionResponsable(l) || "—";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(l);
     }
@@ -41,7 +47,10 @@ export default function LegalizacionesPage() {
 
   async function eliminar(l: LegalizacionRow) {
     if (!confirm("¿Eliminar legalización y dejar factura en Pendiente?")) return;
-    const q = new URLSearchParams({ id: l.ID_Legalización, idFactura: l.ID_Factura });
+    const q = new URLSearchParams({
+      id: legalizacionRowId(l),
+      idFactura: legalizacionIdFactura(l),
+    });
     const res = await fetch(`/api/legalizaciones?${q}`, { method: "DELETE" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -68,13 +77,19 @@ export default function LegalizacionesPage() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase">{resp}</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {list.map((l) => (
-              <Card key={`${l.ID_Legalización}-${l.ID_Factura}`}>
+              <Card key={`${legalizacionRowId(l)}-${legalizacionIdFactura(l)}`}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{formatDateDisplay(l.Fecha_Legalización)}</CardTitle>
+                  <CardTitle className="text-base">{formatDateDDMMYYYY(legalizacionFecha(l))}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm space-y-2">
-                  <p>Factura: {l.ID_Factura}</p>
-                  <p className="font-semibold tabular-nums">{formatCOP(parseMonto(l.Total_Legalizado))}</p>
+                  <p>Factura: {legalizacionIdFactura(l)}</p>
+                  <p className="font-semibold tabular-nums">
+                    {formatCOP(parseCOPString(legalizacionTotal(l) || "0"))}
+                  </p>
+                  <p className="text-xs">Estado: {legalizacionEstado(l) || "—"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Aprobado por: {legalizacionAprobadoPor(l) || "—"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Saldo caja (sheet): {l.Total_Caja || "—"}
                   </p>

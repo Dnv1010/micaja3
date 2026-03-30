@@ -32,8 +32,11 @@ export function Header({ serverSession }: { serverSession: Session }) {
       </div>
 
       <div className="hidden md:flex md:flex-1 md:items-center md:justify-end md:gap-3">
-        <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-          {user?.name || user?.email}
+        <span className="text-sm text-muted-foreground truncate max-w-[280px] text-right">
+          <span className="block font-medium text-foreground truncate">
+            {user?.name || user?.email}
+          </span>
+          {user?.cargo ? <span className="block text-xs truncate">{user.cargo}</span> : null}
         </span>
         <RoleBadge rol={rol} />
         <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/login" })}>

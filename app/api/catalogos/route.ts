@@ -3,16 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetData } from "@/lib/sheets-helpers";
+import { sessionCtxFromSession } from "@/lib/session-ctx";
+import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  const ctx = sessionCtxFromSession(session);
+  if (!ctx) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  const key = spreadsheetKeyForSession(ctx);
+
   try {
     const [tipos, servicios, ciudades] = await Promise.all([
-      getSheetData("PETTY_CASH", SHEET_NAMES.TIPO_FACTURA),
+      getSheetData(key, SHEET_NAMES.TIPO_FACTURA),
       getSheetData("QUICKFUNDS", SHEET_NAMES.SERVICIO_DECLARADO),
       getSheetData("MICAJA", SHEET_NAMES.CIUDAD),
     ]);
