@@ -1,4 +1,4 @@
-export const TIPOS_FACTURA_FIJOS = [
+﻿export const TIPOS_FACTURA_FIJOS = [
   "POS",
   "Electrónica",
   "Talonario",
@@ -7,7 +7,6 @@ export const TIPOS_FACTURA_FIJOS = [
   "A Mano",
   "Servicios Públicos",
 ] as const;
-
 export const SERVICIOS_DECLARADOS = [
   "Transporte",
   "Peajes",
@@ -25,7 +24,6 @@ export const SERVICIOS_DECLARADOS = [
   "Llantera",
   "Gastos Bancarios",
 ] as const;
-
 export const CIUDADES_FACTURA = [
   "Bogotá",
   "Santa Marta",
@@ -34,10 +32,7 @@ export const CIUDADES_FACTURA = [
   "Funza",
   "Galapa",
 ] as const;
-
 export const SECTORES_FACTURA = ["Bogota", "Costa Caribe"] as const;
-
 export const TIPOS_OPERACION = ["OPS - Activaciones", "OPS - Retención"] as const;
-
 export type TipoFacturaFijo = (typeof TIPOS_FACTURA_FIJOS)[number];
 export type ServicioDeclarado = (typeof SERVICIOS_DECLARADOS)[number];
