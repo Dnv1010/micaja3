@@ -34,7 +34,7 @@ export function parseFacturaText(rawText: string): FacturaData {
     razon_social: extractRazonSocial(lines),
     nombre_bia: checkNombreBia(text),
     ciudad: extractCiudad(text),
-    descripcion: extractDescripcion(lines),
+    descripcion: extractDescripcion(lines, text),
     tipo_factura: detectTipoFactura(text, lines),
     servicio_declarado: detectServicio(text),
   };
@@ -143,6 +143,10 @@ function extractRazonSocial(lines: string[]): string | null {
 // ─── NÚMERO DE FACTURA ────────────────────────────────────────────────────────
 function extractNumFactura(text: string): string | null {
   const patterns = [
+    /\b(FE[VS]?\s*[\-]?\s*\d{1,15})\b/i, // FEV3418, FES123, FE-001
+    /\b(FV\s*[\-]?\s*\d{1,15})\b/i, // FV001, FV-3418
+    /\b(FE\s*[\-]?\s*[A-Z0-9]{1,15})\b/i, // FE + alfanumérico
+    /(?:FACTURA|FACT)\s*(?:No\.?|N°|#|:)?\s*([A-Z]{1,4}[\-]?\d{1,15})/i,
     /(?:FACTURA|FACT|FV|FE)\s*(?:ELECTR[OÓ]NICA\s*)?(?:DE\s*VENTA\s*)?(?:No\.?|N[ÚU]MERO|#|:)?\s*[:\-]?\s*([A-Z]{0,5}[\-]?\d{1,15})/i,
     /(?:N[ÚU]MERO|No\.?|#)\s*(?:DE\s*)?FACTURA\s*[:\-]?\s*([A-Z]{0,5}[\-]?\d{1,15})/i,
     /RECIBO\s*(?:No\.?|#|:)\s*(\d{1,15})/i,
@@ -156,30 +160,23 @@ function extractNumFactura(text: string): string | null {
 }
 
 // ─── DESCRIPCIÓN / CONCEPTO ───────────────────────────────────────────────────
-function extractDescripcion(lines: string[]): string | null {
-  // Palabras clave de concepto
-  const keywords = [
-    "CONCEPTO",
-    "DESCRIPCI",
-    "SERVICIO",
-    "DETALLE",
-    "PRODUCTO",
-    "ARTÍCULO",
-    "ARTICULO",
-  ];
+function extractDescripcion(lines: string[], text: string): string | null {
+  void text; // reservado (texto completo en mayúsculas); la lógica usa solo `lines`
+  // Ignorar líneas que parecen ser CUFE (hash hexadecimal largo)
+  const isCufe = (line: string) => /^[a-f0-9]{20,}$/i.test(line.replace(/\s/g, ""));
+
+  const keywords = ["CONCEPTO", "DESCRIPCI", "SERVICIO", "DETALLE", "PRODUCTO", "ARTÍCULO", "ARTICULO"];
   for (let i = 0; i < lines.length; i++) {
     const upper = lines[i].toUpperCase();
     if (keywords.some((k) => upper.includes(k))) {
       const next = lines[i + 1];
-      if (next && next.length > 2) return next.trim();
-      return lines[i].replace(/^.*?[:\-]\s*/, "").trim();
+      if (next && next.length > 2 && !isCufe(next)) return next.trim();
+      return lines[i].replace(/^.*?[:\-]\s*/, "").replace(/CUFE.*/i, "").trim();
     }
   }
-  // Para POS/tickets: tomar líneas del medio como concepto
-  if (lines.length > 4) {
-    return lines.slice(2, 4).join(" ").trim().slice(0, 100) || null;
-  }
-  return null;
+  // Para tickets POS: tomar líneas del medio ignorando CUFEs
+  const middleLines = lines.slice(2, 6).filter((l) => !isCufe(l) && l.length > 3);
+  return middleLines[0] || null;
 }
 
 // ─── TIPO DE FACTURA ──────────────────────────────────────────────────────────

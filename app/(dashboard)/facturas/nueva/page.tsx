@@ -21,11 +21,7 @@ import {
   TIPOS_OPERACION,
 } from "@/lib/factura-field-options";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
-import {
-  isFechaFacturaFutura,
-  nitIndicaBiaEnergy,
-  parseFechaFacturaDDMMYYYY,
-} from "@/lib/nueva-factura-validation";
+import { isFechaFacturaFutura, parseFechaFacturaDDMMYYYY } from "@/lib/nueva-factura-validation";
 
 /** DD/MM/YYYY → YYYY-MM-DD (input type="date") */
 function toInputDate(ddmmyyyy: string): string {
@@ -170,11 +166,6 @@ export default function NuevaFacturaPage() {
       return prev;
     });
   }, [user?.sector]);
-
-  const nitBiaWarning = useMemo(() => {
-    if (!aNombreBia || !nit.trim()) return false;
-    return !nitIndicaBiaEnergy(nit);
-  }, [aNombreBia, nit]);
 
   const maxFechaInput = useMemo(() => toInputDate(getTodayDDMMYYYY()), []);
 
@@ -561,11 +552,6 @@ export default function NuevaFacturaPage() {
           <div className="space-y-1.5">
             <Label>NIT {!aNombreBia ? <span className="text-zinc-500">(opcional)</span> : null}</Label>
             <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-zinc-900 border-zinc-700" />
-            {nitBiaWarning ? (
-              <p className="text-xs text-amber-300">
-                ⚠️ El NIT no coincide con BIA Energy. Verifica la factura.
-              </p>
-            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label>Tipo de Factura</Label>
