@@ -1,72 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import {
-  CIUDADES_FACTURA,
-  SERVICIOS_DECLARADOS,
-  SECTORES_FACTURA,
-  TIPOS_FACTURA_FIJOS,
-  TIPOS_OPERACION,
-} from "@/lib/factura-field-options";
-import { SHEET_NAMES } from "@/lib/google-sheets";
-import {
-  appendSheetRow,
-  ensureMicajaFacturasNumFacturaColumn,
-  getSheetData,
-  rowsToObjects,
-} from "@/lib/sheets-helpers";
-import { buildAppendRow } from "@/lib/sheet-row";
-import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { validateFacturaNegocio, type FacturaMutateFields } from "@/lib/factura-mutate-validation";
 import { parseCOPString, parseSheetDate } from "@/lib/format";
 import {
-  isFechaFacturaFutura,
-  parseFechaFacturaDDMMYYYY,
-} from "@/lib/nueva-factura-validation";
-import type { FacturaRow } from "@/types/models";
+  appendFacturaRowRaw,
+  buildFacturaRowForHeaders,
+  loadMicajaFacturasSheetRows,
+  type FacturaSheetWriteFields,
+} from "@/lib/micaja-facturas-sheet";
+import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { rowsToObjects } from "@/lib/sheets-helpers";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
-
-const FACTURAS_HEADERS = [
-  "ID",
-  "Fecha",
-  "Responsable",
-  "Area",
-  "Sector",
-  "Ciudad",
-  "Proveedor",
-  "NIT",
-  "NumFactura",
-  "Concepto",
-  "Valor",
-  "TipoFactura",
-  "ServicioDeclarado",
-  "TipoOperacion",
-  "ANombreBia",
-  "Estado",
-  "MotivoRechazo",
-  "ImagenURL",
-  "DriveFileId",
-  "FechaCreacion",
-];
-
-const setTipo = new Set<string>(TIPOS_FACTURA_FIJOS);
-const setServ = new Set<string>(SERVICIOS_DECLARADOS);
-const setCiudad = new Set<string>(CIUDADES_FACTURA);
-const setSector = new Set<string>(SECTORES_FACTURA);
-const setOp = new Set<string>(TIPOS_OPERACION);
-
-async function getFacturasRowsWithHeaders(): Promise<string[][]> {
-  try {
-    await ensureMicajaFacturasNumFacturaColumn();
-  } catch (e) {
-    console.error("ensureMicajaFacturasNumFacturaColumn:", e);
-  }
-  const rows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
-  if (!rows.length || !rows[0]?.some((c) => String(c || "").trim())) {
-    await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, FACTURAS_HEADERS);
-    return getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
-  }
-  return rows;
-}
+import type { FacturaRow } from "@/types/models";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -93,7 +39,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const factRows = await getFacturasRowsWithHeaders();
+    const factRows = await loadMicajaFacturasSheetRows();
     const facturas = rowsToObjects<FacturaRow>(factRows);
     const filtered = facturas.filter((f) => {
       const responsable = getCellCaseInsensitive(f, "Responsable");
@@ -108,7 +54,16 @@ export async function GET(req: NextRequest) {
       if (hasta && (!fechaObj || fechaObj > hasta)) return false;
       return true;
     });
-    return NextResponse.json({ data: filtered });
+
+    const sorted = [...filtered].sort((a, b) => {
+      const dateA = new Date(getCellCaseInsensitive(a, "FechaCreacion") || "").getTime();
+      const dateB = new Date(getCellCaseInsensitive(b, "FechaCreacion") || "").getTime();
+      const ta = Number.isFinite(dateA) ? dateA : 0;
+      const tb = Number.isFinite(dateB) ? dateB : 0;
+      return tb - ta;
+    });
+
+    return NextResponse.json({ data: sorted });
   } catch {
     return NextResponse.json({ data: [] });
   }
@@ -159,80 +114,71 @@ export async function POST(req: NextRequest) {
     const aNombreBia = Boolean(body.aNombreBia);
     const valorNum = parseCOPString(String(body.valor || "0"));
 
-    const fechaObj = parseFechaFacturaDDMMYYYY(fecha);
-    if (!fechaObj) {
-      return NextResponse.json({ error: "La fecha es obligatoria (DD/MM/YYYY)" }, { status: 400 });
-    }
-    if (isFechaFacturaFutura(fechaObj)) {
-      return NextResponse.json({ error: "La fecha no puede ser futura" }, { status: 400 });
-    }
-
-    if (!proveedor) {
-      return NextResponse.json({ error: "Proveedor es obligatorio" }, { status: 400 });
-    }
-    if (!concepto) {
-      return NextResponse.json({ error: "Concepto es obligatorio" }, { status: 400 });
-    }
-    if (!tipoFactura || !setTipo.has(tipoFactura)) {
-      return NextResponse.json({ error: "Tipo de factura no válido" }, { status: 400 });
-    }
-    if (!servicioDeclarado || !setServ.has(servicioDeclarado)) {
-      return NextResponse.json({ error: "Servicio declarado no válido" }, { status: 400 });
-    }
-    if (!tipoOperacion || !setOp.has(tipoOperacion)) {
-      return NextResponse.json({ error: "Tipo de operación no válido" }, { status: 400 });
-    }
-    if (!ciudad || !setCiudad.has(ciudad)) {
-      return NextResponse.json({ error: "Ciudad no válida" }, { status: 400 });
-    }
-    if (!sector || !setSector.has(sector)) {
-      return NextResponse.json({ error: "Sector no válido" }, { status: 400 });
-    }
-    if (!Number.isFinite(valorNum) || valorNum <= 0) {
-      return NextResponse.json({ error: "El valor debe ser mayor a 0" }, { status: 400 });
-    }
-    if (aNombreBia && !nit) {
-      return NextResponse.json(
-        { error: "Si la factura es a nombre de BIA, el NIT es obligatorio" },
-        { status: 400 }
-      );
+    const mutate: FacturaMutateFields = {
+      fecha,
+      proveedor,
+      concepto,
+      tipoFactura,
+      servicioDeclarado,
+      tipoOperacion,
+      ciudad,
+      sector,
+      nit,
+      valorRaw: String(body.valor || "0"),
+      aNombreBia,
+    };
+    const vErr = validateFacturaNegocio(mutate);
+    if (vErr) {
+      return NextResponse.json({ error: vErr }, { status: 400 });
     }
 
-    const rows = await getFacturasRowsWithHeaders();
+    const rows = await loadMicajaFacturasSheetRows();
     const headers = rows[0];
     if (!headers?.length) {
       return NextResponse.json({ error: "Hoja Facturas sin encabezados" }, { status: 500 });
     }
 
     const id = String(Date.now());
-    const data: Record<string, string> = {
-      ID: id,
-      Fecha: fecha,
-      Responsable: body.responsable || String(session.user.responsable || ""),
-      Area: body.area || String(session.user.area || ""),
-      Sector: sector,
-      Ciudad: ciudad,
-      Proveedor: proveedor,
-      NIT: nit,
-      NumFactura: numFactura,
-      Concepto: concepto,
-      Valor: String(Math.round(valorNum)),
-      TipoFactura: tipoFactura,
-      ServicioDeclarado: servicioDeclarado,
-      TipoOperacion: tipoOperacion,
-      ANombreBia: aNombreBia ? "Sí" : "No",
-      Estado: "Pendiente",
-      MotivoRechazo: "",
-      ImagenURL: imagenUrl,
-      DriveFileId: String(body.driveFileId || "").trim(),
-      FechaCreacion: new Date().toISOString(),
+    const fields: FacturaSheetWriteFields = {
+      id,
+      fecha,
+      responsable: body.responsable || String(session.user.responsable || ""),
+      area: body.area || String(session.user.area || ""),
+      sector,
+      ciudad,
+      proveedor,
+      nit,
+      numFactura,
+      concepto,
+      valor: String(Math.round(valorNum)),
+      tipoFactura,
+      servicioDeclarado,
+      tipoOperacion,
+      aNombreBia,
+      estado: "Pendiente",
+      motivoRechazo: "",
+      imagenUrl,
+      driveFileId: String(body.driveFileId || "").trim(),
+      fechaCreacion: new Date().toISOString(),
     };
 
-    const line = buildAppendRow(headers, data);
-    await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, line);
+    const valores = buildFacturaRowForHeaders(headers, fields);
+
+    console.log("[facturas POST] body recibido:", {
+      fecha,
+      proveedor,
+      nit,
+      valor: body.valor,
+      tipoFactura,
+      numFactura,
+    });
+    console.log("[facturas POST] fila a escribir:", valores);
+
+    await appendFacturaRowRaw(valores);
 
     return NextResponse.json({ ok: true, id });
-  } catch {
+  } catch (e) {
+    console.error("facturas POST:", e);
     return NextResponse.json({ ok: false, error: "No se pudo guardar la factura" }, { status: 500 });
   }
 }

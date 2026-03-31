@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FacturaEditDialog } from "@/components/coordinador/factura-edit-dialog";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
@@ -20,35 +21,37 @@ function estadoClass(estado: string): string {
   return "border-yellow-700 text-yellow-300";
 }
 
-const COLS = 11;
+const COLS = 12;
 
 export function FacturasUsuarioClient() {
   const { data } = useSession();
   const responsable = String(data?.user?.responsable || "");
   const [loading, setLoading] = useState(true);
   const [facturas, setFacturas] = useState<FacturaItem[]>([]);
+  const [editar, setEditar] = useState<FacturaItem | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const loadFacturas = useCallback(async () => {
+    if (!responsable) {
+      setFacturas([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/facturas?responsable=${encodeURIComponent(responsable)}`);
+      const json = await res.json().catch(() => ({ data: [] }));
+      setFacturas(Array.isArray(json.data) ? json.data : []);
+    } catch {
+      setFacturas([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [responsable]);
 
   useEffect(() => {
-    let mounted = true;
-    async function loadFacturas() {
-      try {
-        const res = await fetch(`/api/facturas?responsable=${encodeURIComponent(responsable)}`);
-        const json = await res.json().catch(() => ({ data: [] }));
-        if (!mounted) return;
-        setFacturas(Array.isArray(json.data) ? json.data : []);
-      } catch {
-        if (!mounted) return;
-        setFacturas([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-    if (responsable) loadFacturas();
-    else setLoading(false);
-    return () => {
-      mounted = false;
-    };
-  }, [responsable]);
+    void loadFacturas();
+  }, [loadFacturas]);
 
   const saved = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -58,6 +61,15 @@ export function FacturasUsuarioClient() {
 
   return (
     <div className="space-y-4">
+      <FacturaEditDialog
+        factura={editar}
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o);
+          if (!o) setEditar(null);
+        }}
+        onSaved={() => void loadFacturas()}
+      />
       <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Facturas</CardTitle>
@@ -78,7 +90,7 @@ export function FacturasUsuarioClient() {
                   <TableHead>BIA</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -93,7 +105,9 @@ export function FacturasUsuarioClient() {
                 ) : facturas.length ? (
                   facturas.map((f, i) => {
                     const estado = getCellCaseInsensitive(f, "Estado") || "Pendiente";
+                    const estadoLower = estado.toLowerCase();
                     const motivo = getCellCaseInsensitive(f, "MotivoRechazo");
+                    const fid = String(getCellCaseInsensitive(f, "ID") || "");
                     const aBia = sheetANombreBiaTrue(
                       getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia")
                     );
@@ -127,15 +141,20 @@ export function FacturasUsuarioClient() {
                             {estado}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          {estado.toLowerCase() === "rechazada" ? (
-                            <Link
-                              href={`/facturas/nueva?edit=${encodeURIComponent(String(getCellCaseInsensitive(f, "ID")))}`}
+                        <TableCell className="text-right">
+                          {(estadoLower === "pendiente" || estadoLower === "rechazada") && fid ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-zinc-600"
+                              onClick={() => {
+                                setEditar(f);
+                                setDialogOpen(true);
+                              }}
                             >
-                              <Button variant="outline" size="sm">
-                                ↩ Corregir
-                              </Button>
-                            </Link>
+                              ✏️ Editar
+                            </Button>
                           ) : null}
                         </TableCell>
                       </TableRow>

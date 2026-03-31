@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FacturaEditDialog } from "@/components/coordinador/factura-edit-dialog";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
@@ -23,7 +24,7 @@ function estadoClass(estado: string): string {
   return "border-yellow-700 text-yellow-300";
 }
 
-const COLS = 11;
+const COLS = 12;
 
 export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const { data } = useSession();
@@ -36,6 +37,8 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const [estado, setEstado] = useState<string>("__todas__");
   const [loading, setLoading] = useState(false);
   const [facturas, setFacturas] = useState<FacturaItem[]>([]);
+  const [editar, setEditar] = useState<FacturaItem | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   async function filtrar() {
     setLoading(true);
@@ -56,6 +59,65 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
     }
   }
 
+  async function handleAprobar(facturaId: string) {
+    try {
+      const res = await fetch(`/api/facturas/${encodeURIComponent(facturaId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "Aprobada" }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Error al aprobar");
+      }
+      await filtrar();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error al aprobar");
+    }
+  }
+
+  async function handleRechazar(facturaId: string) {
+    const motivo = typeof window !== "undefined" ? window.prompt("Motivo del rechazo:") : null;
+    if (motivo === null) return;
+    if (!motivo.trim()) {
+      alert("El motivo es obligatorio.");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/facturas/${encodeURIComponent(facturaId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "Rechazada", motivoRechazo: motivo.trim() }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Error al rechazar");
+      }
+      await filtrar();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error al rechazar");
+    }
+  }
+
+  async function handleEliminar(facturaId: string) {
+    if (typeof window !== "undefined" && !window.confirm("¿Eliminar esta factura?")) return;
+    try {
+      const res = await fetch(`/api/facturas/${encodeURIComponent(facturaId)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Error al eliminar");
+      }
+      await filtrar();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error al eliminar");
+    }
+  }
+
+  function handleEditar(f: FacturaItem) {
+    setEditar(f);
+    setDialogOpen(true);
+  }
+
   useEffect(() => {
     void filtrar();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- carga inicial
@@ -63,6 +125,15 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
 
   return (
     <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <FacturaEditDialog
+        factura={editar}
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o);
+          if (!o) setEditar(null);
+        }}
+        onSaved={() => void filtrar()}
+      />
       <CardHeader>
         <CardTitle>Facturas de la zona</CardTitle>
       </CardHeader>
@@ -128,6 +199,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                 <TableHead>BIA</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -140,6 +212,8 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
               ) : facturas.length ? (
                 facturas.map((f, i) => {
                   const est = getCellCaseInsensitive(f, "Estado") || "Pendiente";
+                  const estLower = est.toLowerCase();
+                  const fid = String(getCellCaseInsensitive(f, "ID") || "");
                   const aBia = sheetANombreBiaTrue(
                     getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia")
                   );
@@ -173,6 +247,53 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                         <Badge variant="outline" className={estadoClass(est)}>
                           {est}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap justify-end gap-1">
+                          {estLower === "pendiente" ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-7 bg-emerald-700 px-2 text-xs text-white hover:bg-emerald-600"
+                                onClick={() => void handleAprobar(fid)}
+                              >
+                                ✓ Aprobar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => void handleRechazar(fid)}
+                              >
+                                ✗ Rechazar
+                              </Button>
+                            </>
+                          ) : null}
+                          {(estLower === "pendiente" || estLower === "rechazada") && fid ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 border-zinc-600 px-2 text-xs"
+                              onClick={() => handleEditar(f)}
+                            >
+                              ✏️ Editar
+                            </Button>
+                          ) : null}
+                          {fid ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 border-red-800 px-2 text-xs text-red-300 hover:bg-red-950"
+                              onClick={() => void handleEliminar(fid)}
+                            >
+                              🗑️ Eliminar
+                            </Button>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
