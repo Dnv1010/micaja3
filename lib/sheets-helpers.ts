@@ -1,4 +1,9 @@
-import { sheets, SPREADSHEET_IDS, assertSheetsConfigured, type SpreadsheetKey } from "./google-sheets";
+import {
+  getSheetsClient,
+  SPREADSHEET_IDS,
+  assertSheetsConfigured,
+  type SpreadsheetKey,
+} from "./google-sheets";
 
 /** Nombre de pestaña en notación A1 (comillas simples y escape de '). */
 export function quoteSheetTitleForRange(sheetName: string): string {
@@ -15,7 +20,7 @@ export async function getSheetDataBySpreadsheetId(
   if (!spreadsheetId?.trim()) return [];
   const quoted = quoteSheetTitleForRange(sheetName);
   const fullRange = range ? `${quoted}!${range}` : quoted;
-  const response = await sheets!.spreadsheets.values.get({
+  const response = await getSheetsClient().spreadsheets.values.get({
     spreadsheetId: spreadsheetId.trim(),
     range: fullRange,
   });
@@ -38,7 +43,7 @@ export async function updateSheetRowBySpreadsheetId(
   values: unknown[]
 ): Promise<void> {
   assertSheetsConfigured();
-  await sheets!.spreadsheets.values.update({
+  await getSheetsClient().spreadsheets.values.update({
     spreadsheetId: spreadsheetId.trim(),
     range: `${quoteSheetTitleForRange(sheetName)}!A${rowIndex}`,
     valueInputOption: "USER_ENTERED",
@@ -52,7 +57,7 @@ export async function appendSheetRow(
   values: unknown[]
 ): Promise<void> {
   assertSheetsConfigured();
-  await sheets!.spreadsheets.values.append({
+  await getSheetsClient().spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
     range: quoteSheetTitleForRange(sheetName),
     valueInputOption: "USER_ENTERED",
@@ -67,7 +72,7 @@ export async function updateSheetRow(
   values: unknown[]
 ): Promise<void> {
   assertSheetsConfigured();
-  await sheets!.spreadsheets.values.update({
+  await getSheetsClient().spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
     range: `${quoteSheetTitleForRange(sheetName)}!A${rowIndex}`,
     valueInputOption: "USER_ENTERED",
@@ -82,7 +87,7 @@ export async function deleteSheetRow(
   rowIndex: number
 ): Promise<void> {
   assertSheetsConfigured();
-  await sheets!.spreadsheets.batchUpdate({
+  await getSheetsClient().spreadsheets.batchUpdate({
     spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
     requestBody: {
       requests: [
@@ -106,7 +111,7 @@ export async function getSheetId(
   sheetName: string
 ): Promise<number | null> {
   assertSheetsConfigured();
-  const res = await sheets!.spreadsheets.get({
+  const res = await getSheetsClient().spreadsheets.get({
     spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
     fields: "sheets(properties(sheetId,title))",
   });

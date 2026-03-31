@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Readable } from "stream";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { drive, assertSheetsConfigured } from "@/lib/google-sheets";
+import { assertSheetsConfigured, getDriveClient } from "@/lib/google-sheets";
 import { getDriveFacturasRootFolderId } from "@/lib/drive-env";
 import { resolveFacturaUploadFolder } from "@/lib/drive-folders";
 
@@ -123,7 +123,8 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const yyyyMm = folderYearMonth(fecha || null);
-    const parentId = await resolveFacturaUploadFolder(drive!, rootFolderId, sector, yyyyMm);
+    const drive = getDriveClient();
+    const parentId = await resolveFacturaUploadFolder(drive, rootFolderId, sector, yyyyMm);
 
     const now = new Date();
     const y = now.getFullYear();
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
     const driveFileName = `${stamp}_${safeName}.${ext}`;
 
     const uploadOp = (async () => {
-      const driveResponse = await drive!.files.create({
+      const driveResponse = await drive.files.create({
         requestBody: {
           name: driveFileName,
           parents: [parentId],
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
       const fileId = driveResponse.data.id;
       if (!fileId) throw new Error("Drive no devolvió id de archivo");
 
-      await drive!.permissions.create({
+      await drive.permissions.create({
         fileId,
         requestBody: { role: "reader", type: "anyone" },
       });

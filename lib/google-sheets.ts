@@ -1,35 +1,45 @@
 import { google } from "googleapis";
 
-const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const rawKey = process.env.GOOGLE_PRIVATE_KEY ?? "";
-const privateKey = rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey;
+function getCredentials() {
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY ?? "";
+  const privateKey = rawKey.includes("\\n")
+    ? rawKey.replace(/\\n/g, "\n")
+    : rawKey;
 
-const auth =
-  clientEmail && privateKey
-    ? new google.auth.GoogleAuth({
-        credentials: {
-          client_email: clientEmail,
-          private_key: privateKey,
-        },
-        scopes: [
-          "https://www.googleapis.com/auth/spreadsheets",
-          "https://www.googleapis.com/auth/drive",
-        ],
-      })
-    : null;
-
-export const sheets = auth
-  ? google.sheets({ version: "v4", auth })
-  : null;
-
-export const drive = auth ? google.drive({ version: "v3", auth }) : null;
-
-export function assertSheetsConfigured(): void {
-  if (!sheets || !drive) {
+  if (!clientEmail || !privateKey) {
     throw new Error(
       "Google API no configurada: defina GOOGLE_SERVICE_ACCOUNT_EMAIL y GOOGLE_PRIVATE_KEY"
     );
   }
+
+  return { clientEmail, privateKey };
+}
+
+function getAuth() {
+  const { clientEmail, privateKey } = getCredentials();
+  return new google.auth.GoogleAuth({
+    credentials: {
+      client_email: clientEmail,
+      private_key: privateKey,
+    },
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive",
+    ],
+  });
+}
+
+export function getSheetsClient() {
+  return google.sheets({ version: "v4", auth: getAuth() });
+}
+
+export function getDriveClient() {
+  return google.drive({ version: "v3", auth: getAuth() });
+}
+
+export function assertSheetsConfigured(): void {
+  getCredentials();
 }
 
 export const SPREADSHEET_IDS = {
@@ -52,3 +62,11 @@ export const SHEET_NAMES = {
   CIUDAD: "Ciudad",
   BALANCE: "Balance",
 } as const;
+
+export function getSheets() {
+  return getSheetsClient();
+}
+
+export function getDrive() {
+  return getDriveClient();
+}

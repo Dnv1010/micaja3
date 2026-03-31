@@ -3,7 +3,7 @@ import { Readable } from "stream";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getDriveFacturasRootFolderId } from "@/lib/drive-env";
-import { SHEET_NAMES, drive } from "@/lib/google-sheets";
+import { getDriveClient, SHEET_NAMES } from "@/lib/google-sheets";
 import { appendSheetRow, getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
 import { buildAppendRow } from "@/lib/sheet-row";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
@@ -79,8 +79,9 @@ export async function POST(req: NextRequest) {
     const rawPdf = String(body.pdfBase64 || "");
     const folderId = getDriveFacturasRootFolderId();
 
-    if (rawPdf && drive && folderId) {
+    if (rawPdf && folderId) {
       try {
+        const drive = getDriveClient();
         const base64 = rawPdf.includes(",") ? rawPdf.split(",")[1] : rawPdf;
         const buffer = Buffer.from(base64, "base64");
         const driveResponse = await drive.files.create({
