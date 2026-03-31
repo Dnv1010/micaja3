@@ -59,6 +59,21 @@ export async function POST(req: NextRequest) {
 
   try {
     assertSheetsConfigured();
+  } catch {
+    return NextResponse.json(
+      { error: "Servicio de almacenamiento no disponible. Contacta al administrador." },
+      { status: 503 }
+    );
+  }
+
+  console.log("[upload] ENV CHECK:", {
+    hasEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    hasKey: !!process.env.GOOGLE_PRIVATE_KEY,
+    keyLength: process.env.GOOGLE_PRIVATE_KEY?.length,
+    keyHasRealNewlines: process.env.GOOGLE_PRIVATE_KEY?.includes("\n"),
+  });
+
+  try {
     const rootFolderId = getDriveFacturasRootFolderId();
     if (!rootFolderId) {
       return NextResponse.json(

@@ -1,7 +1,8 @@
 import { google } from "googleapis";
 
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+const rawKey = process.env.GOOGLE_PRIVATE_KEY ?? "";
+const privateKey = rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey;
 
 const auth =
   clientEmail && privateKey

@@ -27,6 +27,28 @@ import {
   parseFechaFacturaDDMMYYYY,
 } from "@/lib/nueva-factura-validation";
 
+/** DD/MM/YYYY → YYYY-MM-DD (input type="date") */
+function toInputDate(ddmmyyyy: string): string {
+  const m = ddmmyyyy.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return "";
+  const d = m[1].padStart(2, "0");
+  const mo = m[2].padStart(2, "0");
+  const y = m[3];
+  return `${y}-${mo}-${d}`;
+}
+
+/** YYYY-MM-DD → DD/MM/YYYY (Sheets / validación) */
+function fromInputDate(yyyymmdd: string): string {
+  const m = yyyymmdd.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function getTodayDDMMYYYY(): string {
+  const today = new Date();
+  return `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()}`;
+}
+
 const GALLERY_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -119,7 +141,7 @@ export default function NuevaFacturaPage() {
   const [driveFileId, setDriveFileId] = useState("");
   const [imagenUrl, setImagenUrl] = useState("");
 
-  const [fecha, setFecha] = useState("");
+  const [fecha, setFecha] = useState(getTodayDDMMYYYY);
   const [proveedor, setProveedor] = useState("");
   const [nit, setNit] = useState("");
   const [concepto, setConcepto] = useState("");
@@ -150,6 +172,8 @@ export default function NuevaFacturaPage() {
     if (!aNombreBia || !nit.trim()) return false;
     return !nitIndicaBiaEnergy(nit);
   }, [aNombreBia, nit]);
+
+  const maxFechaInput = useMemo(() => toInputDate(getTodayDDMMYYYY()), []);
 
   function resetPreview() {
     if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
@@ -236,6 +260,7 @@ export default function NuevaFacturaPage() {
       const d = (ocrJson?.data || {}) as OcrPayload;
 
       if (ocrJson.success && d) {
+        // Parser/OCR puede venir en ISO o sheet; normalizamos a DD/MM/YYYY
         if (d.fecha_factura) setFecha(formatDateDDMMYYYY(d.fecha_factura));
         if (d.razon_social) setProveedor(d.razon_social);
         if (d.nit_factura) setNit(d.nit_factura);
@@ -498,11 +523,16 @@ export default function NuevaFacturaPage() {
           <div className="space-y-1.5">
             <Label>Fecha</Label>
             <Input
-              placeholder="DD/MM/YYYY"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="bg-zinc-900 border-zinc-700"
+              type="date"
+              value={toInputDate(fecha)}
+              max={maxFechaInput}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFecha(v ? fromInputDate(v) : getTodayDDMMYYYY());
+              }}
+              className="bg-zinc-900 border-zinc-700 [color-scheme:dark]"
             />
+            <p className="text-xs text-zinc-500">Guardado como {fecha || "—"}</p>
           </div>
           <div className="space-y-1.5">
             <Label>Proveedor</Label>
