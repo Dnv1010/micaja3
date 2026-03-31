@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { pdf } from "@react-pdf/renderer";
+import {
+  LegalizacionPdf,
+  legalizacionPdfPropsFromPayload,
+  type LegalizacionPdfStoredPayload,
+} from "@/components/pdf/legalizacion-pdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +66,35 @@ export function LegalizacionesCoordinadorClient() {
     );
   }, [rows]);
 
-  function descargarPdf(row: LegRow) {
+  function parsePayload(raw: string): LegalizacionPdfStoredPayload | null {
+    try {
+      const p = JSON.parse(raw) as LegalizacionPdfStoredPayload;
+      if (!p?.coordinador?.responsable || !Array.isArray(p.facturas)) return null;
+      return p;
+    } catch {
+      return null;
+    }
+  }
+
+  async function descargarPdf(row: LegRow) {
+    const datosRaw = getCellCaseInsensitive(row, "DatosPdfJSON");
+    const parsed = datosRaw ? parsePayload(String(datosRaw)) : null;
+    if (parsed) {
+      try {
+        const props = legalizacionPdfPropsFromPayload(parsed);
+        const blob = await pdf(<LegalizacionPdf {...props} />).toBlob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objUrl;
+        const coord = props.coordinador.responsable.replace(/\s+/g, "_");
+        a.download = `Legalizacion_${coord}_${props.fechaGeneracion.replace(/\//g, "-")}.pdf`;
+        a.click();
+        URL.revokeObjectURL(objUrl);
+        return;
+      } catch {
+        /* fallback a PDF almacenado */
+      }
+    }
     const url = getCellCaseInsensitive(row, "PdfURL");
     const b64 = getCellCaseInsensitive(row, "PdfBase64");
     if (url) {
@@ -108,6 +142,9 @@ export function LegalizacionesCoordinadorClient() {
                 sorted.map((r, i) => {
                   const estado = getCellCaseInsensitive(r, "Estado") || "Pendiente revisión";
                   const aprobado = estado.toLowerCase().includes("aprobado") && !estado.toLowerCase().includes("pendiente");
+                  const tieneDatos = !!String(getCellCaseInsensitive(r, "DatosPdfJSON") || "").trim();
+                  const tienePdf = !!getCellCaseInsensitive(r, "PdfURL") || !!getCellCaseInsensitive(r, "PdfBase64");
+                  const puedeDescargar = tieneDatos || tienePdf;
                   return (
                     <TableRow key={i}>
                       <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(r, "Fecha"))}</TableCell>
@@ -115,9 +152,14 @@ export function LegalizacionesCoordinadorClient() {
                       <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(r, "TotalAprobado")))}</TableCell>
                       <TableCell>{estadoBadge(estado)}</TableCell>
                       <TableCell>
-                        {aprobado ? (
-                          <Button type="button" variant="outline" size="sm" onClick={() => descargarPdf(r)}>
-                            ⬇ Descargar PDF firmado
+                        {puedeDescargar ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void descargarPdf(r)}
+                          >
+                            {aprobado ? "⬇ Descargar PDF firmado" : "⬇ Descargar PDF"}
                           </Button>
                         ) : (
                           "—"

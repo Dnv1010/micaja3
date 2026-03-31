@@ -19,6 +19,7 @@ const LEG_HEADERS = [
   "FirmaCoordinador",
   "PdfBase64",
   "PdfURL",
+  "DatosPdfJSON",
   "Estado",
 ];
 
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       facturasIds?: string;
       firmaCoordinador?: string;
       pdfBase64?: string;
+      datosPdfJson?: string;
     };
 
     const coordinador = String(body.coordinador || session.user?.responsable || session.user?.name || "");
@@ -103,6 +105,8 @@ export async function POST(req: NextRequest) {
 
     const pdfCell = rawPdf.length > 45000 ? "" : rawPdf;
 
+    const datosJson = String(body.datosPdfJson || "").slice(0, 49000);
+
     const row: Record<string, string> = {
       ID: id,
       Fecha: fecha,
@@ -114,13 +118,19 @@ export async function POST(req: NextRequest) {
       FirmaCoordinador: String(body.firmaCoordinador || "").slice(0, 45000),
       PdfBase64: pdfCell,
       PdfURL: pdfUrl,
+      DatosPdfJSON: datosJson,
       Estado: "Pendiente revisión",
     };
 
     const rows = await getLegalRowsWithHeaders();
     const headers = rows[0];
     if (!headers?.length) return NextResponse.json({ error: "Sin encabezados" }, { status: 500 });
-    await appendSheetRow("MICAJA", SHEET_NAMES.LEGALIZACIONES, buildAppendRow(headers, row));
+    const rowOut: Record<string, string> = {};
+    for (const h of headers) {
+      const key = String(h || "").trim();
+      if (key && key in row) rowOut[key] = row[key];
+    }
+    await appendSheetRow("MICAJA", SHEET_NAMES.LEGALIZACIONES, buildAppendRow(headers, rowOut));
     return NextResponse.json({ ok: true, id, pdfURL: pdfUrl });
   } catch {
     return NextResponse.json({ ok: false, error: "No se pudo guardar la legalizacion" }, { status: 500 });

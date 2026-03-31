@@ -7,6 +7,8 @@ declare module "next-auth" {
     area?: string;
     sector?: string;
     cargo?: string;
+    responsable?: string;
+    cedula?: string;
   }
 
   interface Session {

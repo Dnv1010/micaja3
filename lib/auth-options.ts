@@ -30,6 +30,7 @@ export const authOptions: NextAuthOptions = {
           area: user.area,
           cargo: user.cargo,
           responsable: user.responsable,
+          cedula: user.cedula ?? "",
         };
       },
     }),
@@ -45,6 +46,7 @@ export const authOptions: NextAuthOptions = {
         token.area = (user as { area?: string }).area;
         token.cargo = (user as { cargo?: string }).cargo;
         token.responsable = (user as { responsable?: string }).responsable;
+        token.cedula = (user as { cedula?: string }).cedula;
       }
       return token;
     },
@@ -55,6 +57,7 @@ export const authOptions: NextAuthOptions = {
         session.user.area = token.area as string;
         session.user.cargo = token.cargo as string;
         session.user.responsable = token.responsable as string;
+        session.user.cedula = token.cedula as string;
       }
       return session;
     },

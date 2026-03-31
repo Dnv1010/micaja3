@@ -7,6 +7,7 @@ export type FallbackUser = {
   area: string;
   cargo: string;
   userActive: boolean;
+  cedula?: string;
 };
 
 export const FALLBACK_USERS: FallbackUser[] = [

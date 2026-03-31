@@ -80,6 +80,15 @@ export type LegalizacionRow = {
   _rowIndex: number;
   ID?: string;
   Fecha?: string;
+  Coordinador?: string;
+  Zona?: string;
+  Periodo?: string;
+  TotalAprobado?: string;
+  FacturasIds?: string;
+  FirmaCoordinador?: string;
+  PdfBase64?: string;
+  PdfURL?: string;
+  DatosPdfJSON?: string;
   Responsable?: string;
   Area?: string;
   Sector?: string;

@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { pdf } from "@react-pdf/renderer";
 import { FirmaCanvas } from "@/components/firma-canvas";
-import { LegalizacionCajaPdfDocumento, type FilaFacturaPdf } from "@/components/pdf/legalizacion-caja-pdf";
+import {
+  LegalizacionPdf,
+  type FacturaPdf,
+  type LegalizacionPdfStoredPayload,
+} from "@/components/pdf/legalizacion-pdf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,6 +45,8 @@ export function ReporteCoordinadorClient() {
   const sector = String(data?.user?.sector || "");
   const coordinador = String(data?.user?.responsable || data?.user?.name || "");
   const cargo = String(data?.user?.cargo || "");
+  const cedula = String(data?.user?.cedula || "").trim();
+  const areaCoord = String(data?.user?.area || "");
   const zonaLabel = etiquetaZona(sector);
   const limite = limiteAprobacionZona(sector);
 
@@ -128,29 +134,47 @@ export function ReporteCoordinadorClient() {
         });
       }
 
-      const filasPdf: FilaFacturaPdf[] = selectedRows.map((f) => ({
-        fecha: formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura")),
-        responsable: getCellCaseInsensitive(f, "Responsable"),
-        proveedor: getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-",
-        nit: getCellCaseInsensitive(f, "NIT", "Nit_Factura") || "-",
-        concepto: getCellCaseInsensitive(f, "Concepto") || "-",
-        valor: formatCOP(parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura"))),
-      }));
+      const facturasPdf: FacturaPdf[] = selectedRows.map((f) => {
+        const id = String(getCellCaseInsensitive(f, "ID") || "");
+        const img =
+          getCellCaseInsensitive(f, "ImagenURL", "URL", "Adjuntar_Factura") || "";
+        return {
+          id,
+          fecha: formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura")),
+          proveedor: getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-",
+          nit: getCellCaseInsensitive(f, "NIT", "Nit_Factura", "Num_Factura") || "-",
+          concepto: getCellCaseInsensitive(f, "Concepto") || "-",
+          valor: parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")),
+          tipoFactura: getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—",
+          area: getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || areaCoord || "—",
+          imagenUrl: img.trim() || undefined,
+        };
+      });
 
       const periodoTxt = `${formatDateDDMMYYYY(desde)} al ${formatDateDDMMYYYY(hasta)}`;
       const generadoTxt = formatDateDDMMYYYY(new Date().toISOString().slice(0, 10));
 
+      const payloadPdf: LegalizacionPdfStoredPayload = {
+        coordinador: {
+          responsable: coordinador,
+          cargo,
+          cedula: cedula || undefined,
+          sector,
+          area: areaCoord,
+        },
+        facturas: facturasPdf,
+        firmaCoordinador: firmaDataUrl,
+        fechaGeneracion: generadoTxt,
+        limiteZona: limite,
+      };
+
       const doc = (
-        <LegalizacionCajaPdfDocumento
-          zona={zonaLabel}
-          coordinador={coordinador}
-          cargo={cargo}
-          periodo={periodoTxt}
-          generado={generadoTxt}
-          filas={filasPdf}
-          totalAprobado={formatCOP(totalSeleccionado)}
-          limiteZona={formatCOP(limite)}
-          firmaDataUrl={firmaDataUrl}
+        <LegalizacionPdf
+          coordinador={payloadPdf.coordinador}
+          facturas={payloadPdf.facturas}
+          firmaCoordinador={firmaDataUrl}
+          fechaGeneracion={generadoTxt}
+          limiteZona={limite}
         />
       );
 
@@ -169,6 +193,7 @@ export function ReporteCoordinadorClient() {
           facturasIds: ids,
           firmaCoordinador: firmaDataUrl,
           pdfBase64,
+          datosPdfJson: JSON.stringify(payloadPdf),
         }),
       });
 
