@@ -23,6 +23,8 @@ const FACTURAS_HEADERS = [
   "Estado",
   "MotivoRechazo",
   "ImagenURL",
+  "DriveFileId",
+  "FechaCreacion",
 ];
 
 async function getFacturasRowsWithHeaders(): Promise<string[][]> {
@@ -96,7 +98,16 @@ export async function POST(req: NextRequest) {
       area?: string;
       sector?: string;
       imagenUrl?: string;
+      driveFileId?: string;
     };
+
+    const imagenUrl = String(body.imagenUrl || "").trim();
+    if (!imagenUrl) {
+      return NextResponse.json(
+        { error: "La factura debe incluir la imagen en Drive (imagenUrl)" },
+        { status: 400 }
+      );
+    }
 
     const rows = await getFacturasRowsWithHeaders();
     const headers = rows[0];
@@ -104,8 +115,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Hoja Facturas sin encabezados" }, { status: 500 });
     }
 
+    const id = String(Date.now());
     const data: Record<string, string> = {
-      ID: String(Date.now()),
+      ID: id,
       Fecha: body.fecha || "",
       Responsable: body.responsable || String(session.user.responsable || ""),
       Area: body.area || String(session.user.area || ""),
@@ -117,13 +129,15 @@ export async function POST(req: NextRequest) {
       TipoFactura: body.tipoFactura || "",
       Estado: "Pendiente",
       MotivoRechazo: "",
-      ImagenURL: body.imagenUrl || "",
+      ImagenURL: imagenUrl,
+      DriveFileId: String(body.driveFileId || "").trim(),
+      FechaCreacion: new Date().toISOString(),
     };
 
     const line = buildAppendRow(headers, data);
     await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, line);
 
-    return NextResponse.json({ ok: true, id: data.ID });
+    return NextResponse.json({ ok: true, id });
   } catch {
     return NextResponse.json({ ok: false, error: "No se pudo guardar la factura" }, { status: 500 });
   }

@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, Upload, Check, AlertCircle } from "lucide-react";
+import { formatDateDDMMYYYY } from "@/lib/format";
 
 export interface OcrResult {
   num_factura: string | null;
@@ -14,16 +15,37 @@ export interface OcrResult {
   ciudad: string | null;
   descripcion: string | null;
   image_url: string;
-  drive_file_id: string;
+  drive_file_id?: string | null;
   raw_text?: string;
+  message?: string | null;
 }
 
 interface FacturaUploadOcrProps {
+  sector: string;
+  responsable: string;
+  /** YYYY-MM-DD u otro formato para carpeta YYYY-MM en Drive (opcional) */
+  fechaCarpeta?: string;
   onOcrComplete: (data: OcrResult) => void;
   onError: (error: string) => void;
 }
 
-export function FacturaUploadOcr({ onOcrComplete, onError }: FacturaUploadOcrProps) {
+const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const MAX = 10 * 1024 * 1024;
+
+function mapSector(s: string): string {
+  const t = s.trim();
+  if (t === "Costa" || t === "Costa Caribe") return "Costa Caribe";
+  if (t === "Bogota") return "Bogota";
+  return t;
+}
+
+export function FacturaUploadOcr({
+  sector,
+  responsable,
+  fechaCarpeta,
+  onOcrComplete,
+  onError,
+}: FacturaUploadOcrProps) {
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -31,38 +53,84 @@ export function FacturaUploadOcr({ onOcrComplete, onError }: FacturaUploadOcrPro
 
   const processFile = useCallback(
     async (file: File) => {
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        onError("Solo se permiten archivos JPG, PNG o WebP");
+      const ok = ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type);
+      if (!ok) {
+        onError("Solo se permiten JPG, PNG, WebP o PDF");
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
+      if (file.size > MAX) {
         onError("El archivo no puede superar los 10MB");
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (ev) => setPreview(ev.target?.result as string);
-      reader.readAsDataURL(file);
+      const mapped = mapSector(sector);
+      if (mapped !== "Bogota" && mapped !== "Costa Caribe") {
+        onError('Sector debe ser "Bogota" o "Costa Caribe"');
+        return;
+      }
+      if (!responsable.trim()) {
+        onError("Falta responsable");
+        return;
+      }
+
+      if (file.type !== "application/pdf") {
+        const reader = new FileReader();
+        reader.onload = (ev) => setPreview(ev.target?.result as string);
+        reader.readAsDataURL(file);
+      } else {
+        setPreview(null);
+      }
 
       setIsProcessing(true);
       setOcrStatus("uploading");
 
       try {
-        const formData = new FormData();
-        formData.append("factura", file);
+        const formUp = new FormData();
+        formUp.append("file", file);
+        formUp.append("sector", mapped);
+        formUp.append("responsable", responsable.trim());
+        if (fechaCarpeta?.trim()) formUp.append("fecha", fechaCarpeta.trim());
+
+        const upRes = await fetch("/api/facturas/upload", { method: "POST", body: formUp });
+        const upJson = await upRes.json().catch(() => ({}));
+        if (!upRes.ok) throw new Error(upJson.error || "Error al subir a Drive");
+
+        const url = String(upJson.url || "");
+        const fileId = String(upJson.fileId || "");
+        if (!url || !fileId) throw new Error("Respuesta de subida incompleta");
+
         setOcrStatus("reading");
-        const response = await fetch("/api/ocr/factura", { method: "POST", body: formData });
-        if (!response.ok) {
-          const j = await response.json().catch(() => ({}));
-          throw new Error(j.error || "Error al procesar la factura");
-        }
-        const result = await response.json();
-        if (result.success) {
-          setOcrStatus("done");
-          onOcrComplete(result.data);
-        } else {
-          throw new Error(result.error || "Error desconocido");
-        }
+        const ocrRes = await fetch("/api/ocr/factura", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: url,
+            mimeType: file.type,
+            filename: file.name,
+          }),
+        });
+        const result = await ocrRes.json();
+        if (!ocrRes.ok) throw new Error(result.error || "Error OCR");
+
+        const d = result.data || {};
+        const fechaRaw = d.fecha_factura as string | null | undefined;
+        const fechaUi = fechaRaw ? formatDateDDMMYYYY(fechaRaw) : null;
+
+        setOcrStatus("done");
+        onOcrComplete({
+          num_factura: d.num_factura ?? null,
+          fecha_factura: fechaUi || fechaRaw || null,
+          monto_factura: d.monto_factura ?? null,
+          nit_factura: d.nit_factura ?? null,
+          razon_social: d.razon_social ?? null,
+          nombre_bia: d.nombre_bia ?? null,
+          ciudad: d.ciudad ?? null,
+          descripcion: d.descripcion ?? null,
+          image_url: String(d.image_url || url),
+          drive_file_id: fileId,
+          raw_text: d.raw_text,
+          message: d.message ?? null,
+        });
       } catch (err: unknown) {
         setOcrStatus("error");
         onError(err instanceof Error ? err.message : "Error");
@@ -70,14 +138,14 @@ export function FacturaUploadOcr({ onOcrComplete, onError }: FacturaUploadOcrPro
         setIsProcessing(false);
       }
     },
-    [onOcrComplete, onError]
+    [sector, responsable, fechaCarpeta, onOcrComplete, onError]
   );
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      await processFile(file);
+      const f = e.target.files?.[0];
+      if (!f) return;
+      await processFile(f);
       e.target.value = "";
     },
     [processFile]
@@ -94,7 +162,7 @@ export function FacturaUploadOcr({ onOcrComplete, onError }: FacturaUploadOcrPro
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-md">
                 <div className="text-white text-center px-4">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm">Leyendo factura (OCR)…</p>
+                  <p className="text-sm">Extrayendo texto (OCR)…</p>
                 </div>
               </div>
             )}
@@ -109,13 +177,13 @@ export function FacturaUploadOcr({ onOcrComplete, onError }: FacturaUploadOcrPro
             <div className="flex flex-col items-center gap-2 py-4">
               <Camera className="h-12 w-12 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Toma una foto o selecciona la imagen de tu factura
+                Toma una foto o selecciona la imagen / PDF de tu factura
               </p>
-              <p className="text-xs text-muted-foreground">JPG, PNG, WebP — máx. 10MB</p>
+              <p className="text-xs text-muted-foreground">JPG, PNG, WebP, PDF — máx. 10MB</p>
             </div>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={ACCEPT}
               capture="environment"
               onChange={handleFileChange}
               className="hidden"
@@ -144,19 +212,18 @@ export function FacturaUploadOcr({ onOcrComplete, onError }: FacturaUploadOcrPro
           )}
           {ocrStatus === "error" && (
             <>
-              <AlertCircle className="h-4 w-4 text-destructive shrink-0" /> No se pudo leer la factura
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0" /> No se pudo completar subida u OCR
             </>
           )}
         </div>
       )}
 
-      {preview && (
+      {(preview || ocrStatus === "error") && (
         <div>
           <input
             ref={replaceInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
-            capture="environment"
+            accept={ACCEPT}
             onChange={handleFileChange}
             className="hidden"
             disabled={isProcessing}
@@ -168,7 +235,7 @@ export function FacturaUploadOcr({ onOcrComplete, onError }: FacturaUploadOcrPro
             className="w-full sm:w-auto"
             onClick={() => replaceInputRef.current?.click()}
           >
-            <Upload className="h-4 w-4 mr-2" /> Cambiar imagen
+            <Upload className="h-4 w-4 mr-2" /> Cambiar archivo
           </Button>
         </div>
       )}

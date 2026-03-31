@@ -1,6 +1,7 @@
 "use client";
 
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { normalizeDriveImageUrlForPdf } from "@/lib/drive-image-url";
 import { formatCOP, parseCOPString } from "@/lib/format";
 
 export type FacturaPdf = {
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 11, fontWeight: 700, textAlign: "center", marginBottom: 12 },
   attachBlock: { marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#cccccc" },
   attachHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8, fontSize: 9 },
-  attachImg: { maxHeight: 380, objectFit: "contain", marginTop: 4 },
+  attachImg: { width: "100%", maxHeight: 300, objectFit: "contain", marginTop: 4 },
   muted: { fontSize: 9, color: "#666", fontStyle: "italic" },
 });
 
@@ -246,7 +247,10 @@ export function LegalizacionPdf({
               </View>
               {f.imagenUrl?.trim() ? (
                 /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto factura */
-                <Image style={styles.attachImg} src={f.imagenUrl.trim()} />
+                <Image
+                  style={styles.attachImg}
+                  src={normalizeDriveImageUrlForPdf(f.imagenUrl.trim())}
+                />
               ) : (
                 <Text style={styles.muted}>Sin imagen adjunta</Text>
               )}

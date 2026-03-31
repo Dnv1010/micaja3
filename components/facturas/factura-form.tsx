@@ -123,7 +123,13 @@ export function FacturaForm({
   return (
     <form onSubmit={onSubmit} className="space-y-6 max-w-lg mx-auto">
       {!facturaId && (
-        <FacturaUploadOcr onOcrComplete={onOcr} onError={setError} />
+        <FacturaUploadOcr
+          sector={form.Sector || session?.user?.sector || "Bogota"}
+          responsable={form.Responsable || session?.user?.responsable || ""}
+          fechaCarpeta={form.Fecha_Factura}
+          onOcrComplete={onOcr}
+          onError={setError}
+        />
       )}
 
       {error && (

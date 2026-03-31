@@ -32,6 +32,8 @@ export type FacturaRow = {
   Sector?: string;
   Estado?: string;
   ImagenURL?: string;
+  DriveFileId?: string;
+  FechaCreacion?: string;
   EntregaID?: string;
   /** Campos legado frecuentes en hojas actuales */
   ID_Factura?: string;

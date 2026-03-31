@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Readable } from "stream";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { getDriveFacturasRootFolderId } from "@/lib/drive-env";
 import { SHEET_NAMES, drive } from "@/lib/google-sheets";
 import { appendSheetRow, getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
 import { buildAppendRow } from "@/lib/sheet-row";
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
     const fecha = new Date().toISOString();
     let pdfUrl = "";
     const rawPdf = String(body.pdfBase64 || "");
-    const folderId = process.env.GOOGLE_DRIVE_FACTURAS_FOLDER_ID;
+    const folderId = getDriveFacturasRootFolderId();
 
     if (rawPdf && drive && folderId) {
       try {

@@ -1,35 +1,62 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatCOP } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY } from "@/lib/format";
 
-type OcrData = {
+const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const MAX_BYTES = 10 * 1024 * 1024;
+
+type UploadState = "idle" | "selected" | "uploading" | "extracting" | "ready" | "saving" | "done";
+
+type OcrPayload = {
   fecha_factura?: string | null;
   razon_social?: string | null;
   nit_factura?: string | null;
   descripcion?: string | null;
-  monto_factura?: string | null;
+  monto_factura?: number | null;
   image_url?: string | null;
+  message?: string | null;
 };
+
+const STEPS = [
+  { key: "selected", label: "Archivo" },
+  { key: "upload", label: "Subir a Drive" },
+  { key: "ocr", label: "OCR" },
+  { key: "ready", label: "Revisar y guardar" },
+] as const;
+
+function validateFile(f: File): string | null {
+  const ok = ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(f.type);
+  if (!ok) return "Use JPG, PNG, WebP o PDF.";
+  if (f.size > MAX_BYTES) return "El archivo no puede superar 10MB.";
+  return null;
+}
 
 export default function NuevaFacturaPage() {
   const router = useRouter();
   const { data } = useSession();
   const user = data?.user;
 
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [loadingOcr, setLoadingOcr] = useState(false);
-  const [loadingSave, setLoadingSave] = useState(false);
-  const [tipos, setTipos] = useState<string[]>([]);
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [uploadError, setUploadError] = useState("");
+  const [ocrHint, setOcrHint] = useState("");
+
+  const [driveFileId, setDriveFileId] = useState("");
+  const [imagenUrl, setImagenUrl] = useState("");
 
   const [fecha, setFecha] = useState("");
   const [proveedor, setProveedor] = useState("");
@@ -37,7 +64,11 @@ export default function NuevaFacturaPage() {
   const [concepto, setConcepto] = useState("");
   const [valor, setValor] = useState("");
   const [tipoFactura, setTipoFactura] = useState("");
-  const [imagenUrl, setImagenUrl] = useState("");
+  const [tipos, setTipos] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState("");
+
+  const sector = String(user?.sector || "");
+  const responsable = String(user?.responsable || user?.name || "");
 
   useEffect(() => {
     fetch("/api/catalogos?tab=TipoFactura")
@@ -46,54 +77,128 @@ export default function NuevaFacturaPage() {
       .catch(() => setTipos([]));
   }, []);
 
-  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0] ?? null;
-    setFile(selected);
-    if (!selected) {
-      setPreviewUrl("");
-      return;
-    }
-    setPreviewUrl(URL.createObjectURL(selected));
+  function resetPreview() {
+    if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl("");
   }
 
-  async function extractOcr() {
-    if (!file) return;
-    setLoadingOcr(true);
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
-        reader.readAsDataURL(file);
-      });
+  function assignFile(selected: File | null) {
+    resetPreview();
+    setFile(selected);
+    setUploadError("");
+    setOcrHint("");
+    setDriveFileId("");
+    setImagenUrl("");
+    setUploadState(selected ? "selected" : "idle");
+    if (selected) {
+      const err = validateFile(selected);
+      if (err) {
+        setUploadError(err);
+        setFile(null);
+        setUploadState("idle");
+        return;
+      }
+      if (selected.type !== "application/pdf") {
+        setPreviewUrl(URL.createObjectURL(selected));
+      }
+    }
+  }
 
-      const res = await fetch("/api/ocr/factura", {
+  function onGalleryChange(e: ChangeEvent<HTMLInputElement>) {
+    assignFile(e.target.files?.[0] ?? null);
+    e.target.value = "";
+  }
+
+  async function uploadAndOcr() {
+    if (!file || !user) return;
+    const err = validateFile(file);
+    if (err) {
+      setUploadError(err);
+      return;
+    }
+    if (!sector || (sector !== "Bogota" && sector !== "Costa Caribe")) {
+      setUploadError("Su cuenta no tiene un sector válido (Bogota / Costa Caribe).");
+      return;
+    }
+
+    setUploadError("");
+    setOcrHint("");
+    setUploadState("uploading");
+
+    try {
+      const formUp = new FormData();
+      formUp.append("file", file);
+      formUp.append("sector", sector);
+      formUp.append("responsable", responsable);
+      if (fecha.trim()) formUp.append("fecha", fecha.trim());
+
+      const upRes = await fetch("/api/facturas/upload", {
+        method: "POST",
+        body: formUp,
+      });
+      const upJson = await upRes.json().catch(() => ({}));
+      if (!upRes.ok) {
+        throw new Error(upJson.error || "Error al subir imagen. Intenta de nuevo.");
+      }
+
+      const url = String(upJson.url || "");
+      const fid = String(upJson.fileId || "");
+      if (!url || !fid) throw new Error("Respuesta de subida incompleta.");
+
+      setImagenUrl(url);
+      setDriveFileId(fid);
+      setUploadState("extracting");
+
+      const ocrRes = await fetch("/api/ocr/factura", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          filename: file.name,
+          imageUrl: url,
           mimeType: file.type,
-          base64,
+          filename: file.name,
         }),
       });
-      const json = await res.json().catch(() => ({ data: {} as OcrData }));
-      const d = (json?.data || {}) as OcrData;
-      setFecha(d.fecha_factura || "");
-      setProveedor(d.razon_social || "");
-      setNit(d.nit_factura || "");
-      setConcepto(d.descripcion || "");
-      setValor(String(d.monto_factura || "").replace(/[^\d]/g, ""));
-      setImagenUrl(d.image_url || "");
-    } catch {
-      // Si OCR falla, se dejan campos manuales.
-    } finally {
-      setLoadingOcr(false);
+      const ocrJson = await ocrRes.json().catch(() => ({}));
+      const d = (ocrJson?.data || {}) as OcrPayload;
+
+      if (ocrJson.success && d) {
+        if (d.fecha_factura) setFecha(formatDateDDMMYYYY(d.fecha_factura));
+        if (d.razon_social) setProveedor(d.razon_social);
+        if (d.nit_factura) setNit(d.nit_factura);
+        if (d.descripcion) setConcepto(d.descripcion);
+        if (d.monto_factura != null && !Number.isNaN(d.monto_factura)) {
+          setValor(String(Math.round(d.monto_factura)));
+        }
+        setImagenUrl(String(d.image_url || url));
+        if (d.message) {
+          setOcrHint(d.message);
+        } else if (!d.razon_social && !d.monto_factura) {
+          setOcrHint(
+            "No se pudieron extraer todos los datos. Por favor completa los campos manualmente."
+          );
+        } else {
+          setOcrHint("");
+        }
+      }
+
+      setUploadState("ready");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error al subir imagen. Intenta de nuevo.";
+      setUploadError(msg);
+      setUploadState("selected");
+      setDriveFileId("");
+      setImagenUrl("");
     }
   }
 
   async function saveFactura() {
     if (!user) return;
-    setLoadingSave(true);
+    if (!imagenUrl.trim()) {
+      setSaveError("Debes subir la imagen a Drive antes de guardar.");
+      return;
+    }
+    setSaveError("");
+    setUploadState("saving");
     try {
       const res = await fetch("/api/facturas", {
         method: "POST",
@@ -108,70 +213,239 @@ export default function NuevaFacturaPage() {
           responsable: user.responsable || "",
           area: user.area || "",
           sector: user.sector || "",
-          imagenUrl: imagenUrl || "",
+          imagenUrl: imagenUrl.trim(),
+          driveFileId: driveFileId.trim(),
         }),
       });
-      if (res.ok) {
-        router.push("/facturas?saved=1");
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(j.error || "No se pudo guardar en la hoja. Revisa los datos e intenta de nuevo.");
       }
-    } finally {
-      setLoadingSave(false);
+      setUploadState("done");
+      router.push("/facturas?saved=1");
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : "Error al guardar");
+      setUploadState("ready");
     }
   }
 
   const valorVista = useMemo(() => formatCOP(Number(valor || "0")), [valor]);
 
+  const stepIndex =
+    uploadState === "idle"
+      ? 0
+      : uploadState === "selected"
+        ? 0
+        : uploadState === "uploading"
+          ? 1
+          : uploadState === "extracting"
+            ? 2
+            : uploadState === "ready" || uploadState === "saving"
+              ? 3
+              : 3;
+
+  const isPdf = file?.type === "application/pdf";
+
   return (
     <div className="space-y-4">
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+        <p className="mb-3 text-xs font-medium text-zinc-400">Progreso</p>
+        <div className="flex flex-wrap gap-2">
+          {STEPS.map((s, i) => (
+            <div
+              key={s.key}
+              className={`rounded-full px-3 py-1 text-xs ${
+                i <= stepIndex ? "bg-emerald-900/60 text-emerald-200" : "bg-zinc-800 text-zinc-500"
+              }`}
+            >
+              {i + 1}. {s.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
-        <CardHeader><CardTitle>Paso 1 · Subir imagen</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Paso 1 — Seleccionar archivo</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={onFileChange} />
-          {previewUrl ? (
-            <Image
-              src={previewUrl}
-              alt="Factura"
-              width={640}
-              height={360}
-              unoptimized
-              className="max-h-64 w-full rounded-md border border-zinc-700 object-contain"
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              className="hidden"
+              onChange={onGalleryChange}
             />
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept={ACCEPT}
+              className="hidden"
+              onChange={onGalleryChange}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              className="bg-zinc-800 text-white hover:bg-zinc-700"
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              📷 Tomar foto
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="bg-zinc-800 text-white hover:bg-zinc-700"
+              onClick={() => galleryInputRef.current?.click()}
+            >
+              📁 Galería / archivo
+            </Button>
+          </div>
+          <p className="text-xs text-zinc-500">JPG, PNG, WebP o PDF · máximo 10MB</p>
+
+          {uploadError ? <p className="text-sm text-red-400">{uploadError}</p> : null}
+
+          {file ? (
+            <div className="rounded-md border border-zinc-700 bg-zinc-900/40 p-3">
+              {isPdf ? (
+                <div className="flex items-center gap-3 text-zinc-300">
+                  <FileText className="h-12 w-12 shrink-0 text-amber-400" />
+                  <div>
+                    <p className="font-medium">PDF</p>
+                    <p className="text-sm text-zinc-500">{file.name}</p>
+                  </div>
+                </div>
+              ) : previewUrl ? (
+                <Image
+                  src={previewUrl}
+                  alt="Factura"
+                  width={640}
+                  height={360}
+                  unoptimized
+                  className="max-h-64 w-full rounded-md border border-zinc-700 object-contain"
+                />
+              ) : null}
+            </div>
           ) : null}
-          <Button onClick={extractOcr} disabled={!file || loadingOcr} className="bg-black text-white hover:bg-zinc-800">
-            {loadingOcr ? "Leyendo factura..." : "Extraer datos con OCR →"}
+
+          <Button
+            type="button"
+            onClick={() => void uploadAndOcr()}
+            disabled={
+              !file ||
+              uploadState === "uploading" ||
+              uploadState === "extracting" ||
+              uploadState === "saving"
+            }
+            className="bg-black text-white hover:bg-zinc-800"
+          >
+            {uploadState === "uploading"
+              ? "Subiendo imagen..."
+              : uploadState === "extracting"
+                ? "Extrayendo datos..."
+                : "☁️ Subir y extraer datos"}
           </Button>
+          {(uploadState === "uploading" || uploadState === "extracting") && (
+            <p className="text-sm text-zinc-400 animate-pulse">
+              {uploadState === "uploading" ? "Subiendo imagen…" : "Extrayendo datos…"}
+            </p>
+          )}
+          {uploadState === "ready" ? (
+            <p className="text-sm text-emerald-400">Listo ✅ — revisa los datos abajo</p>
+          ) : null}
         </CardContent>
       </Card>
 
+      {ocrHint ? (
+        <p className="rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+          {ocrHint}
+        </p>
+      ) : null}
+
       <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
-        <CardHeader><CardTitle>Paso 2 · Revisar y completar</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Paso 2 — Revisar y completar</CardTitle>
+        </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5"><Label>Fecha</Label><Input placeholder="DD/MM/YYYY" value={fecha} onChange={(e) => setFecha(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>Proveedor</Label><Input value={proveedor} onChange={(e) => setProveedor(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>NIT</Label><Input value={nit} onChange={(e) => setNit(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>Concepto</Label><Input value={concepto} onChange={(e) => setConcepto(e.target.value)} /></div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Imagen en Drive</Label>
+            <Input
+              readOnly
+              value={imagenUrl}
+              className="bg-zinc-900 border-zinc-700 font-mono text-xs"
+              placeholder="Se llena al subir el archivo"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fecha</Label>
+            <Input
+              placeholder="DD/MM/YYYY"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className="bg-zinc-900 border-zinc-700"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Proveedor</Label>
+            <Input value={proveedor} onChange={(e) => setProveedor(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>NIT</Label>
+            <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Concepto</Label>
+            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+          </div>
           <div className="space-y-1.5">
             <Label>Valor</Label>
-            <Input type="number" value={valor} onChange={(e) => setValor(e.target.value)} />
+            <Input
+              type="number"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              className="bg-zinc-900 border-zinc-700"
+            />
             <p className="text-xs text-zinc-500">{valorVista}</p>
           </div>
           <div className="space-y-1.5">
             <Label>Tipo de Factura</Label>
             <Select value={tipoFactura} onValueChange={(value) => setTipoFactura(value || "")}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
               <SelectContent>
-                {tipos.map((t) => <SelectItem value={t} key={t}>{t}</SelectItem>)}
+                {tipos.map((t) => (
+                  <SelectItem value={t} key={t}>
+                    {t}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5"><Label>Responsable</Label><Input value={user?.responsable || ""} readOnly /></div>
-          <div className="space-y-1.5"><Label>Area</Label><Input value={user?.area || ""} readOnly /></div>
-          <div className="space-y-1.5"><Label>Sector</Label><Input value={user?.sector || ""} readOnly /></div>
+          <div className="space-y-1.5">
+            <Label>Responsable</Label>
+            <Input value={user?.responsable || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Área</Label>
+            <Input value={user?.area || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Sector</Label>
+            <Input value={user?.sector || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
+          </div>
         </CardContent>
       </Card>
 
-      <Button onClick={saveFactura} disabled={loadingSave} className="w-full bg-black text-white hover:bg-zinc-800">
-        {loadingSave ? "Guardando..." : "Guardar factura"}
+      {saveError ? <p className="text-sm text-red-400">{saveError}</p> : null}
+
+      <Button
+        onClick={() => void saveFactura()}
+        disabled={uploadState === "saving" || !imagenUrl.trim()}
+        className="w-full bg-black text-white hover:bg-zinc-800"
+      >
+        {uploadState === "saving" ? "Guardando en hoja..." : "Guardar factura"}
       </Button>
     </div>
   );
