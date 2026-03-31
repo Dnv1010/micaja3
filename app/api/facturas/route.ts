@@ -4,25 +4,65 @@ import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { appendSheetRow, getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
 import { buildAppendRow } from "@/lib/sheet-row";
-import { uniqueSheetKey } from "@/lib/ids";
-import { todayISO } from "@/lib/format";
+import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { parseSheetDate } from "@/lib/format";
 import type { FacturaRow } from "@/types/models";
 
-export async function GET() {
+const FACTURAS_HEADERS = [
+  "ID",
+  "Fecha",
+  "Responsable",
+  "Area",
+  "Sector",
+  "Proveedor",
+  "NIT",
+  "Concepto",
+  "Valor",
+  "TipoFactura",
+  "Estado",
+  "MotivoRechazo",
+  "ImagenURL",
+];
+
+async function getFacturasRowsWithHeaders(): Promise<string[][]> {
+  const rows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
+  if (!rows.length || !rows[0]?.some((c) => String(c || "").trim())) {
+    await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, FACTURAS_HEADERS);
+    return getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
+  }
+  return rows;
+}
+
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const factRows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
+    const { searchParams } = new URL(req.url);
+    const responsableQ = searchParams.get("responsable")?.trim().toLowerCase() || "";
+    const estadoQ = searchParams.get("estado")?.trim().toLowerCase() || "";
+    const desdeQ = searchParams.get("desde") || "";
+    const hastaQ = searchParams.get("hasta") || "";
+    const desde = parseSheetDate(desdeQ);
+    const hasta = parseSheetDate(hastaQ);
+
+    const factRows = await getFacturasRowsWithHeaders();
     const facturas = rowsToObjects<FacturaRow>(factRows);
-    const rol = String(session.user.rol || "user").toLowerCase();
-    const responsable = String(session.user.responsable || "");
-    const filtered =
-      rol === "user" ? facturas.filter((f) => String(f.Responsable || "") === responsable) : facturas;
+    const filtered = facturas.filter((f) => {
+      const responsable = getCellCaseInsensitive(f, "Responsable");
+      const estado = getCellCaseInsensitive(f, "Estado");
+      const fecha = getCellCaseInsensitive(f, "Fecha");
+      const fechaObj = parseSheetDate(fecha);
+
+      if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
+      if (estadoQ && estado.toLowerCase() !== estadoQ) return false;
+      if (desde && (!fechaObj || fechaObj < desde)) return false;
+      if (hasta && (!fechaObj || fechaObj > hasta)) return false;
+      return true;
+    });
     return NextResponse.json({ data: filtered });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error al leer facturas";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  } catch {
+    return NextResponse.json({ data: [] });
   }
 }
 
@@ -31,27 +71,46 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const body = (await req.json()) as Record<string, string>;
-    const rows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
+    const body = (await req.json()) as {
+      fecha?: string;
+      proveedor?: string;
+      nit?: string;
+      concepto?: string;
+      valor?: string;
+      tipoFactura?: string;
+      responsable?: string;
+      area?: string;
+      sector?: string;
+      imagenUrl?: string;
+    };
+
+    const rows = await getFacturasRowsWithHeaders();
     const headers = rows[0];
     if (!headers?.length) {
       return NextResponse.json({ error: "Hoja Facturas sin encabezados" }, { status: 500 });
     }
 
     const data: Record<string, string> = {
-      ...body,
-      ID: body.ID || uniqueSheetKey("FAC"),
-      Responsable: body.Responsable || String(session.user.responsable || ""),
-      Fecha: body.Fecha || todayISO(),
-      Estado: body.Estado || "Pendiente",
+      ID: String(Date.now()),
+      Fecha: body.fecha || "",
+      Responsable: body.responsable || String(session.user.responsable || ""),
+      Area: body.area || String(session.user.area || ""),
+      Sector: body.sector || String(session.user.sector || ""),
+      Proveedor: body.proveedor || "",
+      NIT: body.nit || "",
+      Concepto: body.concepto || "",
+      Valor: body.valor || "0",
+      TipoFactura: body.tipoFactura || "",
+      Estado: "Pendiente",
+      MotivoRechazo: "",
+      ImagenURL: body.imagenUrl || "",
     };
 
     const line = buildAppendRow(headers, data);
     await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, line);
 
     return NextResponse.json({ ok: true, id: data.ID });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  } catch {
+    return NextResponse.json({ ok: false, error: "No se pudo guardar la factura" }, { status: 500 });
   }
 }

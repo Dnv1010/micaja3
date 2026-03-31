@@ -19,7 +19,7 @@ function navByRole(rol: string): NavItem[] {
   }
   if (rol === "coordinador") {
     return [
-      { href: "/", label: "Usuarios", icon: Users },
+      { href: "/usuarios", label: "Usuarios", icon: Users },
       { href: "/envios", label: "Envios", icon: Send },
       { href: "/facturas", label: "Facturas", icon: FileText },
       { href: "/reporte", label: "Reporte", icon: FileBarChart2 },

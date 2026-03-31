@@ -5,6 +5,37 @@ import { authOptions } from "@/lib/auth-options";
 import { drive, assertSheetsConfigured } from "@/lib/google-sheets";
 import { parseFacturaText } from "@/lib/factura-parser";
 
+async function extractFileFromRequest(
+  req: NextRequest
+): Promise<{ buffer: Buffer; name: string; mimeType: string } | null> {
+  const contentType = req.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const body = (await req.json()) as {
+      base64?: string;
+      filename?: string;
+      mimeType?: string;
+    };
+    const base64 = String(body.base64 || "");
+    if (!base64) return null;
+    const pure = base64.includes(",") ? base64.split(",")[1] : base64;
+    return {
+      buffer: Buffer.from(pure, "base64"),
+      name: body.filename || `factura_${Date.now()}.jpg`,
+      mimeType: body.mimeType || "image/jpeg",
+    };
+  }
+
+  const formData = await req.formData();
+  const file = formData.get("factura") as File | null;
+  if (!file) return null;
+  const bytes = await file.arrayBuffer();
+  return {
+    buffer: Buffer.from(bytes),
+    name: file.name,
+    mimeType: file.type || "image/jpeg",
+  };
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -21,22 +52,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const formData = await req.formData();
-    const file = formData.get("factura") as File | null;
-    if (!file) {
+    const fileData = await extractFileFromRequest(req);
+    if (!fileData) {
       return NextResponse.json({ error: "No se proporcionó archivo" }, { status: 400 });
     }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const { buffer, name, mimeType } = fileData;
 
     const driveResponse = await drive!.files.create({
       requestBody: {
-        name: `factura_${Date.now()}_${file.name}`,
+        name: `factura_${Date.now()}_${name}`,
         parents: [folderId],
       },
       media: {
-        mimeType: file.type || "image/jpeg",
+        mimeType,
         body: Readable.from(buffer),
       },
       fields: "id, webViewLink",
@@ -58,7 +86,8 @@ export async function POST(req: NextRequest) {
     }
 
     const ocrFormData = new FormData();
-    ocrFormData.append("file", new Blob([buffer], { type: file.type }), file.name);
+    const bytes = new Uint8Array(buffer);
+    ocrFormData.append("file", new Blob([bytes], { type: mimeType }), name);
     ocrFormData.append("language", "spa");
     ocrFormData.append("isOverlayRequired", "false");
     ocrFormData.append("OCREngine", "2");

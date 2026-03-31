@@ -14,7 +14,7 @@ const SHORT: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
 
 function allowedRoutesByRole(rol: string): string[] {
   if (rol === "admin") return ["/", "/admin/reportes", "/admin/facturas", "/admin/usuarios"];
-  if (rol === "coordinador") return ["/", "/envios", "/facturas", "/reporte"];
+  if (rol === "coordinador") return ["/usuarios", "/envios", "/facturas", "/reporte"];
   return ["/", "/facturas", "/entregas"];
 }
 

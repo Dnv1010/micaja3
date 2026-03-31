@@ -10,7 +10,10 @@ export default withAuth(
       return NextResponse.redirect(new URL("/", req.url));
     }
 
-    if (rol === "user" && (pathname.startsWith("/envios") || pathname.startsWith("/reporte"))) {
+    if (
+      rol === "user" &&
+      (pathname.startsWith("/envios") || pathname.startsWith("/reporte") || pathname.startsWith("/usuarios"))
+    ) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
