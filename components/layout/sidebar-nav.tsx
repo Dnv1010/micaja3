@@ -11,10 +11,10 @@ type NavItem = { href: string; label: string; icon: React.ComponentType<{ classN
 function navByRole(rol: string): NavItem[] {
   if (rol === "admin") {
     return [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/admin/reportes", label: "Reportes", icon: FileBarChart2 },
-      { href: "/admin/facturas", label: "Todas las Facturas", icon: FileText },
-      { href: "/admin/usuarios", label: "Usuarios", icon: Users },
+      { href: "/admin", label: "📊 Dashboard", icon: LayoutDashboard },
+      { href: "/admin/reportes", label: "✍️ Reportes", icon: FileBarChart2 },
+      { href: "/admin/facturas", label: "🧾 Facturas", icon: FileText },
+      { href: "/admin/usuarios", label: "👥 Usuarios", icon: Users },
     ];
   }
   if (rol === "coordinador") {
@@ -58,7 +58,10 @@ export function SidebarNav({
       </div>
       {items.map((item) => {
         const Icon = item.icon;
-        const active = pathname === item.href || pathname.startsWith(item.href + "/");
+        const active =
+          item.href === "/admin"
+            ? pathname === "/admin"
+            : pathname === item.href || pathname.startsWith(item.href + "/");
         return (
           <Link
             key={item.href}

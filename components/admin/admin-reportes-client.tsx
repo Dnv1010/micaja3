@@ -2,12 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { pdf } from "@react-pdf/renderer";
 import { FirmaCanvas } from "@/components/firma-canvas";
-import {
-  LegalizacionPdf,
-  type FacturaPdf,
-} from "@/components/pdf/legalizacion-pdf";
+import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +42,31 @@ function parseIds(raw: string): string[] {
   }
 }
 
+function firmaSrc(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (t.startsWith("data:") || t.startsWith("http://") || t.startsWith("https://")) return t;
+  return `data:image/png;base64,${t}`;
+}
+
+function rowToFacturaPdf(f: FacturaRow, areaCoord: string): FacturaPdf {
+  const id = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
+  const img = getCellCaseInsensitive(f, "ImagenURL", "URL", "Adjuntar_Factura") || "";
+  const driveId = getCellCaseInsensitive(f, "DriveFileId") || "";
+  return {
+    id,
+    fecha: formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura")),
+    proveedor: getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-",
+    nit: getCellCaseInsensitive(f, "NIT", "Nit_Factura", "Num_Factura") || "-",
+    concepto: getCellCaseInsensitive(f, "Concepto", "Observacion") || "-",
+    valor: parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")),
+    tipoFactura: getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—",
+    area: getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || areaCoord,
+    imagenUrl: String(img).trim() || undefined,
+    driveFileId: String(driveId).trim() || undefined,
+  };
+}
+
 export function AdminReportesClient() {
   const { data } = useSession();
   const adminSector = String(data?.user?.sector || "Bogota");
@@ -80,28 +101,12 @@ export function AdminReportesClient() {
     void cargar();
   }, [cargar]);
 
-  function facturasDelReporte(rep: ReporteRow): FacturaPdf[] {
+  function facturasDelReporteLocal(rep: ReporteRow): FacturaPdf[] {
     const ids = new Set(parseIds(String(rep.Facturas_IDs || rep.FacturasIds || "")));
     const areaCoord = "—";
     return facturas
       .filter((f) => ids.has(String(getCellCaseInsensitive(f, "ID_Factura", "ID"))))
-      .map((f) => {
-        const id = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
-        const img = getCellCaseInsensitive(f, "ImagenURL", "URL", "Adjuntar_Factura") || "";
-        const driveId = getCellCaseInsensitive(f, "DriveFileId") || "";
-        return {
-          id,
-          fecha: formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura")),
-          proveedor: getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-",
-          nit: getCellCaseInsensitive(f, "NIT", "Nit_Factura", "Num_Factura") || "-",
-          concepto: getCellCaseInsensitive(f, "Concepto", "Observacion") || "-",
-          valor: parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")),
-          tipoFactura: getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—",
-          area: getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || areaCoord,
-          imagenUrl: String(img).trim() || undefined,
-          driveFileId: String(driveId).trim() || undefined,
-        };
-      });
+      .map((f) => rowToFacturaPdf(f, areaCoord));
   }
 
   async function confirmarFirmaAdmin() {
@@ -110,20 +115,32 @@ export function AdminReportesClient() {
     setErrorMsg("");
     try {
       const sectorRep = String(activo.Sector || adminSector);
-      const limite = limiteAprobacionZona(sectorRep);
+      const limite =
+        sectorRep === "Bogota" ? 1_000_000 : sectorRep === "Costa Caribe" ? 3_000_000 : limiteAprobacionZona(sectorRep);
       const coordNombre = String(activo.Coordinador || "");
       const firmaCoord = String(activo.Firma_Coordinador || activo.FirmaCoordinador || "");
       const generadoTxt = new Date().toLocaleDateString("es-CO");
 
-      const facturasPdf = facturasDelReporte(activo);
+      const ids = parseIds(String(activo.Facturas_IDs || activo.FacturasIds || "[]"));
+      const facturasRes = await Promise.all(
+        ids.map((id) => fetch(`/api/facturas/${encodeURIComponent(id)}`).then((r) => r.json()))
+      );
+      const fetched = facturasRes.map((r) => r.data as FacturaRow | undefined).filter(Boolean) as FacturaRow[];
+      const facturasPdf =
+        fetched.length > 0 ? fetched.map((f) => rowToFacturaPdf(f, "—")) : facturasDelReporteLocal(activo);
+
+      const [{ pdf }, { LegalizacionPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/pdf/legalizacion-pdf"),
+      ]);
 
       const doc = (
         <LegalizacionPdf
           coordinador={{
             responsable: coordNombre,
-            cargo: "Coordinador de zona",
+            cargo: "",
             sector: sectorRep,
-            area: "—",
+            area: "",
           }}
           facturas={facturasPdf}
           firmaCoordinador={firmaCoord}
@@ -132,15 +149,15 @@ export function AdminReportesClient() {
           limiteZona={limite}
         />
       );
-
       const blob = await pdf(doc).toBlob();
+
       const idRep = reporteId(activo);
       const fd = new FormData();
       fd.append("file", blob, `Reporte_${idRep}.pdf`);
       fd.append("destino", "reportes");
       fd.append("sector", isMicajaSector(sectorRep) ? sectorRep : adminSector);
       fd.append("responsable", coordNombre || "admin");
-      fd.append("fecha", new Date().toISOString().slice(0, 10));
+      fd.append("fecha", String(activo.Fecha || "").trim() || new Date().toISOString().slice(0, 10));
 
       const upRes = await fetch("/api/facturas/upload", { method: "POST", body: fd });
       const upJson = await upRes.json().catch(() => ({}));
@@ -273,33 +290,70 @@ export function AdminReportesClient() {
       <Dialog open={!!activo} onOpenChange={(o) => !o && setActivo(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Reporte de {activo?.Coordinador}</DialogTitle>
+            <DialogTitle>Revisar y firmar</DialogTitle>
           </DialogHeader>
           {activo ? (
             <>
-              <p className="text-sm text-zinc-300">
-                Período: {activo.Periodo_Desde || activo.Periodo || "—"} al {activo.Periodo_Hasta || "—"}
-              </p>
-              <p className="text-sm text-zinc-300">
-                Total: {formatCOP(parseCOPString(String(activo.Total || activo.TotalAprobado || "0")))}
-              </p>
-              {errorMsg ? <p className="text-sm text-red-400">{errorMsg}</p> : null}
-              <FirmaCanvas
-                width={400}
-                height={200}
-                onFirma={(b64) => setFirmaAdmin(b64)}
-                onLimpiar={() => setFirmaAdmin("")}
-              />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setActivo(null)}>
+              <div className="mb-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
+                <div>
+                  <span className="text-zinc-500">Coordinador</span>
+                  <p className="text-zinc-100">{activo.Coordinador || "—"}</p>
+                </div>
+                <div>
+                  <span className="text-zinc-500">Sector</span>
+                  <p className="text-zinc-100">{activo.Sector || "—"}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-zinc-500">Período</span>
+                  <p className="text-zinc-100">
+                    {activo.Periodo_Desde || activo.Periodo || "—"} al {activo.Periodo_Hasta || "—"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-zinc-500">Total</span>
+                  <p className="text-zinc-100">
+                    {formatCOP(parseCOPString(String(activo.Total || activo.TotalAprobado || "0")))}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="mb-1 text-sm text-zinc-400">Firma del coordinador:</p>
+                {firmaSrc(String(activo.Firma_Coordinador || activo.FirmaCoordinador || "")) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={firmaSrc(String(activo.Firma_Coordinador || activo.FirmaCoordinador || ""))}
+                    alt="Firma coordinador"
+                    className="h-20 max-w-full rounded border border-zinc-700 bg-white object-contain"
+                  />
+                ) : (
+                  <p className="text-xs text-zinc-500">Sin firma registrada</p>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <p className="mb-1 text-sm text-zinc-400">Tu firma:</p>
+                <FirmaCanvas
+                  width={400}
+                  height={150}
+                  onFirma={(b64) => setFirmaAdmin(b64)}
+                  onLimpiar={() => setFirmaAdmin("")}
+                />
+              </div>
+
+              {errorMsg ? <p className="mt-2 text-sm text-red-400">{errorMsg}</p> : null}
+
+              <DialogFooter className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" type="button" onClick={() => setActivo(null)}>
                   Cancelar
                 </Button>
                 <Button
+                  type="button"
                   className="bg-emerald-700 hover:bg-emerald-600"
                   disabled={!firmaAdmin.trim() || procesando}
                   onClick={() => void confirmarFirmaAdmin()}
                 >
-                  {procesando ? "Generando..." : "Firmar y generar PDF"}
+                  {procesando ? "Generando PDF..." : "✅ Firmar y generar PDF"}
                 </Button>
               </DialogFooter>
             </>
