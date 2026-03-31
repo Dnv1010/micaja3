@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCOP, formatDateDDMMYYYY } from "@/lib/format";
 
-const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const GALLERY_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";
 const MAX_BYTES = 10 * 1024 * 1024;
 
 type UploadState = "idle" | "selected" | "uploading" | "extracting" | "ready" | "saving" | "done";
@@ -27,18 +27,63 @@ type OcrPayload = {
   message?: string | null;
 };
 
-const STEPS = [
-  { key: "selected", label: "Archivo" },
-  { key: "upload", label: "Subir a Drive" },
-  { key: "ocr", label: "OCR" },
-  { key: "ready", label: "Revisar y guardar" },
-] as const;
+const PROGRESS_STEPS = ["Seleccionar", "Subir", "Extraer", "Revisar", "Guardar"] as const;
+
+const OCR_MANUAL_HINT = "No se pudieron extraer todos los datos. Completa los campos manualmente.";
 
 function validateFile(f: File): string | null {
-  const ok = ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(f.type);
-  if (!ok) return "Use JPG, PNG, WebP o PDF.";
+  if (f.type === "image/svg+xml") return "SVG no está permitido.";
+  if (f.type === "application/pdf") {
+    /* ok */
+  } else if (f.type.startsWith("image/")) {
+    /* ok — cámara puede devolver HEIC u otros */
+  } else {
+    return "Use una imagen o un PDF.";
+  }
   if (f.size > MAX_BYTES) return "El archivo no puede superar 10MB.";
   return null;
+}
+
+/** Pasos ya terminados con ● (excluye el paso que está en curso). */
+function progressSolidCount(state: UploadState): number {
+  switch (state) {
+    case "idle":
+      return 0;
+    case "selected":
+      return 1;
+    case "uploading":
+      return 1;
+    case "extracting":
+      return 2;
+    case "ready":
+      return 3;
+    case "saving":
+      return 4;
+    case "done":
+      return 5;
+    default:
+      return 0;
+  }
+}
+
+/** Paso activo (pulso) — mismo índice que `solidCount` mientras se ejecuta esa fase. */
+function progressPulseIndex(state: UploadState): number {
+  switch (state) {
+    case "idle":
+      return 0;
+    case "selected":
+      return 1;
+    case "uploading":
+      return 1;
+    case "extracting":
+      return 2;
+    case "ready":
+      return 3;
+    case "saving":
+      return 4;
+    default:
+      return 0;
+  }
 }
 
 export default function NuevaFacturaPage() {
@@ -173,9 +218,7 @@ export default function NuevaFacturaPage() {
         if (d.message) {
           setOcrHint(d.message);
         } else if (!d.razon_social && !d.monto_factura) {
-          setOcrHint(
-            "No se pudieron extraer todos los datos. Por favor completa los campos manualmente."
-          );
+          setOcrHint(OCR_MANUAL_HINT);
         } else {
           setOcrHint("");
         }
@@ -231,18 +274,8 @@ export default function NuevaFacturaPage() {
 
   const valorVista = useMemo(() => formatCOP(Number(valor || "0")), [valor]);
 
-  const stepIndex =
-    uploadState === "idle"
-      ? 0
-      : uploadState === "selected"
-        ? 0
-        : uploadState === "uploading"
-          ? 1
-          : uploadState === "extracting"
-            ? 2
-            : uploadState === "ready" || uploadState === "saving"
-              ? 3
-              : 3;
+  const solidCount = progressSolidCount(uploadState);
+  const pulseIdx = progressPulseIndex(uploadState);
 
   const isPdf = file?.type === "application/pdf";
 
@@ -250,17 +283,42 @@ export default function NuevaFacturaPage() {
     <div className="space-y-4">
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
         <p className="mb-3 text-xs font-medium text-zinc-400">Progreso</p>
-        <div className="flex flex-wrap gap-2">
-          {STEPS.map((s, i) => (
-            <div
-              key={s.key}
-              className={`rounded-full px-3 py-1 text-xs ${
-                i <= stepIndex ? "bg-emerald-900/60 text-emerald-200" : "bg-zinc-800 text-zinc-500"
-              }`}
-            >
-              {i + 1}. {s.label}
-            </div>
-          ))}
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-xs sm:text-sm">
+          {PROGRESS_STEPS.map((label, i) => {
+            const done = i < solidCount;
+            const pulse = pulseIdx === i && !done;
+            return (
+            <span key={label} className="inline-flex items-center gap-1">
+              <span
+                className={
+                  done
+                    ? "text-emerald-400"
+                    : pulse
+                      ? "text-amber-400 animate-pulse"
+                      : "text-zinc-600"
+                }
+              >
+                {done ? "●" : "○"}
+              </span>
+              <span
+                className={
+                  done
+                    ? "text-zinc-200"
+                    : pulse
+                      ? "text-zinc-200 animate-pulse"
+                      : "text-zinc-500"
+                }
+              >
+                {label}
+              </span>
+              {i < PROGRESS_STEPS.length - 1 ? (
+                <span className="mx-0.5 text-zinc-600 sm:mx-1" aria-hidden>
+                  →
+                </span>
+              ) : null}
+            </span>
+            );
+          })}
         </div>
       </div>
 
@@ -273,7 +331,7 @@ export default function NuevaFacturaPage() {
             <input
               ref={cameraInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               capture="environment"
               className="hidden"
               onChange={onGalleryChange}
@@ -281,7 +339,7 @@ export default function NuevaFacturaPage() {
             <input
               ref={galleryInputRef}
               type="file"
-              accept={ACCEPT}
+              accept={GALLERY_ACCEPT}
               className="hidden"
               onChange={onGalleryChange}
             />
@@ -302,7 +360,9 @@ export default function NuevaFacturaPage() {
               📁 Galería / archivo
             </Button>
           </div>
-          <p className="text-xs text-zinc-500">JPG, PNG, WebP o PDF · máximo 10MB</p>
+          <p className="text-xs text-zinc-500">
+            Imagen (JPG, PNG, WebP, HEIC…) o PDF · máximo 10MB
+          </p>
 
           {uploadError ? <p className="text-sm text-red-400">{uploadError}</p> : null}
 
@@ -341,14 +401,16 @@ export default function NuevaFacturaPage() {
             className="bg-black text-white hover:bg-zinc-800"
           >
             {uploadState === "uploading"
-              ? "Subiendo imagen..."
+              ? "Subiendo imagen ☁️..."
               : uploadState === "extracting"
-                ? "Extrayendo datos..."
+                ? "Extrayendo datos 🔍..."
                 : "☁️ Subir y extraer datos"}
           </Button>
           {(uploadState === "uploading" || uploadState === "extracting") && (
             <p className="text-sm text-zinc-400 animate-pulse">
-              {uploadState === "uploading" ? "Subiendo imagen…" : "Extrayendo datos…"}
+              {uploadState === "uploading"
+                ? "Subiendo imagen ☁️..."
+                : "Extrayendo datos 🔍..."}
             </p>
           )}
           {uploadState === "ready" ? (

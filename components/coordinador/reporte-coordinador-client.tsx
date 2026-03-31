@@ -138,6 +138,7 @@ export function ReporteCoordinadorClient() {
         const id = String(getCellCaseInsensitive(f, "ID") || "");
         const img =
           getCellCaseInsensitive(f, "ImagenURL", "URL", "Adjuntar_Factura") || "";
+        const driveId = getCellCaseInsensitive(f, "DriveFileId") || "";
         return {
           id,
           fecha: formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura")),
@@ -148,6 +149,7 @@ export function ReporteCoordinadorClient() {
           tipoFactura: getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—",
           area: getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || areaCoord || "—",
           imagenUrl: img.trim() || undefined,
+          driveFileId: driveId.trim() || undefined,
         };
       });
 

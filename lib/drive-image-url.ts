@@ -15,3 +15,12 @@ export function normalizeDriveImageUrlForPdf(url: string): string {
   }
   return u;
 }
+
+/** Preferir ID de Drive guardado en Sheet para react-pdf (export=download). */
+export function facturaAttachmentSrcForPdf(driveFileId?: string, imagenUrl?: string): string | null {
+  const id = driveFileId?.trim();
+  if (id) return `https://drive.google.com/uc?export=download&id=${id}`;
+  const u = imagenUrl?.trim();
+  if (u) return normalizeDriveImageUrlForPdf(u);
+  return null;
+}

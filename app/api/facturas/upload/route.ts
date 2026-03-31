@@ -10,6 +10,8 @@ const ALLOWED = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
   ["image/webp", "webp"],
+  ["image/heic", "heic"],
+  ["image/heif", "heif"],
   ["application/pdf", "pdf"],
 ]);
 
@@ -116,8 +118,7 @@ export async function POST(req: NextRequest) {
     const mm = String(now.getMinutes()).padStart(2, "0");
     const ss = String(now.getSeconds()).padStart(2, "0");
     const stamp = `${y}${mo}${d}_${hh}${mm}${ss}`;
-    const safeName =
-      responsable.replace(/\s+/g, "_").replace(/[\\/:*?"<>|]/g, "").slice(0, 80) || "usuario";
+    const safeName = responsable.replace(/\s+/g, "_").slice(0, 120) || "usuario";
     const driveFileName = `${stamp}_${safeName}.${ext}`;
 
     const uploadOp = (async () => {

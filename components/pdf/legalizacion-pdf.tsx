@@ -1,7 +1,7 @@
 "use client";
 
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { normalizeDriveImageUrlForPdf } from "@/lib/drive-image-url";
+import { facturaAttachmentSrcForPdf } from "@/lib/drive-image-url";
 import { formatCOP, parseCOPString } from "@/lib/format";
 
 export type FacturaPdf = {
@@ -14,6 +14,7 @@ export type FacturaPdf = {
   tipoFactura: string;
   area: string;
   imagenUrl?: string;
+  driveFileId?: string;
 };
 
 export type LegalizacionPdfProps = {
@@ -237,26 +238,29 @@ export function LegalizacionPdf({
       </Page>
 
       {facturas.length ? (
-        facturas.map((f, i) => (
-          <Page key={`att-${f.id}`} size="A4" style={styles.page}>
-            {i === 0 ? <Text style={styles.sectionTitle}>Facturas Adjuntas</Text> : null}
-            <View style={[styles.attachBlock, i === facturas.length - 1 ? { borderBottomWidth: 0 } : {}]} wrap={false}>
-              <View style={styles.attachHeader}>
-                <Text>Factura: {f.nit}</Text>
-                <Text>Fecha: {f.fecha}</Text>
+        facturas.map((f, i) => {
+          const attachSrc = facturaAttachmentSrcForPdf(f.driveFileId, f.imagenUrl);
+          return (
+            <Page key={`att-${f.id}`} size="A4" style={styles.page}>
+              {i === 0 ? <Text style={styles.sectionTitle}>Facturas Adjuntas</Text> : null}
+              <View
+                style={[styles.attachBlock, i === facturas.length - 1 ? { borderBottomWidth: 0 } : {}]}
+                wrap={false}
+              >
+                <View style={styles.attachHeader}>
+                  <Text>Factura: {f.nit}</Text>
+                  <Text>Fecha: {f.fecha}</Text>
+                </View>
+                {attachSrc ? (
+                  /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto factura */
+                  <Image style={styles.attachImg} src={attachSrc} />
+                ) : (
+                  <Text style={styles.muted}>Sin imagen adjunta</Text>
+                )}
               </View>
-              {f.imagenUrl?.trim() ? (
-                /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto factura */
-                <Image
-                  style={styles.attachImg}
-                  src={normalizeDriveImageUrlForPdf(f.imagenUrl.trim())}
-                />
-              ) : (
-                <Text style={styles.muted}>Sin imagen adjunta</Text>
-              )}
-            </View>
-          </Page>
-        ))
+            </Page>
+          );
+        })
       ) : (
         <Page size="A4" style={styles.page}>
           <Text style={styles.sectionTitle}>Facturas Adjuntas</Text>

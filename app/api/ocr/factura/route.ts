@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
           ocr_confidence: 0,
           message:
             result.errorMessage ||
-            "No se pudieron extraer todos los datos. Por favor completa los campos manualmente.",
+            "No se pudieron extraer todos los datos. Completa los campos manualmente.",
         },
       });
     }
@@ -88,8 +88,7 @@ export async function POST(req: NextRequest) {
           image_url: imageUrl || null,
           drive_file_id: null,
           ocr_confidence: 0,
-          message:
-            "No se pudo leer texto de la imagen. Intenta con una foto más nítida o completa los campos a mano.",
+          message: "No se pudieron extraer todos los datos. Completa los campos manualmente.",
         },
       });
     }
