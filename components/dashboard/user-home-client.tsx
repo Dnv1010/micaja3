@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import type { Session } from "next-auth";
 
@@ -58,10 +58,16 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
   }, [responsable]);
 
   const resumen = useMemo(() => {
-    const recibido = entregas.reduce((acc, e) => acc + parseCOPString(getCellCaseInsensitive(e, "Monto", "Monto_Entregado")), 0);
+    const recibido = entregas.reduce(
+      (acc, e) => acc + parseMonto(getCellCaseInsensitive(e, "Monto_Entregado", "Monto")),
+      0
+    );
     const gastado = facturas
-      .filter((f) => getCellCaseInsensitive(f, "Estado").toLowerCase() === "aprobada")
-      .reduce((acc, f) => acc + parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")), 0);
+      .filter((f) => {
+        const v = String(getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || "").toLowerCase();
+        return v === "aprobada";
+      })
+      .reduce((acc, f) => acc + parseMonto(getCellCaseInsensitive(f, "Monto_Factura", "Valor")), 0);
     const balance = recibido - gastado;
     return { recibido, gastado, balance };
   }, [entregas, facturas]);
@@ -110,8 +116,10 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
                 {ultimasEntregas.length ? ultimasEntregas.map((e, i) => (
                   <TableRow key={`ent-${i}`}>
                     <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(e, "Fecha", "Fecha_Entrega"))}</TableCell>
-                    <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(e, "Monto", "Monto_Entregado")))}</TableCell>
-                    <TableCell>{getCellCaseInsensitive(e, "EnviadoPor", "Enviado por", "usuario", "Responsable") || "-"}</TableCell>
+                    <TableCell>{formatCOP(parseMonto(getCellCaseInsensitive(e, "Monto_Entregado", "Monto")))}</TableCell>
+                    <TableCell>
+                      {getCellCaseInsensitive(e, "ComprobanteEnvio", "Comprobante") || "—"}
+                    </TableCell>
                   </TableRow>
                 )) : <TableRow><TableCell colSpan={3} className="text-zinc-500">Sin entregas</TableCell></TableRow>}
               </TableBody>
@@ -128,12 +136,13 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
               <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Proveedor</TableHead><TableHead>Valor</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader>
               <TableBody>
                 {ultimasFacturas.length ? ultimasFacturas.map((f, i) => {
-                  const estado = getCellCaseInsensitive(f, "Estado") || "Pendiente";
+                  const estado =
+                    getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
                   return (
                     <TableRow key={`fac-${i}`}>
                       <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura"))}</TableCell>
                       <TableCell>{getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-"}</TableCell>
-                      <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")))}</TableCell>
+                      <TableCell>{formatCOP(parseMonto(getCellCaseInsensitive(f, "Monto_Factura", "Valor")))}</TableCell>
                       <TableCell><Badge variant="outline">{estado}</Badge></TableCell>
                     </TableRow>
                   );

@@ -1,34 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { SHEET_NAMES } from "@/lib/google-sheets";
-import { appendSheetRow, getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
-import { buildAppendRow } from "@/lib/sheet-row";
+import { getSheetsClient, assertSheetsConfigured, SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
+import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
-import type { EnvioRow } from "@/types/models";
 
-const ENVIO_HEADERS = ["ID", "Fecha", "Responsable", "Sector", "Monto", "EnviadoPor", "Observaciones"];
-
-const ENTREGAS_HEADERS = ["ID", "Fecha", "Responsable", "Sector", "Monto", "EnviadoPor", "Observaciones"];
-
-async function getEnvioRowsWithHeaders(): Promise<string[][]> {
-  const rows = await getSheetData("MICAJA", SHEET_NAMES.ENVIO);
-  if (!rows.length || !rows[0]?.some((c) => String(c || "").trim())) {
-    await appendSheetRow("MICAJA", SHEET_NAMES.ENVIO, ENVIO_HEADERS);
-    return getSheetData("MICAJA", SHEET_NAMES.ENVIO);
-  }
-  return rows;
-}
-
-async function getEntregasRowsWithHeaders(): Promise<string[][]> {
-  const rows = await getSheetData("MICAJA", SHEET_NAMES.ENTREGAS);
-  if (!rows.length || !rows[0]?.some((c) => String(c || "").trim())) {
-    await appendSheetRow("MICAJA", SHEET_NAMES.ENTREGAS, ENTREGAS_HEADERS);
-    return getSheetData("MICAJA", SHEET_NAMES.ENTREGAS);
-  }
-  return rows;
+function micajaSpreadsheetId(): string {
+  const id = SPREADSHEET_IDS.MICAJA.trim();
+  if (!id) throw new Error("MICAJA_SPREADSHEET_ID no configurada");
+  return id;
 }
 
 export async function GET(req: NextRequest) {
@@ -38,6 +20,7 @@ export async function GET(req: NextRequest) {
   if (rol === "user") return NextResponse.json({ data: [] });
 
   try {
+    assertSheetsConfigured();
     const { searchParams } = new URL(req.url);
     const sectorQ = searchParams.get("sector")?.trim() || "";
     const responsableQ = searchParams.get("responsable")?.trim().toLowerCase() || "";
@@ -52,16 +35,25 @@ export async function GET(req: NextRequest) {
       else return NextResponse.json({ data: [] });
     }
 
-    const rows = await getEnvioRowsWithHeaders();
-    const data = rowsToObjects<EnvioRow>(rows).filter((row) => {
-      const resp = getCellCaseInsensitive(row, "Responsable");
-      const fecha = parseSheetDate(getCellCaseInsensitive(row, "Fecha"));
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: micajaSpreadsheetId(),
+      range: `${quoteSheetTitleForRange(SHEET_NAMES.ENVIO)}!A:F`,
+    });
+    const rows = res.data.values ?? [];
+    let data = sheetValuesToRecords(rows);
+
+    data = data.filter((r) => {
+      const resp = getCellCaseInsensitive(r, "Responsable");
+      const fecha = parseSheetDate(getCellCaseInsensitive(r, "Fecha"));
       if (zonaSet && !zonaSet.has(resp.toLowerCase())) return false;
       if (responsableQ && resp.toLowerCase() !== responsableQ) return false;
       if (desde && (!fecha || fecha < desde)) return false;
       if (hasta && (!fecha || fecha > hasta)) return false;
       return true;
     });
+
+    data.reverse();
     return NextResponse.json({ data });
   } catch {
     return NextResponse.json({ data: [] });
@@ -78,54 +70,64 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = (await req.json()) as {
-      fecha?: string;
       responsable?: string;
-      sector?: string;
-      monto?: string;
-      enviadoPor?: string;
-      observaciones?: string;
+      monto?: string | number;
+      fecha?: string;
+      comprobante?: string;
+      telefono?: string;
     };
     const responsable = String(body.responsable || "").trim();
-    const sector = String(body.sector || "").trim();
-    if (!responsable || !sector) {
-      return NextResponse.json({ error: "Responsable y sector son obligatorios" }, { status: 400 });
+    const fecha = String(body.fecha || "").trim();
+    const comprobante = String(body.comprobante ?? "").trim();
+    const telefono = String(body.telefono ?? "").trim();
+
+    const montoNum =
+      typeof body.monto === "number" && Number.isFinite(body.monto)
+        ? String(Math.max(0, Math.round(body.monto)))
+        : String(body.monto ?? "").replace(/[^\d]/g, "");
+
+    if (!responsable || !fecha || !montoNum || montoNum === "0") {
+      return NextResponse.json(
+        { error: "Faltan campos obligatorios: responsable, monto, fecha" },
+        { status: 400 }
+      );
     }
+
     if (rol === "coordinador") {
       const set = responsablesEnZonaSet(String(session.user.sector || ""));
-      if (!set.has(responsable.toLowerCase()) || sector !== String(session.user.sector || "")) {
+      if (!set.has(responsable.toLowerCase())) {
         return NextResponse.json({ error: "Usuario fuera de su zona" }, { status: 403 });
       }
     }
 
-    const id = `ENV_${Date.now()}`;
-    const fecha = body.fecha || "";
-    const monto = String(body.monto || "0");
-    const enviadoPor = String(body.enviadoPor || session.user?.name || session.user?.responsable || "");
-    const observaciones = String(body.observaciones || "");
+    const ts = Date.now();
+    const id = `ENV-${ts}`;
+    const idEntrega = `ENT-${ts}`;
 
-    const rowData: Record<string, string> = {
-      ID: id,
-      Fecha: fecha,
-      Responsable: responsable,
-      Sector: sector,
-      Monto: monto,
-      EnviadoPor: enviadoPor,
-      Observaciones: observaciones,
-    };
+    const filaEnvio: string[] = [id, fecha, montoNum, responsable, comprobante, telefono];
+    const filaEntrega: string[] = [idEntrega, fecha, id, responsable, montoNum, "", "", ""];
 
-    const envRows = await getEnvioRowsWithHeaders();
-    const envHeaders = envRows[0];
-    if (!envHeaders?.length) return NextResponse.json({ error: "Hoja Envio sin encabezados" }, { status: 500 });
-    await appendSheetRow("MICAJA", SHEET_NAMES.ENVIO, buildAppendRow(envHeaders, rowData));
+    assertSheetsConfigured();
+    const sheets = getSheetsClient();
+    const spreadsheetId = micajaSpreadsheetId();
 
-    const entRows = await getEntregasRowsWithHeaders();
-    const entHeaders = entRows[0];
-    if (entHeaders?.length) {
-      await appendSheetRow("MICAJA", SHEET_NAMES.ENTREGAS, buildAppendRow(entHeaders, rowData));
-    }
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${quoteSheetTitleForRange(SHEET_NAMES.ENVIO)}!A:F`,
+      valueInputOption: "RAW",
+      requestBody: { values: [filaEnvio] },
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${quoteSheetTitleForRange(SHEET_NAMES.ENTREGAS)}!A:H`,
+      valueInputOption: "RAW",
+      requestBody: { values: [filaEntrega] },
+    });
 
     return NextResponse.json({ ok: true, id });
-  } catch {
-    return NextResponse.json({ ok: false, error: "No se pudo registrar el envio" }, { status: 500 });
+  } catch (e) {
+    console.error("envios POST:", e);
+    return NextResponse.json({ ok: false, error: "No se pudo registrar el envío" }, { status: 500 });
   }
 }

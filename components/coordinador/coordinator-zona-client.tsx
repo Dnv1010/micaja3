@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY, parseCOPString, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 export type ZonaUsuarioRow = { responsable: string; cargo: string };
@@ -71,14 +71,14 @@ export function CoordinatorZonaClient({
     const gastado = new Map<string, number>();
     for (const e of entregas) {
       const r = getCellCaseInsensitive(e, "Responsable");
-      const m = parseCOPString(getCellCaseInsensitive(e, "Monto", "Monto_Entregado"));
+      const m = parseMonto(getCellCaseInsensitive(e, "Monto_Entregado", "Monto"));
       recibido.set(r, (recibido.get(r) || 0) + m);
     }
     for (const f of facturas) {
       const r = getCellCaseInsensitive(f, "Responsable");
-      const est = getCellCaseInsensitive(f, "Estado").toLowerCase();
+      const est = String(getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || "").toLowerCase();
       if (est !== "aprobada") continue;
-      const m = parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura"));
+      const m = parseMonto(getCellCaseInsensitive(f, "Monto_Factura", "Valor"));
       gastado.set(r, (gastado.get(r) || 0) + m);
     }
     return { recibido, gastado };
@@ -230,10 +230,12 @@ export function CoordinatorZonaClient({
                       <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura"))}</TableCell>
                       <TableCell>{getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-"}</TableCell>
                       <TableCell>
-                        {formatCOP(parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")))}
+                        {formatCOP(parseMonto(getCellCaseInsensitive(f, "Monto_Factura", "Valor")))}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{getCellCaseInsensitive(f, "Estado") || "Pendiente"}</Badge>
+                        <Badge variant="outline">
+                          {getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente"}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -251,11 +253,11 @@ export function CoordinatorZonaClient({
                 <TableBody>
                   {ultimasEntregasUser(detalleUser).map((e, i) => (
                     <TableRow key={i}>
-                      <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(e, "Fecha", "Fecha_Entrega"))}</TableCell>
+                      <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(e, "Fecha_Entrega", "Fecha"))}</TableCell>
                       <TableCell>
-                        {formatCOP(parseCOPString(getCellCaseInsensitive(e, "Monto", "Monto_Entregado")))}
+                        {formatCOP(parseMonto(getCellCaseInsensitive(e, "Monto_Entregado", "Monto")))}
                       </TableCell>
-                      <TableCell>{getCellCaseInsensitive(e, "EnviadoPor", "Enviado por") || "-"}</TableCell>
+                      <TableCell>{getCellCaseInsensitive(e, "ComprobanteEnvio", "Comprobante") || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

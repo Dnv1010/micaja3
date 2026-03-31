@@ -78,6 +78,8 @@ export type EntregaRow = {
   Firma?: string;
   Identificacion?: string;
   Comprobante?: string;
+  /** Relleno en API GET: comprobante del envío vinculado (ID_Envio). */
+  ComprobanteEnvio?: string;
   Observaciones?: string;
   [key: string]: string | number | undefined;
 };

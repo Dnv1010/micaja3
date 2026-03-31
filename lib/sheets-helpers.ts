@@ -200,6 +200,21 @@ export function rowsToObjects<T>(rows: string[][]): T[] {
   });
 }
 
+/** Filas de Sheet → objetos planos (sin `_rowIndex`), según encabezados de la fila 1. */
+export function sheetValuesToRecords(rows: string[][]): Record<string, string>[] {
+  if (rows.length < 2) return [];
+  const headers = rows[0];
+  return rows.slice(1).map((row) => {
+    const obj: Record<string, string> = {};
+    headers.forEach((header, i) => {
+      const key = String(header ?? "").trim();
+      if (!key) return;
+      obj[key] = String(row[i] ?? "").trim();
+    });
+    return obj;
+  });
+}
+
 export function rowToArrayByHeaders(headers: string[], row: Record<string, string>): string[] {
   return headers.map((h) => String(row[h] ?? ""));
 }

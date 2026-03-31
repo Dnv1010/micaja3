@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { formatCOP, formatDateDDMMYYYY, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type EntregaItem = Record<string, unknown>;
@@ -43,7 +43,7 @@ export default function EntregasPage() {
 
   const totalRecibido = useMemo(
     () =>
-      entregas.reduce((acc, e) => acc + parseCOPString(getCellCaseInsensitive(e, "Monto", "Monto_Entregado")), 0),
+      entregas.reduce((acc, e) => acc + parseMonto(getCellCaseInsensitive(e, "Monto_Entregado", "Monto")), 0),
     [entregas]
   );
 
@@ -62,30 +62,28 @@ export default function EntregasPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Monto</TableHead>
+                <TableHead>Monto entregado</TableHead>
                 <TableHead>Enviado por</TableHead>
-                <TableHead>Observaciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={`sk-${i}`}>
-                    <TableCell colSpan={4}><div className="h-5 w-full animate-pulse rounded bg-zinc-800" /></TableCell>
+                    <TableCell colSpan={3}><div className="h-5 w-full animate-pulse rounded bg-zinc-800" /></TableCell>
                   </TableRow>
                 ))
               ) : entregas.length ? (
                 entregas.map((e, i) => (
                   <TableRow key={`e-${i}`}>
-                    <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(e, "Fecha", "Fecha_Entrega"))}</TableCell>
-                    <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(e, "Monto", "Monto_Entregado")))}</TableCell>
-                    <TableCell>{getCellCaseInsensitive(e, "EnviadoPor", "usuario", "Responsable") || "-"}</TableCell>
-                    <TableCell>{getCellCaseInsensitive(e, "Observaciones") || "-"}</TableCell>
+                    <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(e, "Fecha_Entrega", "Fecha"))}</TableCell>
+                    <TableCell>{formatCOP(parseMonto(getCellCaseInsensitive(e, "Monto_Entregado", "Monto")))}</TableCell>
+                    <TableCell>{getCellCaseInsensitive(e, "ComprobanteEnvio", "Comprobante") || "—"}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-zinc-500">No hay entregas para el rango seleccionado</TableCell>
+                  <TableCell colSpan={3} className="text-zinc-500">No hay entregas para el rango seleccionado</TableCell>
                 </TableRow>
               )}
             </TableBody>

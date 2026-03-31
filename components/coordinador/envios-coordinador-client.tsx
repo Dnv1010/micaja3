@@ -7,26 +7,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import type { FallbackUser } from "@/lib/users-fallback";
 
 type EnvioRow = Record<string, unknown>;
 
+function isoDateToDDMMYYYY(iso: string): string {
+  const m = iso.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 export function EnviosCoordinadorClient({
   sector,
   zoneUsers,
-  coordinatorName,
 }: {
   sector: string;
   zoneUsers: FallbackUser[];
-  coordinatorName: string;
 }) {
   const [responsable, setResponsable] = useState("");
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [monto, setMonto] = useState("");
-  const [observaciones, setObservaciones] = useState("");
+  const [comprobante, setComprobante] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [sending, setSending] = useState(false);
   const [okMsg, setOkMsg] = useState("");
 
@@ -46,11 +50,6 @@ export function EnviosCoordinadorClient({
       const res = await fetch(`/api/envios?${q}`);
       const json = await res.json().catch(() => ({ data: [] }));
       const rows = Array.isArray(json.data) ? json.data : [];
-      rows.sort((a: EnvioRow, b: EnvioRow) => {
-        const fa = getCellCaseInsensitive(a, "Fecha");
-        const fb = getCellCaseInsensitive(b, "Fecha");
-        return fb.localeCompare(fa);
-      });
       setLista(rows);
     } catch {
       setLista([]);
@@ -74,24 +73,31 @@ export function EnviosCoordinadorClient({
     if (!responsable || !monto) return;
     setSending(true);
     setOkMsg("");
+    const montoNum = Number(monto);
+    if (!Number.isFinite(montoNum) || montoNum <= 0) {
+      setOkMsg("Indica un monto válido mayor a 0.");
+      setSending(false);
+      return;
+    }
     try {
+      const body = {
+        responsable,
+        monto: montoNum,
+        fecha: isoDateToDDMMYYYY(fecha),
+        comprobante: comprobante.trim(),
+        telefono: telefono.trim(),
+      };
       const res = await fetch("/api/envios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fecha,
-          responsable,
-          sector,
-          monto,
-          enviadoPor: coordinatorName,
-          observaciones,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
         setOkMsg(`✅ Envío registrado para ${responsable}`);
         setMonto("");
-        setObservaciones("");
+        setComprobante("");
+        setTelefono("");
         setResponsable("");
         void cargarLista();
       } else {
@@ -130,24 +136,35 @@ export function EnviosCoordinadorClient({
             <div className="space-y-1">
               <Label>Fecha</Label>
               <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+              <p className="text-xs text-zinc-500">Se guarda como {isoDateToDDMMYYYY(fecha)}</p>
             </div>
             <div className="space-y-1">
               <Label>Monto</Label>
               <Input
                 type="number"
+                min={1}
                 value={monto}
                 onChange={(e) => setMonto(e.target.value)}
                 className="bg-zinc-900 border-zinc-700"
               />
               <p className="text-xs text-zinc-500">{formatCOP(Number(monto || 0))}</p>
             </div>
-            <div className="space-y-1 sm:col-span-2">
-              <Label>Observaciones</Label>
-              <Textarea
-                value={observaciones}
-                onChange={(e) => setObservaciones(e.target.value)}
+            <div className="space-y-1">
+              <Label>Comprobante</Label>
+              <Input
+                value={comprobante}
+                onChange={(e) => setComprobante(e.target.value)}
+                placeholder="Opcional"
                 className="bg-zinc-900 border-zinc-700"
-                rows={3}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Teléfono</Label>
+              <Input
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                placeholder="Opcional"
+                className="bg-zinc-900 border-zinc-700"
               />
             </div>
             <div className="sm:col-span-2">
@@ -198,13 +215,14 @@ export function EnviosCoordinadorClient({
                   <TableHead>Fecha</TableHead>
                   <TableHead>Usuario</TableHead>
                   <TableHead>Monto</TableHead>
-                  <TableHead>Observaciones</TableHead>
+                  <TableHead>Comprobante</TableHead>
+                  <TableHead>Teléfono</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4}>
+                    <TableCell colSpan={5}>
                       <div className="h-6 animate-pulse rounded bg-zinc-800" />
                     </TableCell>
                   </TableRow>
@@ -214,12 +232,13 @@ export function EnviosCoordinadorClient({
                       <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(r, "Fecha"))}</TableCell>
                       <TableCell>{getCellCaseInsensitive(r, "Responsable")}</TableCell>
                       <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(r, "Monto")))}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{getCellCaseInsensitive(r, "Observaciones") || "-"}</TableCell>
+                      <TableCell className="max-w-[180px] truncate">{getCellCaseInsensitive(r, "Comprobante") || "—"}</TableCell>
+                      <TableCell>{getCellCaseInsensitive(r, "Telefono") || "—"}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-zinc-500">
+                    <TableCell colSpan={5} className="text-zinc-500">
                       Sin envíos en el período
                     </TableCell>
                   </TableRow>
