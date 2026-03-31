@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CENTRO_COSTO_INFO } from "@/lib/format";
+import { SERVICIOS_DECLARADOS, TIPOS_FACTURA_FIJOS } from "@/lib/factura-field-options";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { canEditVerificado } from "@/lib/roles";
 
@@ -76,18 +77,28 @@ export function FacturaForm({
   }, [session?.user?.responsable]);
 
   const onOcr = (data: OcrResult) => {
-    setForm((f) => ({
-      ...f,
-      Num_Factura: data.num_factura || f.Num_Factura,
-      Fecha_Factura: data.fecha_factura || f.Fecha_Factura,
-      Monto_Factura: data.monto_factura != null ? String(data.monto_factura) : f.Monto_Factura,
-      Nit_Factura: data.nit_factura || f.Nit_Factura,
-      Razon_Social: data.razon_social || f.Razon_Social,
-      Nombre_bia: data.nombre_bia ? "Si" : "No",
-      Observacion: data.descripcion || f.Observacion,
-      Adjuntar_Factura: data.image_url || f.Adjuntar_Factura,
-      Ciudad: data.ciudad || f.Ciudad,
-    }));
+    setForm((f) => {
+      const tipos = catalogos?.tiposFactura?.length
+        ? catalogos.tiposFactura
+        : [...TIPOS_FACTURA_FIJOS];
+      const servs = catalogos?.servicios?.length ? catalogos.servicios : [...SERVICIOS_DECLARADOS];
+      const tipoOk = data.tipo_factura && tipos.includes(data.tipo_factura);
+      const servOk = data.servicio_declarado && servs.includes(data.servicio_declarado);
+      return {
+        ...f,
+        Num_Factura: data.num_factura || f.Num_Factura,
+        Fecha_Factura: data.fecha_factura || f.Fecha_Factura,
+        Monto_Factura: data.monto_factura != null ? String(data.monto_factura) : f.Monto_Factura,
+        Nit_Factura: data.nit_factura || f.Nit_Factura,
+        Razon_Social: data.razon_social || f.Razon_Social,
+        Nombre_bia: data.nombre_bia ? "Si" : "No",
+        Observacion: data.descripcion || f.Observacion,
+        Adjuntar_Factura: data.image_url || f.Adjuntar_Factura,
+        Ciudad: data.ciudad || f.Ciudad,
+        Tipo_Factura: tipoOk ? data.tipo_factura! : f.Tipo_Factura,
+        Tipo_servicio: servOk ? data.servicio_declarado! : f.Tipo_servicio,
+      };
+    });
     setError("");
   };
 

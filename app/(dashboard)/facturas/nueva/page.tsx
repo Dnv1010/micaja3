@@ -63,6 +63,9 @@ type OcrPayload = {
   image_url?: string | null;
   message?: string | null;
   nombre_bia?: boolean | null;
+  ciudad?: string | null;
+  tipo_factura?: string | null;
+  servicio_declarado?: string | null;
 };
 
 const PROGRESS_STEPS = ["Seleccionar", "Subir", "Extraer", "Revisar", "Guardar"] as const;
@@ -269,6 +272,18 @@ export default function NuevaFacturaPage() {
           setValor(String(Math.round(d.monto_factura)));
         }
         if (d.nombre_bia === true) setANombreBia(true);
+        if (d.ciudad && (CIUDADES_FACTURA as readonly string[]).includes(d.ciudad)) {
+          setCiudad(d.ciudad);
+        }
+        if (d.tipo_factura && (TIPOS_FACTURA_FIJOS as readonly string[]).includes(d.tipo_factura)) {
+          setTipoFactura(d.tipo_factura);
+        }
+        if (
+          d.servicio_declarado &&
+          (SERVICIOS_DECLARADOS as readonly string[]).includes(d.servicio_declarado)
+        ) {
+          setServicioDeclarado(d.servicio_declarado);
+        }
         setImagenUrl(String(d.image_url || url));
         if (d.message) {
           setOcrHint(d.message);

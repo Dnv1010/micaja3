@@ -14,6 +14,8 @@ export interface OcrResult {
   nombre_bia: boolean | null;
   ciudad: string | null;
   descripcion: string | null;
+  tipo_factura: string | null;
+  servicio_declarado: string | null;
   image_url: string;
   drive_file_id?: string | null;
   raw_text?: string;
@@ -126,6 +128,8 @@ export function FacturaUploadOcr({
           nombre_bia: d.nombre_bia ?? null,
           ciudad: d.ciudad ?? null,
           descripcion: d.descripcion ?? null,
+          tipo_factura: d.tipo_factura ?? null,
+          servicio_declarado: d.servicio_declarado ?? null,
           image_url: String(d.image_url || url),
           drive_file_id: fileId,
           raw_text: d.raw_text,
