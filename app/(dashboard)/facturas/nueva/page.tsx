@@ -20,6 +20,7 @@ import {
   TIPOS_FACTURA_FIJOS,
   TIPOS_OPERACION,
 } from "@/lib/factura-field-options";
+import { FALLBACK_USERS } from "@/lib/users-fallback";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { isFechaFacturaFutura, parseFechaFacturaDDMMYYYY } from "@/lib/nueva-factura-validation";
 
@@ -154,9 +155,15 @@ export default function NuevaFacturaPage() {
   const [sectorForm, setSectorForm] = useState("");
   const [aNombreBia, setANombreBia] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [responsableTarget, setResponsableTarget] = useState("");
 
   const sessionSector = String(user?.sector || "");
-  const responsable = String(user?.responsable || user?.name || "");
+  const rol = String(user?.rol || "user").toLowerCase();
+
+  const usuariosZona = useMemo(
+    () => FALLBACK_USERS.filter((u) => u.sector === sessionSector && u.userActive),
+    [sessionSector]
+  );
 
   useEffect(() => {
     const s = String(user?.sector || "");
@@ -168,6 +175,12 @@ export default function NuevaFacturaPage() {
       return prev;
     });
   }, [user?.sector]);
+
+  useEffect(() => {
+    const def = String(user?.responsable || user?.name || "").trim();
+    if (!def) return;
+    setResponsableTarget((prev) => (prev ? prev : def));
+  }, [user?.responsable, user?.name]);
 
   const maxFechaInput = useMemo(() => toInputDate(getTodayDDMMYYYY()), []);
 
@@ -223,7 +236,7 @@ export default function NuevaFacturaPage() {
       const formUp = new FormData();
       formUp.append("file", file);
       formUp.append("sector", sessionSector);
-      formUp.append("responsable", responsable);
+      formUp.append("responsable", responsableTarget || String(user?.responsable || ""));
       if (fecha.trim()) formUp.append("fecha", fecha.trim());
 
       const upRes = await fetch("/api/facturas/upload", {
@@ -319,6 +332,10 @@ export default function NuevaFacturaPage() {
 
   async function saveFactura() {
     if (!user) return;
+    if (!responsableTarget.trim()) {
+      setSaveError("Seleccione o confirme el responsable.");
+      return;
+    }
     const localErr = validateLocal();
     if (localErr) {
       setSaveError(localErr);
@@ -340,7 +357,7 @@ export default function NuevaFacturaPage() {
         aNombreBia,
         ciudad,
         sector: sectorForm,
-        responsable: String(user.responsable || ""),
+        responsable: responsableTarget.trim(),
         area: String(user.area || ""),
         imagenUrl: imagenUrl.trim(),
         driveFileId: driveFileId.trim(),
@@ -671,7 +688,36 @@ export default function NuevaFacturaPage() {
 
           <div className="space-y-1.5">
             <Label>Responsable</Label>
-            <Input value={user?.responsable || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
+            {rol === "coordinador" || rol === "admin" ? (
+              <Select
+                value={responsableTarget}
+                onValueChange={(v) => setResponsableTarget(v || "")}
+              >
+                <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                  <SelectValue placeholder="Seleccionar responsable" />
+                </SelectTrigger>
+                <SelectContent>
+                  {user?.responsable ? (
+                    <SelectItem value={String(user.responsable)}>
+                      {user.responsable} (yo)
+                    </SelectItem>
+                  ) : null}
+                  {usuariosZona
+                    .filter((u) => u.responsable !== user?.responsable)
+                    .map((u) => (
+                      <SelectItem value={u.responsable} key={u.email}>
+                        {u.responsable} — {u.cargo}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={responsableTarget}
+                readOnly
+                className="bg-zinc-900 border-zinc-700 opacity-80"
+              />
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Área</Label>

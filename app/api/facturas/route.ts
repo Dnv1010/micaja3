@@ -84,6 +84,11 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const rolPost = String(session.user.rol || "user").toLowerCase();
+  if (rolPost !== "user" && rolPost !== "coordinador" && rolPost !== "admin") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  }
+
   try {
     const body = (await req.json()) as {
       fecha?: string;
@@ -146,7 +151,17 @@ export async function POST(req: NextRequest) {
     await loadMicajaFacturasSheetRows();
 
     const id = String(Date.now());
-    const responsable = body.responsable || String(session.user.responsable || "");
+    const responsable = String(body.responsable || session.user.responsable || "").trim();
+    if (!responsable) {
+      return NextResponse.json({ error: "Falta responsable" }, { status: 400 });
+    }
+    if (rolPost === "coordinador") {
+      const setZ = responsablesEnZonaSet(String(session.user.sector || ""));
+      const mine = String(session.user.responsable || "").trim().toLowerCase();
+      if (responsable.toLowerCase() !== mine && !setZ.has(responsable.toLowerCase())) {
+        return NextResponse.json({ error: "Responsable fuera de su zona" }, { status: 403 });
+      }
+    }
     const sectorFinal = sector || String(session.user.sector || "");
 
     const fila = buildMicajaFacturasLegacyRowAS({

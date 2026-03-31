@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { formatCOP, parseCOPString } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type LegRow = Record<string, unknown>;
@@ -42,7 +42,7 @@ export function LegalizacionesCoordinadorClient() {
     let mounted = true;
     async function load() {
       try {
-        const res = await fetch(`/api/legalizaciones?coordinador=${encodeURIComponent(coordinador)}`);
+        const res = await fetch("/api/legalizaciones");
         const json = await res.json().catch(() => ({ data: [] }));
         if (!mounted) return;
         setRows(Array.isArray(json.data) ? json.data : []);
@@ -77,6 +77,11 @@ export function LegalizacionesCoordinadorClient() {
   }
 
   async function descargarPdf(row: LegRow) {
+    const pdfDirect = String(getCellCaseInsensitive(row, "PDF_URL", "PdfURL") || "").trim();
+    if (pdfDirect) {
+      window.open(pdfDirect, "_blank");
+      return;
+    }
     const datosRaw = getCellCaseInsensitive(row, "DatosPdfJSON");
     const parsed = datosRaw ? parsePayload(String(datosRaw)) : null;
     if (parsed) {
@@ -95,7 +100,7 @@ export function LegalizacionesCoordinadorClient() {
         /* fallback a PDF almacenado */
       }
     }
-    const url = getCellCaseInsensitive(row, "PdfURL");
+    const url = getCellCaseInsensitive(row, "PDF_URL", "PdfURL");
     const b64 = getCellCaseInsensitive(row, "PdfBase64");
     if (url) {
       window.open(url, "_blank");
@@ -140,16 +145,22 @@ export function LegalizacionesCoordinadorClient() {
                 </TableRow>
               ) : sorted.length ? (
                 sorted.map((r, i) => {
-                  const estado = getCellCaseInsensitive(r, "Estado") || "Pendiente revisión";
-                  const aprobado = estado.toLowerCase().includes("aprobado") && !estado.toLowerCase().includes("pendiente");
+                  const estado = getCellCaseInsensitive(r, "Estado") || "Pendiente Admin";
+                  const aprobado = estado.toLowerCase() === "firmado";
                   const tieneDatos = !!String(getCellCaseInsensitive(r, "DatosPdfJSON") || "").trim();
-                  const tienePdf = !!getCellCaseInsensitive(r, "PdfURL") || !!getCellCaseInsensitive(r, "PdfBase64");
+                  const tienePdf =
+                    !!String(getCellCaseInsensitive(r, "PDF_URL", "PdfURL") || "").trim() ||
+                    !!getCellCaseInsensitive(r, "PdfBase64");
                   const puedeDescargar = tieneDatos || tienePdf;
+                  const desdeP = getCellCaseInsensitive(r, "Periodo_Desde") || getCellCaseInsensitive(r, "Periodo");
+                  const hastaP = getCellCaseInsensitive(r, "Periodo_Hasta");
+                  const periodoTxt = hastaP ? `${desdeP} → ${hastaP}` : desdeP || "—";
+                  const totalC = getCellCaseInsensitive(r, "Total") || getCellCaseInsensitive(r, "TotalAprobado");
                   return (
                     <TableRow key={i}>
-                      <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(r, "Fecha"))}</TableCell>
-                      <TableCell>{getCellCaseInsensitive(r, "Periodo")}</TableCell>
-                      <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(r, "TotalAprobado")))}</TableCell>
+                      <TableCell>{getCellCaseInsensitive(r, "Fecha") || "—"}</TableCell>
+                      <TableCell className="max-w-[220px] text-xs">{periodoTxt}</TableCell>
+                      <TableCell>{formatCOP(parseCOPString(totalC))}</TableCell>
                       <TableCell>{estadoBadge(estado)}</TableCell>
                       <TableCell>
                         {puedeDescargar ? (
@@ -159,7 +170,7 @@ export function LegalizacionesCoordinadorClient() {
                             size="sm"
                             onClick={() => void descargarPdf(r)}
                           >
-                            {aprobado ? "⬇ Descargar PDF firmado" : "⬇ Descargar PDF"}
+                            {aprobado ? "⬇ Descargar PDF firmado" : "⬇ Descargar borrador / PDF"}
                           </Button>
                         ) : (
                           "—"

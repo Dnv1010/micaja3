@@ -47,6 +47,7 @@ function puedeCoordinadorEditar(session: { user?: { rol?: string; sector?: strin
 
 function estadoEdicionPermitido(row: FacturaRow): boolean {
   const e = facturaEstadoRow(row).toLowerCase();
+  if (e === "completada") return false;
   return e === "pendiente" || e === "rechazada";
 }
 
@@ -229,6 +230,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const headers = rows[0] || [];
 
   if (isApproval) {
+    if (facturaEstadoRow(found).toLowerCase() === "completada") {
+      return NextResponse.json({ error: "La factura ya fue incluida en un reporte (Completada)" }, { status: 400 });
+    }
     if (!puedeCoordinadorEditar(session, found)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }

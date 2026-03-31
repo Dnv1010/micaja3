@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { assertSheetsConfigured, getDriveClient } from "@/lib/google-sheets";
 import { getDriveFacturasRootFolderId } from "@/lib/drive-env";
-import { resolveFacturaUploadFolder } from "@/lib/drive-folders";
+import { findOrCreateChildFolder, resolveFacturaUploadFolder } from "@/lib/drive-folders";
 
 const ALLOWED = new Map([
   ["image/jpeg", "jpg"],
@@ -88,13 +88,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Falta el archivo (campo file)" }, { status: 400 });
     }
 
-    const sector = String(formData.get("sector") || "").trim();
-    if (!VALID_SECTORS.has(sector)) {
+    const destino = String(formData.get("destino") || "").trim();
+    const isReportes = destino === "reportes";
+
+    let sector = String(formData.get("sector") || "").trim();
+    if (!isReportes && !VALID_SECTORS.has(sector)) {
       return NextResponse.json({ error: 'sector debe ser "Bogota" o "Costa Caribe"' }, { status: 400 });
     }
 
     const sessionSector = String(session.user.sector || "").trim();
-    if (rol === "user" || rol === "coordinador") {
+    if (isReportes) {
+      if (rol !== "admin") {
+        return NextResponse.json({ error: "Solo el administrador puede subir PDFs de reportes" }, { status: 403 });
+      }
+      sector = sessionSector && VALID_SECTORS.has(sessionSector) ? sessionSector : "Bogota";
+    } else if (rol === "user" || rol === "coordinador") {
       if (sessionSector && sector !== sessionSector) {
         return NextResponse.json({ error: "El sector no coincide con su cuenta" }, { status: 403 });
       }
@@ -124,7 +132,9 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const yyyyMm = folderYearMonth(fecha || null);
     const drive = getDriveClient();
-    const parentId = await resolveFacturaUploadFolder(drive, rootFolderId, sector, yyyyMm);
+    const parentId = isReportes
+      ? await findOrCreateChildFolder(drive, rootFolderId, "Reportes")
+      : await resolveFacturaUploadFolder(drive, rootFolderId, sector, yyyyMm);
 
     const now = new Date();
     const y = now.getFullYear();

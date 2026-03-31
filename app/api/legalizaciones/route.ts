@@ -1,51 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Readable } from "stream";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { getDriveFacturasRootFolderId } from "@/lib/drive-env";
-import { getDriveClient, SHEET_NAMES } from "@/lib/google-sheets";
-import { appendSheetRow, getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
-import { buildAppendRow } from "@/lib/sheet-row";
+import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
+import { applyFacturaEstadoById } from "@/lib/factura-estado-server";
+import { quoteSheetTitleForRange, rowsToObjects, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
-import type { LegalizacionRow } from "@/types/models";
+import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
+import type { FacturaRow } from "@/types/models";
 
-const LEG_HEADERS = [
-  "ID",
-  "Fecha",
-  "Coordinador",
-  "Zona",
-  "Periodo",
-  "TotalAprobado",
-  "FacturasIds",
-  "FirmaCoordinador",
-  "PdfBase64",
-  "PdfURL",
-  "DatosPdfJSON",
-  "Estado",
-];
+const RANGE = `${quoteSheetTitleForRange(SHEET_NAMES.LEGALIZACIONES)}!A:M`;
 
-async function getLegalRowsWithHeaders(): Promise<string[][]> {
-  const rows = await getSheetData("MICAJA", SHEET_NAMES.LEGALIZACIONES);
-  if (!rows.length || !rows[0]?.some((c) => String(c || "").trim())) {
-    await appendSheetRow("MICAJA", SHEET_NAMES.LEGALIZACIONES, LEG_HEADERS);
-    return getSheetData("MICAJA", SHEET_NAMES.LEGALIZACIONES);
-  }
-  return rows;
+function spreadsheetId(): string {
+  const id = SPREADSHEET_IDS.MICAJA.trim();
+  if (!id) throw new Error("MICAJA_SPREADSHEET_ID no configurada");
+  return id;
 }
 
-export async function GET(req: NextRequest) {
+function facturaIdCell(f: FacturaRow): string {
+  return getCellCaseInsensitive(f, "ID_Factura", "ID");
+}
+
+function facturaEstadoCell(f: FacturaRow): string {
+  return getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
+}
+
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const coordinadorQ = new URL(req.url).searchParams.get("coordinador")?.trim().toLowerCase() || "";
-    const rows = await getLegalRowsWithHeaders();
-    let data = rowsToObjects<LegalizacionRow>(rows);
-    if (coordinadorQ) {
-      data = data.filter(
-        (r) => getCellCaseInsensitive(r, "Coordinador").toLowerCase() === coordinadorQ
-      );
+    assertSheetsConfigured();
+    const res = await getSheetsClient().spreadsheets.values.get({
+      spreadsheetId: spreadsheetId(),
+      range: RANGE,
+    });
+    const rows = res.data.values ?? [];
+    let data = sheetValuesToRecords(rows);
+
+    const rol = String(session.user.rol || "").toLowerCase();
+    const coordinador = String(session.user.responsable || session.user.name || "").trim();
+
+    if (rol !== "admin") {
+      data = data.filter((r) => String(r.Coordinador || "").trim() === coordinador);
     }
+
+    data.reverse();
     return NextResponse.json({ data });
   } catch {
     return NextResponse.json({ data: [] });
@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
   const rol = String(session.user.rol || "user").toLowerCase();
   if (rol !== "coordinador" && rol !== "admin") {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
@@ -62,81 +63,92 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = (await req.json()) as {
-      coordinador?: string;
-      zona?: string;
-      periodo?: string;
-      totalAprobado?: string;
-      facturasIds?: string;
+      periodoDe?: string;
+      periodoHasta?: string;
+      total?: string | number;
+      facturasIds?: string[];
       firmaCoordinador?: string;
-      pdfBase64?: string;
-      datosPdfJson?: string;
     };
 
-    const coordinador = String(body.coordinador || session.user?.responsable || session.user?.name || "");
-    const id = `LEG_${Date.now()}`;
-    const fecha = new Date().toISOString();
-    let pdfUrl = "";
-    const rawPdf = String(body.pdfBase64 || "");
-    const folderId = getDriveFacturasRootFolderId();
+    const periodoDe = String(body.periodoDe || "").trim();
+    const periodoHasta = String(body.periodoHasta || "").trim();
+    const facturasIds = Array.isArray(body.facturasIds) ? body.facturasIds.map(String) : [];
+    const firmaCoordinador = String(body.firmaCoordinador || "").trim().slice(0, 45000);
+    const totalStr = String(
+      typeof body.total === "number" && Number.isFinite(body.total) ? Math.round(body.total) : body.total || "0"
+    );
 
-    if (rawPdf && folderId) {
-      try {
-        const drive = getDriveClient();
-        const base64 = rawPdf.includes(",") ? rawPdf.split(",")[1] : rawPdf;
-        const buffer = Buffer.from(base64, "base64");
-        const driveResponse = await drive.files.create({
-          requestBody: {
-            name: `legalizacion_${id}.pdf`,
-            parents: [folderId],
-          },
-          media: {
-            mimeType: "application/pdf",
-            body: Readable.from(buffer),
-          },
-          fields: "id, webViewLink",
-          supportsAllDrives: true,
-        });
-        await drive.permissions.create({
-          fileId: driveResponse.data.id!,
-          requestBody: { role: "reader", type: "anyone" },
-          supportsAllDrives: true,
-        });
-        pdfUrl = `https://drive.google.com/file/d/${driveResponse.data.id}/view`;
-      } catch {
-        /* sin PDF en Drive */
+    if (!periodoDe || !periodoHasta || !facturasIds.length || !firmaCoordinador) {
+      return NextResponse.json(
+        { error: "Faltan periodoDe, periodoHasta, facturasIds o firmaCoordinador" },
+        { status: 400 }
+      );
+    }
+
+    const sector = String(session.user.sector || "").trim();
+    const coordinadorNombre = String(session.user.responsable || session.user.name || "").trim();
+    const zonaSet = rol === "coordinador" ? responsablesEnZonaSet(sector) : null;
+    const mine = coordinadorNombre.toLowerCase();
+
+    const factRows = await loadMicajaFacturasSheetRows();
+    const facturas = rowsToObjects<FacturaRow>(factRows);
+    const byId = new Map(facturas.map((f) => [facturaIdCell(f), f]));
+
+    for (const fid of facturasIds) {
+      const f = byId.get(fid);
+      if (!f) {
+        return NextResponse.json({ error: `Factura no encontrada: ${fid}` }, { status: 400 });
+      }
+      const est = facturaEstadoCell(f).toLowerCase();
+      if (est === "completada") {
+        return NextResponse.json({ error: `La factura ${fid} ya está completada` }, { status: 400 });
+      }
+      if (est !== "aprobada") {
+        return NextResponse.json({ error: `La factura ${fid} no está aprobada` }, { status: 400 });
+      }
+      if (zonaSet) {
+        const resp = getCellCaseInsensitive(f, "Responsable").toLowerCase();
+        if (!zonaSet.has(resp) && resp !== mine) {
+          return NextResponse.json({ error: `Factura fuera de zona: ${fid}` }, { status: 403 });
+        }
       }
     }
 
-    const pdfCell = rawPdf.length > 45000 ? "" : rawPdf;
+    const id = `REP-${Date.now()}`;
+    const fila = [
+      id,
+      new Date().toLocaleDateString("es-CO"),
+      coordinadorNombre,
+      sector,
+      periodoDe,
+      periodoHasta,
+      totalStr,
+      "Pendiente Admin",
+      JSON.stringify(facturasIds),
+      firmaCoordinador,
+      "",
+      "",
+      new Date().toISOString(),
+    ];
 
-    const datosJson = String(body.datosPdfJson || "").slice(0, 49000);
+    assertSheetsConfigured();
+    await getSheetsClient().spreadsheets.values.append({
+      spreadsheetId: spreadsheetId(),
+      range: RANGE,
+      valueInputOption: "RAW",
+      requestBody: { values: [fila] },
+    });
 
-    const row: Record<string, string> = {
-      ID: id,
-      Fecha: fecha,
-      Coordinador: coordinador,
-      Zona: String(body.zona || ""),
-      Periodo: String(body.periodo || ""),
-      TotalAprobado: String(body.totalAprobado || "0"),
-      FacturasIds: String(body.facturasIds || ""),
-      FirmaCoordinador: String(body.firmaCoordinador || "").slice(0, 45000),
-      PdfBase64: pdfCell,
-      PdfURL: pdfUrl,
-      DatosPdfJSON: datosJson,
-      Estado: "Pendiente revisión",
-    };
-
-    const rows = await getLegalRowsWithHeaders();
-    const headers = rows[0];
-    if (!headers?.length) return NextResponse.json({ error: "Sin encabezados" }, { status: 500 });
-    const rowOut: Record<string, string> = {};
-    for (const h of headers) {
-      const key = String(h || "").trim();
-      if (key && key in row) rowOut[key] = row[key];
+    for (const fid of facturasIds) {
+      const r = await applyFacturaEstadoById(fid, "Completada", "");
+      if (!r.ok) {
+        console.error("legalizaciones POST: no se pudo marcar Completada", fid, r);
+      }
     }
-    await appendSheetRow("MICAJA", SHEET_NAMES.LEGALIZACIONES, buildAppendRow(headers, rowOut));
-    return NextResponse.json({ ok: true, id, pdfURL: pdfUrl });
-  } catch {
-    return NextResponse.json({ ok: false, error: "No se pudo guardar la legalizacion" }, { status: 500 });
+
+    return NextResponse.json({ ok: true, id });
+  } catch (e) {
+    console.error("legalizaciones POST:", e);
+    return NextResponse.json({ ok: false, error: "No se pudo crear el reporte" }, { status: 500 });
   }
 }

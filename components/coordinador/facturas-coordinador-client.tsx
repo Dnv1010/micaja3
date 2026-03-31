@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
@@ -287,6 +288,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                   const puedeAprobarRechazar =
                     (rolSesion === "coordinador" || rolSesion === "admin") && estLower === "pendiente";
                   const puedeEditar =
+                    estLower !== "completada" &&
                     (estLower === "pendiente" || estLower === "rechazada") &&
                     (rolSesion === "admin" || rolSesion === "coordinador" || esPropio);
                   const puedeEliminar = rolSesion === "coordinador" || rolSesion === "admin";
@@ -388,6 +390,13 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
         </div>
         <p className="text-right text-sm text-zinc-400">Total facturas: {facturas.length}</p>
       </CardContent>
+      <Link
+        href="/facturas/nueva"
+        className="fixed bottom-20 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-black text-lg text-white shadow-lg hover:bg-zinc-800"
+        aria-label="Nueva factura"
+      >
+        +
+      </Link>
     </Card>
   );
 }
