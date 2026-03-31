@@ -2,8 +2,8 @@ export type FallbackUser = {
   email: string;
   pin: string;
   responsable: string;
-  rol: string;
-  sector: string;
+  rol: "user" | "coordinador" | "admin";
+  sector: "Bogota" | "Costa Caribe";
   area: string;
   cargo: string;
   userActive: boolean;
@@ -21,7 +21,7 @@ export const FALLBACK_USERS: FallbackUser[] = [
   { email: "alejandro.cano@bia.app", pin: "1234", responsable: "Alejandro Cano", rol: "user", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Almacenista", userActive: true },
   { email: "brayan.roncancio@bia.app", pin: "1234", responsable: "Alexander Roncancio", rol: "coordinador", sector: "Bogota", area: "Bia Bogota", cargo: "Operations Coordinator", userActive: false },
   { email: "daniel.florez@bia.app", pin: "1234", responsable: "Daniel Florez", rol: "admin", sector: "Bogota", area: "Bia Bogota", cargo: "Sr. Field Operations Manager", userActive: true },
-  { email: "ervison.plata@bia.app", pin: "1234", responsable: "Ervison Plata", rol: "coordinador", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Fiel Operation Planner", userActive: true },
+  { email: "ervison.plata@bia.app", pin: "1234", responsable: "Ervison Plata", rol: "coordinador", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Field Operation Planner", userActive: true },
   { email: "carlos.salas@bia.app", pin: "1234", responsable: "Carlos Salas", rol: "user", sector: "Bogota", area: "Bia Bogota", cargo: "Tec. Electricista", userActive: true },
   { email: "edicson.lopez@bia.app", pin: "1234", responsable: "Edicson Lopez", rol: "user", sector: "Bogota", area: "Bia Bogota", cargo: "Tec. Electricista", userActive: true },
   { email: "harry.baquero@bia.app", pin: "1234", responsable: "Harry Baquero", rol: "user", sector: "Bogota", area: "Bia Bogota", cargo: "Tec. Electricista", userActive: true },

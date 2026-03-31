@@ -3,31 +3,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { filterNavForSession } from "@/lib/nav";
 import type { Session } from "next-auth";
-import {
-  LayoutDashboard,
-  FileText,
-  Wallet,
-  Scale,
-  MoreHorizontal,
-} from "lucide-react";
+import { LayoutDashboard, FileText, Package, MoreHorizontal } from "lucide-react";
 
 const SHORT: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/facturas", label: "Facturas", icon: FileText },
-  { href: "/entregas", label: "Entregas", icon: Wallet },
-  { href: "/legalizaciones", label: "Legal.", icon: Scale },
+  { href: "/entregas", label: "Entregas", icon: Package },
 ];
+
+function allowedRoutesByRole(rol: string): string[] {
+  if (rol === "admin") return ["/", "/admin/reportes", "/admin/facturas", "/admin/usuarios"];
+  if (rol === "coordinador") return ["/", "/envios", "/facturas", "/reporte"];
+  return ["/", "/facturas", "/entregas"];
+}
 
 export function MobileBottomNav({ session }: { session: Session }) {
   const pathname = usePathname();
-  const all = filterNavForSession(session);
-  const allowed = new Set(all.map((i) => i.href));
+  const rol = String(session.user?.rol || "user").toLowerCase();
+  const allowed = new Set(allowedRoutesByRole(rol));
   const tabs = SHORT.filter((s) => allowed.has(s.href));
   const shortTabs = tabs.length ? tabs : [{ href: "/", label: "Inicio", icon: LayoutDashboard }];
-  const moreHref =
-    all.find((i) => !shortTabs.some((s) => s.href === i.href))?.href || "/facturas";
+  const moreHref = Array.from(allowed).find((href) => !shortTabs.some((s) => s.href === href)) || "/";
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t bg-background md:hidden safe-area-pb">

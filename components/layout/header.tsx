@@ -12,6 +12,7 @@ export function Header({ serverSession }: { serverSession: Session }) {
   const { data } = useSession();
   const user = data?.user ?? serverSession.user;
   const rol = user?.rol || "user";
+  const sector = user?.sector || "";
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -36,7 +37,12 @@ export function Header({ serverSession }: { serverSession: Session }) {
           <span className="block font-medium text-foreground truncate">
             {user?.name || user?.email}
           </span>
-          {user?.cargo ? <span className="block text-xs truncate">{user.cargo}</span> : null}
+          {(user?.cargo || sector) ? (
+            <span className="block text-xs truncate">
+              {user?.cargo || "Sin cargo"}
+              {sector ? ` · ${sector}` : ""}
+            </span>
+          ) : null}
         </span>
         <RoleBadge rol={rol} />
         <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/login" })}>
@@ -46,8 +52,10 @@ export function Header({ serverSession }: { serverSession: Session }) {
       </div>
 
       <div className="flex items-center gap-2 md:hidden">
-        <RoleBadge rol={rol} />
-        <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesión">
+        <span className="text-xs text-right leading-tight text-zinc-300 max-w-[140px] truncate">
+          {user?.name}
+        </span>
+        <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesion">
           <LogOut className="h-5 w-5" />
         </Button>
       </div>

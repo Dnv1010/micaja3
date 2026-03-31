@@ -3,36 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetData } from "@/lib/sheets-helpers";
-import { sessionCtxFromSession } from "@/lib/session-ctx";
-import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const ctx = sessionCtxFromSession(session);
-  if (!ctx) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const key = spreadsheetKeyForSession(ctx);
-
-  try {
-    const [tipos, servicios, ciudades] = await Promise.all([
-      getSheetData(key, SHEET_NAMES.TIPO_FACTURA),
-      getSheetData("QUICKFUNDS", SHEET_NAMES.SERVICIO_DECLARADO),
-      getSheetData("MICAJA", SHEET_NAMES.CIUDAD),
-    ]);
-
-    const tipoList = tipos.slice(1).map((r) => r[0]).filter(Boolean);
-    const servicioList = servicios.slice(1).map((r) => r[0]).filter(Boolean);
-    const ciudadList = ciudades.slice(1).map((r) => r[0]).filter(Boolean);
-
-    return NextResponse.json({
-      tiposFactura: tipoList,
-      servicios: servicioList,
-      ciudades: ciudadList,
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  const tipos = await getSheetData("MICAJA", SHEET_NAMES.TIPO_FACTURA);
+  const tipoList = tipos.slice(1).map((r) => r[0]).filter(Boolean);
+  return NextResponse.json({ tiposFactura: tipoList });
 }

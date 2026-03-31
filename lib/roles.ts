@@ -1,10 +1,4 @@
 import type { UsuarioRow, FacturaRow, EntregaRow, LegalizacionRow, EnvioRow } from "@/types/models";
-import {
-  entregaResponsable,
-  facturaResponsable,
-  legalizacionResponsable,
-  envioResponsable,
-} from "@/lib/row-fields";
 
 export const HERNAN_EMAIL = "hernan.manjarres@bia.app";
 
@@ -61,13 +55,13 @@ export function filterEntregasWithUsuarios(
   if (r === "admin" || r === "verificador") return rows;
   if (r === "coordinador") {
     return rows.filter((e) => {
-      const u = byName.get(entregaResponsable(e) || "");
+      const u = byName.get(String(e.Responsable || ""));
       if (!u) return false;
       return usuarioMatchesCoordinadorZona(u, ctx);
     });
   }
   return rows.filter((e) => {
-    const u = byName.get(entregaResponsable(e) || "");
+    const u = byName.get(String(e.Responsable || ""));
     return u?.Correos?.toLowerCase() === ctx.email.toLowerCase();
   });
 }
@@ -78,12 +72,12 @@ export function filterFacturas(rows: FacturaRow[], ctx: SessionCtx, usuarios: Us
   if (r === "admin" || r === "verificador") return rows;
   if (r === "coordinador") {
     return rows.filter((f) => {
-      const u = byName.get(facturaResponsable(f) || "");
+      const u = byName.get(String(f.Responsable || ""));
       if (!u) return false;
       return usuarioMatchesCoordinadorZona(u, ctx);
     });
   }
-  return rows.filter((f) => facturaResponsable(f) === ctx.responsable);
+  return rows.filter((f) => String(f.Responsable || "") === ctx.responsable);
 }
 
 export function filterLegalizaciones(
@@ -96,12 +90,12 @@ export function filterLegalizaciones(
   if (r === "admin" || r === "verificador") return rows;
   if (r === "coordinador") {
     return rows.filter((l) => {
-      const u = byName.get(legalizacionResponsable(l) || "");
+      const u = byName.get(String(l.Responsable || ""));
       if (!u) return false;
       return usuarioMatchesCoordinadorZona(u, ctx);
     });
   }
-  return rows.filter((l) => legalizacionResponsable(l) === ctx.responsable);
+  return rows.filter((l) => String(l.Responsable || "") === ctx.responsable);
 }
 
 export function filterEnvios(rows: EnvioRow[], ctx: SessionCtx, usuarios: UsuarioRow[]): EnvioRow[] {
@@ -110,7 +104,7 @@ export function filterEnvios(rows: EnvioRow[], ctx: SessionCtx, usuarios: Usuari
   if (r === "admin") return rows;
   const byName = new Map(usuarios.map((u) => [u.Responsable, u] as const));
   return rows.filter((e) => {
-    const u = byName.get(envioResponsable(e) || "");
+    const u = byName.get(String(e.Responsable || ""));
     if (!u) return false;
     return usuarioMatchesCoordinadorZona(u, ctx);
   });

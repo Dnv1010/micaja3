@@ -3,29 +3,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { filterNavForSession } from "@/lib/nav";
 import type { Session } from "next-auth";
-import {
-  LayoutDashboard,
-  Truck,
-  FileText,
-  Scale,
-  Users,
-  BarChart3,
-  FileStack,
-  Wallet,
-} from "lucide-react";
+import { FileText, LayoutDashboard, Send, Users, Package, FileBarChart2 } from "lucide-react";
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  "/": LayoutDashboard,
-  "/entregas": Wallet,
-  "/facturas": FileText,
-  "/legalizaciones": Scale,
-  "/envios": Truck,
-  "/informes": FileStack,
-  "/usuarios": Users,
-  "/balance": BarChart3,
-};
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+
+function navByRole(rol: string): NavItem[] {
+  if (rol === "admin") {
+    return [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/reportes", label: "Reportes", icon: FileBarChart2 },
+      { href: "/admin/facturas", label: "Todas las Facturas", icon: FileText },
+      { href: "/admin/usuarios", label: "Usuarios", icon: Users },
+    ];
+  }
+  if (rol === "coordinador") {
+    return [
+      { href: "/", label: "Usuarios", icon: Users },
+      { href: "/envios", label: "Envios", icon: Send },
+      { href: "/facturas", label: "Facturas", icon: FileText },
+      { href: "/reporte", label: "Reporte", icon: FileBarChart2 },
+    ];
+  }
+  return [
+    { href: "/", label: "Mi Cuenta", icon: LayoutDashboard },
+    { href: "/facturas", label: "Facturas", icon: FileText },
+    { href: "/entregas", label: "Entregas", icon: Package },
+  ];
+}
 
 export function SidebarNav({
   session,
@@ -35,7 +40,8 @@ export function SidebarNav({
   className?: string;
 }) {
   const pathname = usePathname();
-  const items = filterNavForSession(session);
+  const rol = String(session.user?.rol || "user").toLowerCase();
+  const items = navByRole(rol);
 
   return (
     <nav
@@ -50,7 +56,7 @@ export function SidebarNav({
         <p className="text-xs text-muted-foreground">Caja menor</p>
       </div>
       {items.map((item) => {
-        const Icon = ICONS[item.href] || LayoutDashboard;
+        const Icon = item.icon;
         const active = pathname === item.href || pathname.startsWith(item.href + "/");
         return (
           <Link

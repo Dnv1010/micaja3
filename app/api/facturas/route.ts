@@ -2,35 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
-import {
-  appendSheetRow,
-  getSheetData,
-  rowsToObjects,
-} from "@/lib/sheets-helpers";
-import { loadUsuariosMerged } from "@/lib/usuarios-data";
+import { appendSheetRow, getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
 import { buildAppendRow } from "@/lib/sheet-row";
 import { uniqueSheetKey } from "@/lib/ids";
-import { filterFacturas } from "@/lib/roles";
-import { CENTRO_COSTO_INFO, todayISO } from "@/lib/format";
+import { todayISO } from "@/lib/format";
 import type { FacturaRow } from "@/types/models";
-import { revalidateSheet } from "@/lib/revalidate-sheets";
-import { sessionCtxFromSession } from "@/lib/session-ctx";
-import { spreadsheetKeyForSession } from "@/lib/spreadsheet-key";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const ctx = sessionCtxFromSession(session);
-  if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
-  const key = spreadsheetKeyForSession(ctx);
+  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const [factRows, usuarios] = await Promise.all([
-      getSheetData(key, SHEET_NAMES.FACTURAS),
-      loadUsuariosMerged(),
-    ]);
+    const factRows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
     const facturas = rowsToObjects<FacturaRow>(factRows);
-    const filtered = filterFacturas(facturas, ctx, usuarios);
+    const rol = String(session.user.rol || "user").toLowerCase();
+    const responsable = String(session.user.responsable || "");
+    const filtered =
+      rol === "user" ? facturas.filter((f) => String(f.Responsable || "") === responsable) : facturas;
     return NextResponse.json({ data: filtered });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error al leer facturas";
@@ -40,37 +28,28 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const ctx = sessionCtxFromSession(session);
-  if (!ctx) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
-  const key = spreadsheetKeyForSession(ctx);
+  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
     const body = (await req.json()) as Record<string, string>;
-    const rows = await getSheetData(key, SHEET_NAMES.FACTURAS);
+    const rows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
     const headers = rows[0];
     if (!headers?.length) {
       return NextResponse.json({ error: "Hoja Facturas sin encabezados" }, { status: 500 });
     }
 
-    const centro = body["Centro de Costo"] || "";
-    const info = CENTRO_COSTO_INFO[centro] || "";
-
     const data: Record<string, string> = {
       ...body,
-      ID_Factura: body.ID_Factura || uniqueSheetKey("FC"),
-      Responsable: body.Responsable || ctx.responsable,
-      Fecha_Factura: body.Fecha_Factura || todayISO(),
-      Legalizado: body.Legalizado || "Pendiente",
-      Verificado: body.Verificado || "No",
-      InfoCentroCosto: info,
+      ID: body.ID || uniqueSheetKey("FAC"),
+      Responsable: body.Responsable || String(session.user.responsable || ""),
+      Fecha: body.Fecha || todayISO(),
+      Estado: body.Estado || "Pendiente",
     };
 
     const line = buildAppendRow(headers, data);
-    await appendSheetRow(key, SHEET_NAMES.FACTURAS, line);
-    revalidateSheet(key, SHEET_NAMES.FACTURAS);
+    await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, line);
 
-    return NextResponse.json({ ok: true, id: data.ID_Factura });
+    return NextResponse.json({ ok: true, id: data.ID });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error";
     return NextResponse.json({ error: msg }, { status: 500 });
