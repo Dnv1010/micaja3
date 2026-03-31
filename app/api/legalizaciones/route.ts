@@ -6,6 +6,7 @@ import { applyFacturaEstadoById } from "@/lib/factura-estado-server";
 import { quoteSheetTitleForRange, rowsToObjects, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
 import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
 import type { FacturaRow } from "@/types/models";
 
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       periodoHasta?: string;
       total?: string | number;
       facturasIds?: string[];
+      facturasPdf?: Array<Record<string, unknown>>;
       firmaCoordinador?: string;
     };
 
@@ -87,6 +89,7 @@ export async function POST(req: NextRequest) {
 
     const sector = String(session.user.sector || "").trim();
     const coordinadorNombre = String(session.user.responsable || session.user.name || "").trim();
+    const userArea = String((session.user as { area?: string }).area || "").trim();
     const zonaSet = rol === "coordinador" ? responsablesEnZonaSet(sector) : null;
     const mine = coordinadorNombre.toLowerCase();
 
@@ -114,6 +117,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const serverFacturasPdf = facturasIds.map((fid) =>
+      facturaRowToFacturaPdfForLegalizacion(byId.get(fid)!, { area: userArea })
+    );
+    const fromClient = body.facturasPdf;
+    const clientOk =
+      Array.isArray(fromClient) &&
+      fromClient.length === facturasIds.length &&
+      facturasIds.every((fid, i) => String(fromClient[i]?.id ?? "") === fid);
+    const facturasJson = JSON.stringify(clientOk ? fromClient : serverFacturasPdf);
+
     const id = `REP-${Date.now()}`;
     const fila = [
       id,
@@ -124,7 +137,7 @@ export async function POST(req: NextRequest) {
       periodoHasta,
       totalStr,
       "Pendiente Admin",
-      JSON.stringify(facturasIds),
+      facturasJson,
       firmaCoordinador,
       "",
       "",

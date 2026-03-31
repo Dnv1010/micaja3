@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 type Props = {
+  /** Data URL completa `data:image/png;base64,...` desde `canvas.toDataURL("image/png")`. */
   onFirma: (base64: string) => void;
   onLimpiar?: () => void;
   width?: number;

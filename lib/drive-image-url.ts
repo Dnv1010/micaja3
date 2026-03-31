@@ -9,6 +9,10 @@ export function normalizeDriveImageUrlForPdf(url: string): string {
   if (fromView?.[1]) {
     return `https://drive.google.com/uc?export=download&id=${fromView[1]}`;
   }
+  // react-pdf suele fallar con uc?id= sin export=download
+  if (u.includes("drive.google.com") && u.includes("uc?id=") && !u.includes("export=download")) {
+    return u.replace("uc?id=", "uc?export=download&id=");
+  }
   const fromId = u.match(/[?&]id=([^&]+)/);
   if (fromId?.[1] && u.includes("drive.google.com")) {
     return `https://drive.google.com/uc?export=download&id=${fromId[1]}`;

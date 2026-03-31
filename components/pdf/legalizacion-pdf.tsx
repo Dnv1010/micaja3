@@ -4,6 +4,23 @@ import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/render
 import { facturaAttachmentSrcForPdf } from "@/lib/drive-image-url";
 import { formatCOP, parseCOPString } from "@/lib/format";
 
+/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:…). */
+export function normalizeFirmaDataUrlForPdf(raw: string): string {
+  const t = raw.trim();
+  if (!t) return t;
+  if (t.startsWith("data:image/")) return t;
+  return `data:image/png;base64,${t}`;
+}
+
+function imagenAdjuntaSrcForPdf(f: FacturaPdf): string | null {
+  const base = facturaAttachmentSrcForPdf(f.driveFileId, f.imagenUrl);
+  if (!base) return null;
+  if (base.includes("drive.google.com") && base.includes("uc?id=") && !base.includes("export=download")) {
+    return base.replace("uc?id=", "uc?export=download&id=");
+  }
+  return base;
+}
+
 export type FacturaPdf = {
   id: string;
   fecha: string;
@@ -93,10 +110,11 @@ const styles = StyleSheet.create({
   signSection: { flexDirection: "row", marginTop: 20, gap: 24 },
   signCol: { flex: 1 },
   signTitle: { fontSize: 9, fontWeight: 700, marginBottom: 6 },
-  signImg: { width: 140, height: 56, objectFit: "contain", marginBottom: 4 },
+  signImg: { width: 150, height: 60, objectFit: "contain", marginBottom: 4 },
   signName: { fontSize: 9 },
   sectionTitle: { fontSize: 11, fontWeight: 700, textAlign: "center", marginBottom: 12 },
   attachBlock: { marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#cccccc" },
+  separador: { height: 1, backgroundColor: "#ddd", marginTop: 8 },
   attachHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8, fontSize: 9 },
   attachImg: { width: "100%", maxHeight: 300, objectFit: "contain", marginTop: 4 },
   muted: { fontSize: 9, color: "#666", fontStyle: "italic" },
@@ -118,6 +136,8 @@ export function LegalizacionPdf({
   const total = facturas.reduce((acc, f) => acc + valorNum(f.valor), 0);
   const ejecutado = limiteZona > 0 ? Math.round((total / limiteZona) * 100) : 0;
   const cc = coordinador.cedula?.trim() || "—";
+  const firmaCoordSrc = firmaCoordinador ? normalizeFirmaDataUrlForPdf(firmaCoordinador) : "";
+  const firmaAdminSrc = firmaAdmin ? normalizeFirmaDataUrlForPdf(firmaAdmin) : "";
 
   return (
     <Document>
@@ -216,20 +236,20 @@ export function LegalizacionPdf({
         <View style={styles.signSection}>
           <View style={styles.signCol}>
             <Text style={styles.signTitle}>Empleado que legaliza:</Text>
-            {firmaCoordinador ? (
+            {firmaCoordSrc ? (
               /* eslint-disable-next-line jsx-a11y/alt-text -- PDF firma */
-              <Image style={styles.signImg} src={firmaCoordinador} />
+              <Image style={styles.signImg} src={firmaCoordSrc} />
             ) : null}
             <Text style={styles.signName}>{coordinador.responsable}</Text>
             <Text style={styles.signName}>{coordinador.cargo}</Text>
           </View>
           <View style={styles.signCol}>
             <Text style={styles.signTitle}>Jefe directo (Aprueba):</Text>
-            {firmaAdmin ? (
+            {firmaAdminSrc ? (
               /* eslint-disable-next-line jsx-a11y/alt-text -- PDF firma admin */
-              <Image style={styles.signImg} src={firmaAdmin} />
+              <Image style={styles.signImg} src={firmaAdminSrc} />
             ) : (
-              <View style={{ height: 56 }} />
+              <View style={{ height: 60 }} />
             )}
             <Text style={styles.signName}>Hernan Manjarres</Text>
             <Text style={styles.signName}>Manager Field Ops</Text>
@@ -239,24 +259,26 @@ export function LegalizacionPdf({
 
       {facturas.length ? (
         facturas.map((f, i) => {
-          const attachSrc = facturaAttachmentSrcForPdf(f.driveFileId, f.imagenUrl);
+          const attachSrc = imagenAdjuntaSrcForPdf(f);
           return (
-            <Page key={`att-${f.id}`} size="A4" style={styles.page}>
+            <Page key={`att-${f.id}-${i}`} size="A4" style={styles.page}>
               {i === 0 ? <Text style={styles.sectionTitle}>Facturas Adjuntas</Text> : null}
               <View
                 style={[styles.attachBlock, i === facturas.length - 1 ? { borderBottomWidth: 0 } : {}]}
                 wrap={false}
               >
                 <View style={styles.attachHeader}>
-                  <Text>Factura: {f.nit}</Text>
-                  <Text>Fecha: {f.fecha}</Text>
+                  <Text>
+                    Factura: {f.nit || "—"} · Fecha: {f.fecha || "—"}
+                  </Text>
                 </View>
                 {attachSrc ? (
                   /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto factura */
                   <Image style={styles.attachImg} src={attachSrc} />
                 ) : (
-                  <Text style={styles.muted}>Sin imagen adjunta</Text>
+                  <Text style={{ fontSize: 9, color: "#999", marginTop: 4 }}>Sin imagen adjunta</Text>
                 )}
+                <View style={styles.separador} />
               </View>
             </Page>
           );

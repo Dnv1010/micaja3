@@ -16,7 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
-import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { formatCOP, parseCOPString } from "@/lib/format";
+import {
+  extractIdsFromReporteFacturasCell,
+  facturaRowToFacturaPdfForLegalizacion,
+  parseFacturasPdfFromReporteCell,
+} from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type ReporteRow = Record<string, string>;
@@ -30,41 +35,11 @@ function isMicajaSector(s: string): boolean {
   return s === "Bogota" || s === "Costa Caribe";
 }
 
-function parseIds(raw: string): string[] {
-  try {
-    const p = JSON.parse(raw) as unknown;
-    return Array.isArray(p) ? p.map(String) : [];
-  } catch {
-    return String(raw || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-}
-
 function firmaSrc(raw: string): string {
   const t = raw.trim();
   if (!t) return "";
   if (t.startsWith("data:") || t.startsWith("http://") || t.startsWith("https://")) return t;
   return `data:image/png;base64,${t}`;
-}
-
-function rowToFacturaPdf(f: FacturaRow, areaCoord: string): FacturaPdf {
-  const id = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
-  const img = getCellCaseInsensitive(f, "ImagenURL", "URL", "Adjuntar_Factura") || "";
-  const driveId = getCellCaseInsensitive(f, "DriveFileId") || "";
-  return {
-    id,
-    fecha: formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura")),
-    proveedor: getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-",
-    nit: getCellCaseInsensitive(f, "NIT", "Nit_Factura", "Num_Factura") || "-",
-    concepto: getCellCaseInsensitive(f, "Concepto", "Observacion") || "-",
-    valor: parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")),
-    tipoFactura: getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—",
-    area: getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || areaCoord,
-    imagenUrl: String(img).trim() || undefined,
-    driveFileId: String(driveId).trim() || undefined,
-  };
 }
 
 export function AdminReportesClient() {
@@ -102,11 +77,15 @@ export function AdminReportesClient() {
   }, [cargar]);
 
   function facturasDelReporteLocal(rep: ReporteRow): FacturaPdf[] {
-    const ids = new Set(parseIds(String(rep.Facturas_IDs || rep.FacturasIds || "")));
-    const areaCoord = "—";
+    const raw = String(rep.Facturas_IDs || rep.FacturasIds || "");
+    const parsed = parseFacturasPdfFromReporteCell(raw);
+    if (parsed?.length && typeof parsed[0] === "object") {
+      return parsed as FacturaPdf[];
+    }
+    const ids = new Set(extractIdsFromReporteFacturasCell(raw));
     return facturas
       .filter((f) => ids.has(String(getCellCaseInsensitive(f, "ID_Factura", "ID"))))
-      .map((f) => rowToFacturaPdf(f, areaCoord));
+      .map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: "—" }));
   }
 
   async function confirmarFirmaAdmin() {
@@ -121,13 +100,22 @@ export function AdminReportesClient() {
       const firmaCoord = String(activo.Firma_Coordinador || activo.FirmaCoordinador || "");
       const generadoTxt = new Date().toLocaleDateString("es-CO");
 
-      const ids = parseIds(String(activo.Facturas_IDs || activo.FacturasIds || "[]"));
-      const facturasRes = await Promise.all(
-        ids.map((id) => fetch(`/api/facturas/${encodeURIComponent(id)}`).then((r) => r.json()))
-      );
-      const fetched = facturasRes.map((r) => r.data as FacturaRow | undefined).filter(Boolean) as FacturaRow[];
-      const facturasPdf =
-        fetched.length > 0 ? fetched.map((f) => rowToFacturaPdf(f, "—")) : facturasDelReporteLocal(activo);
+      const rawCell = String(activo.Facturas_IDs || activo.FacturasIds || "");
+      const parsedCell = parseFacturasPdfFromReporteCell(rawCell);
+      let facturasPdf: FacturaPdf[] = [];
+      if (parsedCell?.length && typeof parsedCell[0] === "object") {
+        facturasPdf = parsedCell as FacturaPdf[];
+      } else {
+        const ids = extractIdsFromReporteFacturasCell(rawCell);
+        const facturasRes = await Promise.all(
+          ids.map((id) => fetch(`/api/facturas/${encodeURIComponent(id)}`).then((r) => r.json()))
+        );
+        const fetched = facturasRes.map((r) => r.data as FacturaRow | undefined).filter(Boolean) as FacturaRow[];
+        facturasPdf =
+          fetched.length > 0
+            ? fetched.map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: "—" }))
+            : facturasDelReporteLocal(activo);
+      }
 
       const [{ pdf }, { LegalizacionPdf }] = await Promise.all([
         import("@react-pdf/renderer"),

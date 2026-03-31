@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { balanceStatusTone } from "@/lib/balance-status";
 import { etiquetaZona } from "@/lib/coordinador-zona";
 import { formatCOP } from "@/lib/format";
 import { FALLBACK_USERS, type FallbackUser } from "@/lib/users-fallback";
@@ -79,7 +80,7 @@ export function AdminUsuariosClient() {
     let deuda = 0;
     for (const u of filtrados) {
       const b = balanceForUser(bMap, u);
-      if (b.balance >= 0) alDia += 1;
+      if (b.balance === 0) alDia += 1;
       else deuda += 1;
     }
     return { total: filtrados.length, alDia, deuda };
@@ -112,7 +113,7 @@ export function AdminUsuariosClient() {
         </Card>
         <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-400">⚠️ Con deuda</CardTitle>
+            <CardTitle className="text-sm text-zinc-400">⚠️ No al día</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-red-400">{loading ? "—" : resumen.deuda}</p>
@@ -184,7 +185,7 @@ export function AdminUsuariosClient() {
               ) : filtrados.length ? (
                 filtrados.map((u) => {
                   const b = balanceForUser(bMap, u);
-                  const ok = b.balance >= 0;
+                  const tone = balanceStatusTone(b.balance);
                   return (
                     <TableRow key={u.email}>
                       <TableCell className="font-medium">{u.responsable}</TableCell>
@@ -193,10 +194,8 @@ export function AdminUsuariosClient() {
                       <TableCell className="tabular-nums text-sm">{formatCOP(b.totalRecibido)}</TableCell>
                       <TableCell className="tabular-nums text-sm">{formatCOP(b.totalGastado)}</TableCell>
                       <TableCell className="tabular-nums text-sm">
-                        <span className={ok ? "text-emerald-400" : "text-red-400"}>{formatCOP(b.balance)}</span>
-                        <span className="ml-2 text-xs text-zinc-500">
-                          {ok ? "✅ Al día" : `⚠️ Debe ${formatCOP(Math.abs(b.balance))}`}
-                        </span>
+                        <span className={tone.cls}>{formatCOP(b.balance)}</span>
+                        <span className="ml-2 text-xs text-zinc-500">{tone.label}</span>
                       </TableCell>
                       <TableCell>
                         {u.userActive ? (

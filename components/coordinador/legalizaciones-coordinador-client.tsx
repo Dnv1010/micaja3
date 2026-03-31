@@ -7,6 +7,7 @@ import { pdf } from "@react-pdf/renderer";
 import {
   LegalizacionPdf,
   legalizacionPdfPropsFromPayload,
+  type FacturaPdf,
   type LegalizacionPdfStoredPayload,
 } from "@/components/pdf/legalizacion-pdf";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCOP, parseCOPString } from "@/lib/format";
+import { parseFacturasPdfFromReporteCell } from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type LegRow = Record<string, unknown>;
@@ -82,6 +84,44 @@ export function LegalizacionesCoordinadorClient() {
       window.open(pdfDirect, "_blank");
       return;
     }
+
+    const facturasCell = String(getCellCaseInsensitive(row, "Facturas_IDs", "FacturasIds") || "");
+    const fromCell = parseFacturasPdfFromReporteCell(facturasCell);
+    if (fromCell?.length && typeof fromCell[0] === "object") {
+      try {
+        const facturasPdf = fromCell as FacturaPdf[];
+        const sector = String(getCellCaseInsensitive(row, "Sector") || "");
+        const lim = sector === "Bogota" ? 1_000_000 : sector === "Costa Caribe" ? 3_000_000 : 1_000_000;
+        const estado = String(getCellCaseInsensitive(row, "Estado") || "").toLowerCase();
+        const firmaAd = String(getCellCaseInsensitive(row, "Firma_Admin") || "").trim();
+        const props = {
+          coordinador: {
+            responsable: String(getCellCaseInsensitive(row, "Coordinador") || ""),
+            cargo: "",
+            cedula: "",
+            sector,
+            area: "",
+          },
+          facturas: facturasPdf,
+          firmaCoordinador: String(getCellCaseInsensitive(row, "Firma_Coordinador", "FirmaCoordinador") || ""),
+          firmaAdmin: estado.includes("firmado") && firmaAd ? firmaAd : undefined,
+          fechaGeneracion: String(getCellCaseInsensitive(row, "Fecha") || new Date().toLocaleDateString("es-CO")),
+          limiteZona: lim,
+        };
+        const blob = await pdf(<LegalizacionPdf {...props} />).toBlob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objUrl;
+        const coord = props.coordinador.responsable.replace(/\s+/g, "_");
+        a.download = `Legalizacion_${coord}_${props.fechaGeneracion.replace(/\//g, "-")}.pdf`;
+        a.click();
+        URL.revokeObjectURL(objUrl);
+        return;
+      } catch {
+        /* continuar con otros orígenes */
+      }
+    }
+
     const datosRaw = getCellCaseInsensitive(row, "DatosPdfJSON");
     const parsed = datosRaw ? parsePayload(String(datosRaw)) : null;
     if (parsed) {

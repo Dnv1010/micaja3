@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { balanceStatusTone } from "@/lib/balance-status";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
@@ -179,14 +180,17 @@ export function CoordinatorZonaClient({
                   const rec = porUsuario.recibido.get(u.responsable) || 0;
                   const gas = porUsuario.gastado.get(u.responsable) || 0;
                   const bal = rec - gas;
-                  const balCls = bal >= 0 ? "text-emerald-400" : "text-red-400";
+                  const tone = balanceStatusTone(bal);
                   return (
                     <TableRow key={u.responsable}>
                       <TableCell className="font-medium">{u.responsable}</TableCell>
                       <TableCell className="text-zinc-400">{u.cargo}</TableCell>
                       <TableCell>{formatCOP(rec)}</TableCell>
                       <TableCell>{formatCOP(gas)}</TableCell>
-                      <TableCell className={balCls}>{formatCOP(bal)}</TableCell>
+                      <TableCell>
+                        <span className={`tabular-nums ${tone.cls}`}>{formatCOP(bal)}</span>
+                        <p className="text-xs text-zinc-500">{tone.label}</p>
+                      </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" type="button" onClick={() => setDetalleUser(u.responsable)}>
                           Ver detalle

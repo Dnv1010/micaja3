@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { etiquetaZona, limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { cn } from "@/lib/utils";
 
@@ -122,6 +123,8 @@ export function ReporteCoordinadorClient() {
     setOkMsg("");
     try {
       const facturasIds = selectedRows.map((f) => String(getCellCaseInsensitive(f, "ID_Factura", "ID")));
+      const userArea = String(data?.user?.area || "");
+      const facturasPdf = selectedRows.map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: userArea }));
       const res = await fetch("/api/legalizaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,6 +133,7 @@ export function ReporteCoordinadorClient() {
           periodoHasta: hasta,
           total: totalSeleccionado,
           facturasIds,
+          facturasPdf,
           firmaCoordinador: firmaDataUrl,
         }),
       });

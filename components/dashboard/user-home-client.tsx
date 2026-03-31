@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { balanceStatusTone } from "@/lib/balance-status";
 import { formatCOP, formatDateDDMMYYYY, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import type { Session } from "next-auth";
@@ -16,12 +17,6 @@ function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "MC";
   return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
-}
-
-function statusTone(balance: number): { label: string; cls: string } {
-  if (balance > 0) return { label: "✅ A favor", cls: "text-emerald-400" };
-  if (balance < 0) return { label: "⚠️ En contra", cls: "text-red-400" };
-  return { label: "Al dia", cls: "text-zinc-400" };
 }
 
 export function UserHomeClient({ user }: { user: Session["user"] }) {
@@ -74,7 +69,7 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
 
   const ultimasEntregas = useMemo(() => [...entregas].slice(-3).reverse(), [entregas]);
   const ultimasFacturas = useMemo(() => [...facturas].slice(-3).reverse(), [facturas]);
-  const tone = statusTone(resumen.balance);
+  const tone = balanceStatusTone(resumen.balance);
 
   return (
     <div className="space-y-4">
