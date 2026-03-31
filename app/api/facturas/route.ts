@@ -9,7 +9,12 @@ import {
   TIPOS_OPERACION,
 } from "@/lib/factura-field-options";
 import { SHEET_NAMES } from "@/lib/google-sheets";
-import { appendSheetRow, getSheetData, rowsToObjects } from "@/lib/sheets-helpers";
+import {
+  appendSheetRow,
+  ensureMicajaFacturasNumFacturaColumn,
+  getSheetData,
+  rowsToObjects,
+} from "@/lib/sheets-helpers";
 import { buildAppendRow } from "@/lib/sheet-row";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { parseCOPString, parseSheetDate } from "@/lib/format";
@@ -29,6 +34,7 @@ const FACTURAS_HEADERS = [
   "Ciudad",
   "Proveedor",
   "NIT",
+  "NumFactura",
   "Concepto",
   "Valor",
   "TipoFactura",
@@ -49,6 +55,11 @@ const setSector = new Set<string>(SECTORES_FACTURA);
 const setOp = new Set<string>(TIPOS_OPERACION);
 
 async function getFacturasRowsWithHeaders(): Promise<string[][]> {
+  try {
+    await ensureMicajaFacturasNumFacturaColumn();
+  } catch (e) {
+    console.error("ensureMicajaFacturasNumFacturaColumn:", e);
+  }
   const rows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
   if (!rows.length || !rows[0]?.some((c) => String(c || "").trim())) {
     await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, FACTURAS_HEADERS);
@@ -112,6 +123,7 @@ export async function POST(req: NextRequest) {
       fecha?: string;
       proveedor?: string;
       nit?: string;
+      numFactura?: string;
       concepto?: string;
       valor?: string;
       tipoFactura?: string;
@@ -143,6 +155,7 @@ export async function POST(req: NextRequest) {
     const ciudad = String(body.ciudad || "").trim();
     const sector = String(body.sector || "").trim();
     const nit = String(body.nit || "").trim();
+    const numFactura = String(body.numFactura || "").trim();
     const aNombreBia = Boolean(body.aNombreBia);
     const valorNum = parseCOPString(String(body.valor || "0"));
 
@@ -201,6 +214,7 @@ export async function POST(req: NextRequest) {
       Ciudad: ciudad,
       Proveedor: proveedor,
       NIT: nit,
+      NumFactura: numFactura,
       Concepto: concepto,
       Valor: String(Math.round(valorNum)),
       TipoFactura: tipoFactura,

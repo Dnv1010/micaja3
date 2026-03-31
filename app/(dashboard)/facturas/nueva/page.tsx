@@ -54,6 +54,7 @@ type OcrPayload = {
   fecha_factura?: string | null;
   razon_social?: string | null;
   nit_factura?: string | null;
+  num_factura?: string | null;
   descripcion?: string | null;
   monto_factura?: number | null;
   image_url?: string | null;
@@ -143,6 +144,7 @@ export default function NuevaFacturaPage() {
   const [fecha, setFecha] = useState(getTodayDDMMYYYY);
   const [proveedor, setProveedor] = useState("");
   const [nit, setNit] = useState("");
+  const [numFactura, setNumFactura] = useState("");
   const [concepto, setConcepto] = useState("");
   const [valor, setValor] = useState("");
   const [tipoFactura, setTipoFactura] = useState("");
@@ -332,6 +334,7 @@ export default function NuevaFacturaPage() {
           fecha: fecha.trim(),
           proveedor: proveedor.trim(),
           nit: nit.trim(),
+          numFactura: numFactura.trim(),
           concepto: concepto.trim(),
           valor: valor.trim(),
           tipoFactura,
@@ -552,6 +555,15 @@ export default function NuevaFacturaPage() {
           <div className="space-y-1.5">
             <Label>NIT {!aNombreBia ? <span className="text-zinc-500">(opcional)</span> : null}</Label>
             <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Número de Factura</Label>
+            <Input
+              value={numFactura}
+              onChange={(e) => setNumFactura(e.target.value)}
+              placeholder="Ej: FEV3418"
+              className="bg-zinc-900 border-zinc-700"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Tipo de Factura</Label>

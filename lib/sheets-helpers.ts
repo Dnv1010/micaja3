@@ -1,6 +1,7 @@
 import {
   getSheetsClient,
   SPREADSHEET_IDS,
+  SHEET_NAMES,
   assertSheetsConfigured,
   type SpreadsheetKey,
 } from "./google-sheets";
@@ -117,6 +118,71 @@ export async function getSheetId(
   });
   const found = res.data.sheets?.find((s) => s.properties?.title === sheetName);
   return found?.properties?.sheetId ?? null;
+}
+
+function facturasHeaderHasNumFactura(headers: string[]): boolean {
+  return headers.some((h) => {
+    const n = String(h ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .replace(/[áàäâ]/g, "a")
+      .replace(/[éèëê]/g, "e")
+      .replace(/[íìïî]/g, "i")
+      .replace(/[óòöô]/g, "o")
+      .replace(/[úùüû]/g, "u")
+      .replace(/ñ/g, "n");
+    return n === "numfactura" || n === "no.factura" || n === "numerodefactura";
+  });
+}
+
+function facturasInsertIndexForNumFactura(headers: string[]): number {
+  const norm = (s: string) => String(s ?? "").trim().toLowerCase();
+  const nit = headers.findIndex((h) => norm(h) === "nit");
+  if (nit >= 0) return nit + 1;
+  const concepto = headers.findIndex((h) => norm(h) === "concepto");
+  if (concepto >= 0) return concepto;
+  return Math.min(8, Math.max(0, headers.length));
+}
+
+/** Inserta columna `NumFactura` tras NIT (o antes de Concepto) si la hoja Facturas aún no la tiene. */
+export async function ensureMicajaFacturasNumFacturaColumn(): Promise<void> {
+  assertSheetsConfigured();
+  const spreadsheetKey = "MICAJA";
+  const sheetName = SHEET_NAMES.FACTURAS;
+  const rows = await getSheetData(spreadsheetKey, sheetName);
+  if (!rows.length || !rows[0]?.some((c) => String(c ?? "").trim())) return;
+
+  const headers = rows[0].map((c) => String(c ?? "").trim());
+  if (facturasHeaderHasNumFactura(headers)) return;
+
+  const insertAt = facturasInsertIndexForNumFactura(headers);
+  const sheetId = await getSheetId(spreadsheetKey, sheetName);
+  if (sheetId == null) return;
+
+  await getSheetsClient().spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_IDS[spreadsheetKey],
+    requestBody: {
+      requests: [
+        {
+          insertDimension: {
+            range: {
+              sheetId,
+              dimension: "COLUMNS",
+              startIndex: insertAt,
+              endIndex: insertAt + 1,
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  const fresh = await getSheetData(spreadsheetKey, sheetName);
+  const r1 = [...(fresh[0] ?? [])];
+  while (r1.length < insertAt + 1) r1.push("");
+  r1[insertAt] = "NumFactura";
+  await updateSheetRow(spreadsheetKey, sheetName, 1, r1);
 }
 
 export function rowsToObjects<T>(rows: string[][]): T[] {

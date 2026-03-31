@@ -24,6 +24,7 @@ export type FacturaRow = {
   Fecha?: string;
   Proveedor?: string;
   NIT?: string;
+  NumFactura?: string;
   Concepto?: string;
   Valor?: string;
   TipoFactura?: string;
