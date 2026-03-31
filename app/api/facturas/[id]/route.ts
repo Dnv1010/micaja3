@@ -18,11 +18,19 @@ import { parseFechaFacturaDDMMYYYY, sheetANombreBiaTrue } from "@/lib/nueva-fact
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 import type { FacturaRow } from "@/types/models";
 
+function facturaIdCell(f: FacturaRow): string {
+  return getCellCaseInsensitive(f, "ID_Factura", "ID");
+}
+
+function facturaEstadoRow(f: FacturaRow): string {
+  return getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
+}
+
 async function getFacturaById(id: string): Promise<FacturaRow | null> {
   try {
     const rows = await loadMicajaFacturasSheetRows();
     const list = rowsToObjects<FacturaRow>(rows);
-    return list.find((f) => String(f.ID || "") === id) ?? null;
+    return list.find((f) => facturaIdCell(f) === id) ?? null;
   } catch {
     return null;
   }
@@ -38,7 +46,7 @@ function puedeCoordinadorEditar(session: { user?: { rol?: string; sector?: strin
 }
 
 function estadoEdicionPermitido(row: FacturaRow): boolean {
-  const e = (getCellCaseInsensitive(row, "Estado") || "Pendiente").toLowerCase();
+  const e = facturaEstadoRow(row).toLowerCase();
   return e === "pendiente" || e === "rechazada";
 }
 
@@ -73,7 +81,7 @@ function rowToMutateFields(f: FacturaRow): FacturaMutateFields {
     concepto: getCellCaseInsensitive(f, "Concepto", "Observacion"),
     tipoFactura: getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura"),
     servicioDeclarado: getCellCaseInsensitive(f, "ServicioDeclarado", "Tipo_servicio"),
-    tipoOperacion: getCellCaseInsensitive(f, "TipoOperacion"),
+    tipoOperacion: getCellCaseInsensitive(f, "OPS", "TipoOperacion"),
     ciudad: getCellCaseInsensitive(f, "Ciudad"),
     sector: getCellCaseInsensitive(f, "Sector"),
     nit: getCellCaseInsensitive(f, "NIT", "Nit_Factura"),
@@ -177,7 +185,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const numFactura =
     updates.numFactura !== undefined
       ? String(updates.numFactura).trim()
-      : getCellCaseInsensitive(found, "NumFactura", "Num_Factura");
+      : getCellCaseInsensitive(found, "Num_Factura", "NumFactura");
 
   const driveFileId =
     updates.driveFileId !== undefined
@@ -198,7 +206,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     ciudad: merged.ciudad,
     sector: merged.sector,
     imagenUrl,
-    driveFileId,
+    driveFileId: driveFileId || undefined,
   });
 
   await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
@@ -231,6 +239,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const patch = mapEstadoPatchToSheet(headers, estadoIn, estadoIn === "Rechazada" ? motivo : "");
     await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
     return NextResponse.json({ ok: true });
+  }
+
+  if (typeof body.tipoOperacion === "string" && body.tipoOperacion.trim()) {
+    if (puedeCoordinadorEditar(session, found) || puedeEditarContenido(session, found)) {
+      const opsPatch = mapFacturaUpdateBodyToSheetPatch(headers, {
+        tipoOperacion: body.tipoOperacion.trim(),
+      });
+      if (Object.keys(opsPatch).length) {
+        await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, opsPatch);
+        const soloOps = Object.keys(body).length === 1 && "tipoOperacion" in body;
+        if (soloOps) return NextResponse.json({ ok: true });
+      }
+    }
   }
 
   if (!puedeEditarContenido(session, found)) {
@@ -267,7 +288,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const numFactura =
     updates.numFactura !== undefined
       ? String(updates.numFactura).trim()
-      : getCellCaseInsensitive(found, "NumFactura", "Num_Factura");
+      : getCellCaseInsensitive(found, "Num_Factura", "NumFactura");
 
   const driveFileId =
     updates.driveFileId !== undefined
@@ -288,7 +309,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     ciudad: merged.ciudad,
     sector: merged.sector,
     imagenUrl,
-    driveFileId,
+    driveFileId: driveFileId || undefined,
   });
 
   await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);

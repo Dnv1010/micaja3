@@ -3,35 +3,36 @@ import {
   SHEET_NAMES,
   SPREADSHEET_IDS,
 } from "@/lib/google-sheets";
-import {
-  appendSheetRow,
-  ensureMicajaFacturasNumFacturaColumn,
-  getSheetData,
-  quoteSheetTitleForRange,
-} from "@/lib/sheets-helpers";
+import { appendSheetRow, getSheetData, quoteSheetTitleForRange } from "@/lib/sheets-helpers";
 
-export const MICAJA_FACTURAS_DEFAULT_HEADERS = [
-  "ID",
-  "Fecha",
+/**
+ * Encabezados pestaña Facturas (columnas A–S).
+ * Col B = Num_Factura (nº proveedor); col I = NumFactura (legacy, vacío en nuevas filas); col S = OPS.
+ */
+export const MICAJA_FACTURAS_HEADERS_LEGACY_AS = [
+  "ID_Factura",
+  "Num_Factura",
+  "Fecha_Factura",
+  "Monto_Factura",
   "Responsable",
-  "Area",
-  "Sector",
-  "Ciudad",
-  "Proveedor",
-  "NIT",
+  "Tipo_servicio",
+  "Tipo_Factura",
+  "Nit_Factura",
   "NumFactura",
-  "Concepto",
-  "Valor",
-  "TipoFactura",
-  "ServicioDeclarado",
-  "TipoOperacion",
-  "ANombreBia",
-  "Estado",
-  "MotivoRechazo",
-  "ImagenURL",
-  "DriveFileId",
-  "FechaCreacion",
+  "Razon_Social",
+  "Nombre_bia",
+  "Observacion",
+  "Adjuntar_Factura",
+  "URL",
+  "Legalizado",
+  "Verificado",
+  "Ciudad",
+  "Sector",
+  "OPS",
 ] as const;
+
+/** @deprecated Mantener solo por si algún import externo; usar MICAJA_FACTURAS_HEADERS_LEGACY_AS */
+export const MICAJA_FACTURAS_DEFAULT_HEADERS = [...MICAJA_FACTURAS_HEADERS_LEGACY_AS];
 
 export function normalizeFacturaHeader(h: string): string {
   return String(h ?? "")
@@ -78,36 +79,78 @@ export type FacturaSheetWriteFields = {
 };
 
 function cellForNormalizedHeader(n: string, f: FacturaSheetWriteFields): string {
-  if (n === "id") return f.id;
-  if (n === "fecha") return f.fecha;
+  if (n === "id" || n === "idfactura") return f.id;
+  if (n === "fecha" || n === "fechafactura") return f.fecha;
   if (n === "responsable") return f.responsable;
   if (n === "area") return f.area;
   if (n === "sector") return f.sector;
   if (n === "ciudad") return f.ciudad;
-  if (n === "proveedor") return f.proveedor;
-  if (n === "nit") return f.nit;
-  if (n === "numfactura" || n === "nofactura" || n === "numerodefactura" || n.includes("numerofactura")) {
-    return f.numFactura;
-  }
-  if (n === "concepto") return f.concepto;
-  if (n === "valor" || n === "monto") return f.valor;
+  if (n === "proveedor" || n === "razonsocial") return f.proveedor;
+  if (n === "nit" || n === "nitfactura") return f.nit;
+  if (n === "numfactura" || n === "numerofactura") return f.numFactura;
+  if (n === "concepto" || n === "observacion") return f.concepto;
+  if (n === "valor" || n === "montofactura" || n === "monto") return f.valor;
   if (n === "tipofactura") return f.tipoFactura;
-  if (n === "serviciodeclarado") return f.servicioDeclarado;
-  if (n === "tipooperacion") return f.tipoOperacion;
+  if (n === "serviciodeclarado" || n === "tiposervicio") return f.servicioDeclarado;
+  if (n === "tipooperacion" || n === "ops") return f.tipoOperacion;
   if (n === "anombrebia" || n === "nombrebia") {
     return f.aNombreBia ? "TRUE" : "FALSE";
   }
   if (n === "estado") return f.estado;
   if (n === "motivorechazo" || n.includes("motivo")) return f.motivoRechazo;
-  if (n === "imagenurl" || n === "url" || n.includes("imagen")) return f.imagenUrl;
+  if (n === "imagenurl" || n === "adjuntarfactura") return f.imagenUrl;
+  if (n === "url") return f.imagenUrl;
   if (n === "drivefileid" || n.includes("drive")) return f.driveFileId;
   if (n === "fechacreacion") return f.fechaCreacion;
+  if (n === "legalizado") return f.estado;
+  if (n === "verificado") return "Pendiente";
   return "";
 }
 
-/** Una celda por columna según el orden real de la fila de encabezados. */
+/** Una celda por columna según el orden real de la fila de encabezados (hojas mixtas). */
 export function buildFacturaRowForHeaders(headers: string[], f: FacturaSheetWriteFields): string[] {
   return headers.map((h) => cellForNormalizedHeader(normalizeFacturaHeader(String(h)), f));
+}
+
+/** Fila fija A–S alineada con MICAJA_FACTURAS_HEADERS_LEGACY_AS */
+export function buildMicajaFacturasLegacyRowAS(params: {
+  id: string;
+  numFactura: string;
+  fecha: string;
+  valor: string;
+  responsable: string;
+  servicioDeclarado: string;
+  tipoFactura: string;
+  nit: string;
+  razonSocial: string;
+  aNombreBia: boolean;
+  concepto: string;
+  imagenUrl: string;
+  ciudad: string;
+  sector: string;
+  tipoOperacion: string;
+}): string[] {
+  return [
+    params.id,
+    params.numFactura,
+    params.fecha,
+    params.valor,
+    params.responsable,
+    params.servicioDeclarado,
+    params.tipoFactura,
+    params.nit,
+    "",
+    params.razonSocial,
+    params.aNombreBia ? "TRUE" : "FALSE",
+    params.concepto,
+    params.imagenUrl,
+    params.imagenUrl,
+    "Pendiente",
+    "Pendiente",
+    params.ciudad,
+    params.sector,
+    params.tipoOperacion,
+  ];
 }
 
 export type FacturaApiUpdateBody = {
@@ -137,22 +180,38 @@ export function mapFacturaUpdateBodyToSheetPatch(
     const hk = matchSheetHeader(headers, ...aliases);
     if (hk) patch[hk] = value;
   };
-  if (body.fecha !== undefined) set(["Fecha", "FECHA"], String(body.fecha).trim());
-  if (body.proveedor !== undefined) set(["Proveedor", "Razon_Social"], String(body.proveedor).trim());
-  if (body.nit !== undefined) set(["NIT", "Nit_Factura"], String(body.nit).trim());
-  if (body.numFactura !== undefined) set(["NumFactura", "No. Factura", "Número Factura"], String(body.numFactura).trim());
-  if (body.concepto !== undefined) set(["Concepto"], String(body.concepto).trim());
-  if (body.valor !== undefined) set(["Valor", "Monto_Factura"], String(body.valor).trim());
-  if (body.tipoFactura !== undefined) set(["TipoFactura", "Tipo_Factura"], String(body.tipoFactura).trim());
-  if (body.servicioDeclarado !== undefined) set(["ServicioDeclarado", "Tipo_servicio"], String(body.servicioDeclarado).trim());
-  if (body.tipoOperacion !== undefined) set(["TipoOperacion"], String(body.tipoOperacion).trim());
+  if (body.fecha !== undefined) set(["Fecha_Factura", "Fecha", "FECHA"], String(body.fecha).trim());
+  if (body.proveedor !== undefined) set(["Razon_Social", "Proveedor"], String(body.proveedor).trim());
+  if (body.nit !== undefined) set(["Nit_Factura", "NIT"], String(body.nit).trim());
+  if (body.numFactura !== undefined) {
+    const v = String(body.numFactura).trim();
+    const hkB = matchSheetHeader(headers, "Num_Factura");
+    if (hkB) patch[hkB] = v;
+    else set(["NumFactura", "No. Factura", "Número Factura"], v);
+  }
+  if (body.concepto !== undefined) set(["Observacion", "Concepto"], String(body.concepto).trim());
+  if (body.valor !== undefined) set(["Monto_Factura", "Valor"], String(body.valor).trim());
+  if (body.tipoFactura !== undefined) set(["Tipo_Factura", "TipoFactura"], String(body.tipoFactura).trim());
+  if (body.servicioDeclarado !== undefined) {
+    set(["Tipo_servicio", "ServicioDeclarado"], String(body.servicioDeclarado).trim());
+  }
+  if (body.tipoOperacion !== undefined) {
+    set(["OPS", "TipoOperacion"], String(body.tipoOperacion).trim());
+  }
   if (body.aNombreBia !== undefined) {
-    const hk = matchSheetHeader(headers, "ANombreBia", "Nombre_bia", "Nombre bia");
+    const hk = matchSheetHeader(headers, "Nombre_bia", "ANombreBia", "Nombre bia");
     if (hk) patch[hk] = body.aNombreBia ? "TRUE" : "FALSE";
   }
   if (body.ciudad !== undefined) set(["Ciudad"], String(body.ciudad).trim());
   if (body.sector !== undefined) set(["Sector"], String(body.sector).trim());
-  if (body.imagenUrl !== undefined) set(["ImagenURL", "URL", "Adjuntar_Factura"], String(body.imagenUrl).trim());
+  if (body.imagenUrl !== undefined) {
+    const v = String(body.imagenUrl).trim();
+    const adj = matchSheetHeader(headers, "Adjuntar_Factura");
+    const url = matchSheetHeader(headers, "URL");
+    if (adj) patch[adj] = v;
+    if (url) patch[url] = v;
+    set(["ImagenURL"], v);
+  }
   if (body.driveFileId !== undefined) set(["DriveFileId"], String(body.driveFileId).trim());
   return patch;
 }
@@ -165,25 +224,35 @@ export function mapEstadoPatchToSheet(
   const patch: Record<string, string> = {};
   const e = matchSheetHeader(headers, "Estado");
   if (e) patch[e] = estado;
-  const m = matchSheetHeader(headers, "MotivoRechazo", "Motivo Rechazo");
+  const leg = matchSheetHeader(headers, "Legalizado");
+  if (leg) patch[leg] = estado;
+  const ver = matchSheetHeader(headers, "Verificado");
+  if (ver) patch[ver] = estado;
+  const m = matchSheetHeader(headers, "MotivoRechazo", "Motivo Rechazo", "Motivo");
   if (m) patch[m] = motivoRechazo;
   return patch;
 }
 
 export async function loadMicajaFacturasSheetRows(): Promise<string[][]> {
-  try {
-    await ensureMicajaFacturasNumFacturaColumn();
-  } catch (e) {
-    console.error("ensureMicajaFacturasNumFacturaColumn:", e);
-  }
   const rows = await getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
   if (!rows.length || !rows[0]?.some((c) => String(c || "").trim())) {
-    await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, [...MICAJA_FACTURAS_DEFAULT_HEADERS]);
+    await appendSheetRow("MICAJA", SHEET_NAMES.FACTURAS, [...MICAJA_FACTURAS_HEADERS_LEGACY_AS]);
     return getSheetData("MICAJA", SHEET_NAMES.FACTURAS);
   }
   return rows;
 }
 
+export async function appendFacturaRowLegacyAS(values: string[]): Promise<void> {
+  const range = `${quoteSheetTitleForRange(SHEET_NAMES.FACTURAS)}!A:S`;
+  await getSheetsClient().spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_IDS.MICAJA,
+    range,
+    valueInputOption: "RAW",
+    requestBody: { values: [values] },
+  });
+}
+
+/** @deprecated Usar appendFacturaRowLegacyAS */
 export async function appendFacturaRowRaw(values: string[]): Promise<void> {
   const range = `${quoteSheetTitleForRange(SHEET_NAMES.FACTURAS)}!A:AZ`;
   await getSheetsClient().spreadsheets.values.append({
@@ -212,19 +281,20 @@ export function legacyFacturaFormBodyToPatch(
     if (!m) return s;
     return `${m[3]}/${m[2]}/${m[1]}`;
   };
-  put(["Fecha", "FECHA"], body.Fecha_Factura, isoToDDMMSlash);
-  put(["Proveedor", "Razon_Social"], body.Razon_Social);
-  put(["NIT", "Nit_Factura"], body.Nit_Factura);
-  put(["NumFactura", "Num_Factura"], body.Num_Factura);
-  put(["Concepto"], body.Observacion);
-  put(["Valor", "Monto_Factura"], body.Monto_Factura);
-  put(["TipoFactura", "Tipo_Factura"], body.Tipo_Factura);
-  put(["ServicioDeclarado", "Tipo_servicio"], body.Tipo_servicio);
-  put(["TipoOperacion"], body.TipoOperacion);
+  put(["Fecha_Factura", "Fecha", "FECHA"], body.Fecha_Factura, isoToDDMMSlash);
+  put(["Razon_Social", "Proveedor"], body.Razon_Social);
+  put(["Nit_Factura", "NIT"], body.Nit_Factura);
+  put(["Num_Factura"], body.Num_Factura);
+  put(["Observacion", "Concepto"], body.Observacion);
+  put(["Monto_Factura", "Valor"], body.Monto_Factura);
+  put(["Tipo_Factura", "TipoFactura"], body.Tipo_Factura);
+  put(["Tipo_servicio", "ServicioDeclarado"], body.Tipo_servicio);
+  put(["OPS", "TipoOperacion"], body.TipoOperacion);
   put(["Ciudad"], body.Ciudad);
   put(["Sector"], body.Sector);
-  put(["ImagenURL", "URL", "Adjuntar_Factura"], body.Adjuntar_Factura);
-  put(["ANombreBia", "Nombre_bia"], body.Nombre_bia, (s) => {
+  put(["Adjuntar_Factura", "ImagenURL"], body.Adjuntar_Factura);
+  put(["URL"], body.Adjuntar_Factura);
+  put(["Nombre_bia", "ANombreBia"], body.Nombre_bia, (s) => {
     const t = s.toLowerCase();
     return t === "sí" || t === "si" || t === "true" || t === "1" ? "TRUE" : "FALSE";
   });

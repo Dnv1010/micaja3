@@ -86,7 +86,7 @@ export function FacturasUsuarioClient() {
                   <TableHead>Valor</TableHead>
                   <TableHead>Ciudad</TableHead>
                   <TableHead>Servicio</TableHead>
-                  <TableHead>Operación</TableHead>
+                  <TableHead>OPS</TableHead>
                   <TableHead>BIA</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Estado</TableHead>
@@ -124,9 +124,11 @@ export function FacturasUsuarioClient() {
                           {formatCOP(parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")))}
                         </TableCell>
                         <TableCell>{getCellCaseInsensitive(f, "Ciudad") || "—"}</TableCell>
-                        <TableCell>{getCellCaseInsensitive(f, "ServicioDeclarado") || "—"}</TableCell>
-                        <TableCell className="max-w-[140px] truncate" title={getCellCaseInsensitive(f, "TipoOperacion")}>
-                          {getCellCaseInsensitive(f, "TipoOperacion") || "—"}
+                        <TableCell>
+                          {getCellCaseInsensitive(f, "ServicioDeclarado", "Tipo_servicio") || "—"}
+                        </TableCell>
+                        <TableCell className="max-w-[140px] truncate" title={getCellCaseInsensitive(f, "OPS", "TipoOperacion")}>
+                          {getCellCaseInsensitive(f, "OPS", "TipoOperacion") || "—"}
                         </TableCell>
                         <TableCell>
                           {aBia ? (

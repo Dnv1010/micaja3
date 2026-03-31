@@ -195,7 +195,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                 <TableHead>Valor</TableHead>
                 <TableHead>Ciudad</TableHead>
                 <TableHead>Servicio</TableHead>
-                <TableHead>Operación</TableHead>
+                <TableHead>OPS</TableHead>
                 <TableHead>BIA</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
@@ -211,11 +211,12 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                 </TableRow>
               ) : facturas.length ? (
                 facturas.map((f, i) => {
-                  const est = getCellCaseInsensitive(f, "Estado") || "Pendiente";
+                  const est =
+                    getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
                   const estLower = est.toLowerCase();
-                  const fid = String(getCellCaseInsensitive(f, "ID") || "");
+                  const fid = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
                   const aBia = sheetANombreBiaTrue(
-                    getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia")
+                    getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia", "Nombre_bia")
                   );
                   return (
                     <TableRow key={i}>
@@ -231,9 +232,11 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                         {formatCOP(parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")))}
                       </TableCell>
                       <TableCell>{getCellCaseInsensitive(f, "Ciudad") || "—"}</TableCell>
-                      <TableCell>{getCellCaseInsensitive(f, "ServicioDeclarado") || "—"}</TableCell>
-                      <TableCell className="max-w-[120px] truncate" title={getCellCaseInsensitive(f, "TipoOperacion")}>
-                        {getCellCaseInsensitive(f, "TipoOperacion") || "—"}
+                      <TableCell>
+                        {getCellCaseInsensitive(f, "ServicioDeclarado", "Tipo_servicio") || "—"}
+                      </TableCell>
+                      <TableCell className="max-w-[140px] truncate" title={getCellCaseInsensitive(f, "OPS", "TipoOperacion")}>
+                        {getCellCaseInsensitive(f, "OPS", "TipoOperacion") || "—"}
                       </TableCell>
                       <TableCell>
                         {aBia ? (

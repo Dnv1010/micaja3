@@ -4,15 +4,32 @@ import { authOptions } from "@/lib/auth-options";
 import { validateFacturaNegocio, type FacturaMutateFields } from "@/lib/factura-mutate-validation";
 import { parseCOPString, parseSheetDate } from "@/lib/format";
 import {
-  appendFacturaRowRaw,
-  buildFacturaRowForHeaders,
+  appendFacturaRowLegacyAS,
+  buildMicajaFacturasLegacyRowAS,
   loadMicajaFacturasSheetRows,
-  type FacturaSheetWriteFields,
 } from "@/lib/micaja-facturas-sheet";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { rowsToObjects } from "@/lib/sheets-helpers";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 import type { FacturaRow } from "@/types/models";
+
+function facturaEstadoCell(f: FacturaRow): string {
+  return getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
+}
+
+function facturaFechaCell(f: FacturaRow): string {
+  return getCellCaseInsensitive(f, "Fecha_Factura", "Fecha");
+}
+
+function sortKeyFactura(f: FacturaRow): number {
+  const fc = getCellCaseInsensitive(f, "FechaCreacion");
+  const t = fc ? new Date(fc).getTime() : NaN;
+  if (Number.isFinite(t)) return t;
+  const fd = parseSheetDate(facturaFechaCell(f));
+  if (fd) return fd.getTime();
+  const idn = Number(getCellCaseInsensitive(f, "ID_Factura", "ID"));
+  return Number.isFinite(idn) ? idn : 0;
+}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -43,8 +60,8 @@ export async function GET(req: NextRequest) {
     const facturas = rowsToObjects<FacturaRow>(factRows);
     const filtered = facturas.filter((f) => {
       const responsable = getCellCaseInsensitive(f, "Responsable");
-      const estado = getCellCaseInsensitive(f, "Estado");
-      const fecha = getCellCaseInsensitive(f, "Fecha");
+      const estado = facturaEstadoCell(f);
+      const fecha = facturaFechaCell(f);
       const fechaObj = parseSheetDate(fecha);
 
       if (zonaSet && !zonaSet.has(responsable.toLowerCase())) return false;
@@ -55,13 +72,7 @@ export async function GET(req: NextRequest) {
       return true;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
-      const dateA = new Date(getCellCaseInsensitive(a, "FechaCreacion") || "").getTime();
-      const dateB = new Date(getCellCaseInsensitive(b, "FechaCreacion") || "").getTime();
-      const ta = Number.isFinite(dateA) ? dateA : 0;
-      const tb = Number.isFinite(dateB) ? dateB : 0;
-      return tb - ta;
-    });
+    const sorted = [...filtered].sort((a, b) => sortKeyFactura(b) - sortKeyFactura(a));
 
     return NextResponse.json({ data: sorted });
   } catch {
@@ -132,37 +143,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: vErr }, { status: 400 });
     }
 
-    const rows = await loadMicajaFacturasSheetRows();
-    const headers = rows[0];
-    if (!headers?.length) {
-      return NextResponse.json({ error: "Hoja Facturas sin encabezados" }, { status: 500 });
-    }
+    await loadMicajaFacturasSheetRows();
 
     const id = String(Date.now());
-    const fields: FacturaSheetWriteFields = {
-      id,
-      fecha,
-      responsable: body.responsable || String(session.user.responsable || ""),
-      area: body.area || String(session.user.area || ""),
-      sector,
-      ciudad,
-      proveedor,
-      nit,
-      numFactura,
-      concepto,
-      valor: String(Math.round(valorNum)),
-      tipoFactura,
-      servicioDeclarado,
-      tipoOperacion,
-      aNombreBia,
-      estado: "Pendiente",
-      motivoRechazo: "",
-      imagenUrl,
-      driveFileId: String(body.driveFileId || "").trim(),
-      fechaCreacion: new Date().toISOString(),
-    };
+    const responsable = body.responsable || String(session.user.responsable || "");
+    const sectorFinal = sector || String(session.user.sector || "");
 
-    const valores = buildFacturaRowForHeaders(headers, fields);
+    const fila = buildMicajaFacturasLegacyRowAS({
+      id,
+      numFactura,
+      fecha,
+      valor: String(Math.round(valorNum)),
+      responsable,
+      servicioDeclarado,
+      tipoFactura,
+      nit,
+      razonSocial: proveedor,
+      aNombreBia,
+      concepto,
+      imagenUrl,
+      ciudad,
+      sector: sectorFinal,
+      tipoOperacion,
+    });
 
     console.log("[facturas POST] body recibido:", {
       fecha,
@@ -171,10 +174,11 @@ export async function POST(req: NextRequest) {
       valor: body.valor,
       tipoFactura,
       numFactura,
+      tipoOperacion,
     });
-    console.log("[facturas POST] fila a escribir:", valores);
+    console.log("[facturas POST] fila A:S:", fila);
 
-    await appendFacturaRowRaw(valores);
+    await appendFacturaRowLegacyAS(fila);
 
     return NextResponse.json({ ok: true, id });
   } catch (e) {

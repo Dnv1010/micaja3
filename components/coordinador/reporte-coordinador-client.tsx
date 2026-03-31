@@ -81,7 +81,7 @@ export function ReporteCoordinadorClient() {
   }
 
   const selectedRows = useMemo(
-    () => lista.filter((f) => selected.has(String(getCellCaseInsensitive(f, "ID")))),
+    () => lista.filter((f) => selected.has(String(getCellCaseInsensitive(f, "ID_Factura", "ID")))),
     [lista, selected]
   );
 
@@ -112,7 +112,7 @@ export function ReporteCoordinadorClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado: "Rechazada", motivoRechazo }),
       });
-      setLista((prev) => prev.filter((f) => getCellCaseInsensitive(f, "ID") !== rejectId));
+      setLista((prev) => prev.filter((f) => getCellCaseInsensitive(f, "ID_Factura", "ID") !== rejectId));
       setRejectId(null);
       setMotivoRechazo("");
     } catch {
@@ -126,7 +126,7 @@ export function ReporteCoordinadorClient() {
     setProcesando(true);
     try {
       for (const f of selectedRows) {
-        const id = getCellCaseInsensitive(f, "ID");
+        const id = getCellCaseInsensitive(f, "ID_Factura", "ID");
         await fetch(`/api/facturas/${encodeURIComponent(id)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -135,7 +135,7 @@ export function ReporteCoordinadorClient() {
       }
 
       const facturasPdf: FacturaPdf[] = selectedRows.map((f) => {
-        const id = String(getCellCaseInsensitive(f, "ID") || "");
+        const id = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
         const img =
           getCellCaseInsensitive(f, "ImagenURL", "URL", "Adjuntar_Factura") || "";
         const driveId = getCellCaseInsensitive(f, "DriveFileId") || "";
@@ -182,7 +182,7 @@ export function ReporteCoordinadorClient() {
 
       const blob = await pdf(doc).toBlob();
       const pdfBase64 = await blobToDataUrl(blob);
-      const ids = selectedRows.map((f) => getCellCaseInsensitive(f, "ID")).join(",");
+      const ids = selectedRows.map((f) => getCellCaseInsensitive(f, "ID_Factura", "ID")).join(",");
 
       await fetch("/api/legalizaciones", {
         method: "POST",
@@ -261,7 +261,7 @@ export function ReporteCoordinadorClient() {
                   </TableRow>
                 ) : lista.length ? (
                   lista.map((f, i) => {
-                    const id = getCellCaseInsensitive(f, "ID");
+                    const id = getCellCaseInsensitive(f, "ID_Factura", "ID");
                     return (
                       <TableRow key={`${id}-${i}`}>
                         <TableCell>

@@ -77,7 +77,7 @@ export function FacturaEditDialog({
     setValor(getCellCaseInsensitive(factura, "Valor", "Monto_Factura"));
     setTipoFactura(getCellCaseInsensitive(factura, "TipoFactura", "Tipo_Factura"));
     setServicioDeclarado(getCellCaseInsensitive(factura, "ServicioDeclarado", "Tipo_servicio"));
-    setTipoOperacion(getCellCaseInsensitive(factura, "TipoOperacion"));
+    setTipoOperacion(getCellCaseInsensitive(factura, "OPS", "TipoOperacion"));
     setCiudad(getCellCaseInsensitive(factura, "Ciudad"));
     setSector(getCellCaseInsensitive(factura, "Sector") || "Bogota");
     setANombreBia(sheetANombreBiaTrue(getCellCaseInsensitive(factura, "ANombreBia", "Nombre_bia")));
@@ -88,7 +88,7 @@ export function FacturaEditDialog({
 
   async function guardar() {
     if (!factura) return;
-    const id = getCellCaseInsensitive(factura, "ID");
+    const id = getCellCaseInsensitive(factura, "ID_Factura", "ID");
     if (!id) return;
     setSaving(true);
     setError("");
