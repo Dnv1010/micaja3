@@ -1,4 +1,4 @@
-import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
+﻿import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaLike = Record<string, unknown>;
@@ -19,7 +19,7 @@ export function facturaRowToFacturaPdfForLegalizacion(
     valor: Number(valorRaw) || 0,
     tipoFactura: String(getCellCaseInsensitive(f, "Tipo_Factura", "TipoFactura") || ""),
     area: String(
-      getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || defaults.area || ""
+      getCellCaseInsensitive(f, "Area", "Sector", "Centro de Costo") || defaults.area || ""
     ),
     imagenUrl: String(getCellCaseInsensitive(f, "Adjuntar_Factura", "URL", "ImagenURL") || "").trim() || undefined,
     driveFileId: driveId || undefined,
@@ -60,3 +60,4 @@ export function extractIdsFromReporteFacturasCell(raw: string): string[] {
   }
   return (parsed as FacturaPdf[]).map((x) => String(x.id || "").trim()).filter(Boolean);
 }
+
