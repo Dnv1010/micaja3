@@ -38,3 +38,14 @@ export function findFallbackUser(email: string): FallbackUser | null {
   const normalized = email.toLowerCase().trim();
   return FALLBACK_USERS.find((u) => u.email.toLowerCase() === normalized) ?? null;
 }
+
+/** Usuarios operativos de la zona (para coordinador; por ahora solo fallback). */
+export function fallbackActiveZoneUsers(sector: string): FallbackUser[] {
+  return FALLBACK_USERS.filter(
+    (u) => u.sector === sector && u.rol === "user" && u.userActive
+  );
+}
+
+export function responsablesEnZonaSet(sector: string): Set<string> {
+  return new Set(fallbackActiveZoneUsers(sector).map((u) => u.responsable.toLowerCase()));
+}

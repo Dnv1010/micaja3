@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Session } from "next-auth";
-import { FileText, LayoutDashboard, Send, Users, Package, FileBarChart2 } from "lucide-react";
+import { FileText, LayoutDashboard, Send, Users, Package, FileBarChart2, Scale } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -19,14 +19,15 @@ function navByRole(rol: string): NavItem[] {
   }
   if (rol === "coordinador") {
     return [
-      { href: "/usuarios", label: "Usuarios", icon: Users },
+      { href: "/", label: "Mi Zona", icon: LayoutDashboard },
       { href: "/envios", label: "Envios", icon: Send },
       { href: "/facturas", label: "Facturas", icon: FileText },
       { href: "/reporte", label: "Reporte", icon: FileBarChart2 },
+      { href: "/legalizaciones", label: "Legalizaciones", icon: Scale },
     ];
   }
   return [
-    { href: "/", label: "Mi Cuenta", icon: LayoutDashboard },
+    { href: "/mi-cuenta", label: "Mi Cuenta", icon: LayoutDashboard },
     { href: "/facturas", label: "Facturas", icon: FileText },
     { href: "/entregas", label: "Entregas", icon: Package },
   ];

@@ -1,5 +1,5 @@
-import { PlaceholderPage } from "@/components/layout/placeholder-page";
+import { redirect } from "next/navigation";
 
-export default function UsuariosPage() {
-  return <PlaceholderPage title="Usuarios" />;
+export default function UsuariosRedirectPage() {
+  redirect("/");
 }

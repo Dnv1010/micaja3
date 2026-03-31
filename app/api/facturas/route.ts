@@ -7,6 +7,7 @@ import { buildAppendRow } from "@/lib/sheet-row";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { parseSheetDate } from "@/lib/format";
 import type { FacturaRow } from "@/types/models";
+import { responsablesEnZonaSet } from "@/lib/users-fallback";
 
 const FACTURAS_HEADERS = [
   "ID",
@@ -45,6 +46,18 @@ export async function GET(req: NextRequest) {
     const hastaQ = searchParams.get("hasta") || "";
     const desde = parseSheetDate(desdeQ);
     const hasta = parseSheetDate(hastaQ);
+    const zonaSector = searchParams.get("zonaSector")?.trim() || "";
+    const rol = String(session.user.rol || "").toLowerCase();
+    let zonaSet: Set<string> | null = null;
+    if (zonaSector) {
+      if (rol === "admin") {
+        zonaSet = responsablesEnZonaSet(zonaSector);
+      } else if (rol === "coordinador" && String(session.user.sector || "") === zonaSector) {
+        zonaSet = responsablesEnZonaSet(zonaSector);
+      } else {
+        return NextResponse.json({ data: [] });
+      }
+    }
 
     const factRows = await getFacturasRowsWithHeaders();
     const facturas = rowsToObjects<FacturaRow>(factRows);
@@ -54,6 +67,7 @@ export async function GET(req: NextRequest) {
       const fecha = getCellCaseInsensitive(f, "Fecha");
       const fechaObj = parseSheetDate(fecha);
 
+      if (zonaSet && !zonaSet.has(responsable.toLowerCase())) return false;
       if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
       if (estadoQ && estado.toLowerCase() !== estadoQ) return false;
       if (desde && (!fechaObj || fechaObj < desde)) return false;

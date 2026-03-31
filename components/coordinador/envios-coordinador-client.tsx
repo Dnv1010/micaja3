@@ -1,0 +1,235 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import type { FallbackUser } from "@/lib/users-fallback";
+
+type EnvioRow = Record<string, unknown>;
+
+export function EnviosCoordinadorClient({
+  sector,
+  zoneUsers,
+  coordinatorName,
+}: {
+  sector: string;
+  zoneUsers: FallbackUser[];
+  coordinatorName: string;
+}) {
+  const [responsable, setResponsable] = useState("");
+  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [monto, setMonto] = useState("");
+  const [observaciones, setObservaciones] = useState("");
+  const [sending, setSending] = useState(false);
+  const [okMsg, setOkMsg] = useState("");
+
+  const [filtroUser, setFiltroUser] = useState("__todos__");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [lista, setLista] = useState<EnvioRow[]>([]);
+
+  async function cargarLista() {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams({ sector });
+      if (filtroUser && filtroUser !== "__todos__") q.set("responsable", filtroUser);
+      if (desde) q.set("desde", desde);
+      if (hasta) q.set("hasta", hasta);
+      const res = await fetch(`/api/envios?${q}`);
+      const json = await res.json().catch(() => ({ data: [] }));
+      const rows = Array.isArray(json.data) ? json.data : [];
+      rows.sort((a: EnvioRow, b: EnvioRow) => {
+        const fa = getCellCaseInsensitive(a, "Fecha");
+        const fb = getCellCaseInsensitive(b, "Fecha");
+        return fb.localeCompare(fa);
+      });
+      setLista(rows);
+    } catch {
+      setLista([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void cargarLista();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sector, filtroUser, desde, hasta]);
+
+  const totalPeriodo = useMemo(
+    () => lista.reduce((acc, r) => acc + parseCOPString(getCellCaseInsensitive(r, "Monto")), 0),
+    [lista]
+  );
+
+  async function enviarDinero(e: React.FormEvent) {
+    e.preventDefault();
+    if (!responsable || !monto) return;
+    setSending(true);
+    setOkMsg("");
+    try {
+      const res = await fetch("/api/envios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fecha,
+          responsable,
+          sector,
+          monto,
+          enviadoPor: coordinatorName,
+          observaciones,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setOkMsg(`✅ Envío registrado para ${responsable}`);
+        setMonto("");
+        setObservaciones("");
+        setResponsable("");
+        void cargarLista();
+      } else {
+        setOkMsg(String(json.error || "No se pudo registrar"));
+      }
+    } catch {
+      setOkMsg("No se pudo registrar");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <CardHeader>
+          <CardTitle>Nuevo envío</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={enviarDinero} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Usuario</Label>
+              <Select value={responsable} onValueChange={(v) => setResponsable(v || "")}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                  <SelectValue placeholder="Seleccione usuario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {zoneUsers.map((u) => (
+                    <SelectItem key={u.email} value={u.responsable}>
+                      {u.responsable}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Fecha</Label>
+              <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            </div>
+            <div className="space-y-1">
+              <Label>Monto</Label>
+              <Input
+                type="number"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                className="bg-zinc-900 border-zinc-700"
+              />
+              <p className="text-xs text-zinc-500">{formatCOP(Number(monto || 0))}</p>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Observaciones</Label>
+              <Textarea
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                className="bg-zinc-900 border-zinc-700"
+                rows={3}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Button type="submit" className="bg-black text-white hover:bg-zinc-800" disabled={sending}>
+                {sending ? "Enviando..." : "Enviar dinero 💸"}
+              </Button>
+              {okMsg ? <p className="mt-2 text-sm text-emerald-400">{okMsg}</p> : null}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <CardHeader>
+          <CardTitle>Envíos realizados</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label>Usuario</Label>
+              <Select value={filtroUser} onValueChange={(v) => setFiltroUser(v || "__todos__")}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__todos__">Todos</SelectItem>
+                  {zoneUsers.map((u) => (
+                    <SelectItem key={u.email} value={u.responsable}>
+                      {u.responsable}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Desde</Label>
+              <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            </div>
+            <div className="space-y-1">
+              <Label>Hasta</Label>
+              <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Usuario</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead>Observaciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    </TableCell>
+                  </TableRow>
+                ) : lista.length ? (
+                  lista.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(r, "Fecha"))}</TableCell>
+                      <TableCell>{getCellCaseInsensitive(r, "Responsable")}</TableCell>
+                      <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(r, "Monto")))}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getCellCaseInsensitive(r, "Observaciones") || "-"}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-zinc-500">
+                      Sin envíos en el período
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="text-right text-sm font-medium">Total enviado en el período: {formatCOP(totalPeriodo)}</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

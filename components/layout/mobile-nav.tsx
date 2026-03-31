@@ -4,26 +4,35 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Session } from "next-auth";
-import { LayoutDashboard, FileText, Package, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, FileText, Package, Send, MoreHorizontal } from "lucide-react";
 
-const SHORT: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
-  { href: "/", label: "Inicio", icon: LayoutDashboard },
+const SHORT_USER: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
+  { href: "/mi-cuenta", label: "Inicio", icon: LayoutDashboard },
   { href: "/facturas", label: "Facturas", icon: FileText },
   { href: "/entregas", label: "Entregas", icon: Package },
 ];
 
+const SHORT_COORD: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
+  { href: "/", label: "Zona", icon: LayoutDashboard },
+  { href: "/facturas", label: "Facturas", icon: FileText },
+  { href: "/envios", label: "Envios", icon: Send },
+];
+
 function allowedRoutesByRole(rol: string): string[] {
   if (rol === "admin") return ["/", "/admin/reportes", "/admin/facturas", "/admin/usuarios"];
-  if (rol === "coordinador") return ["/usuarios", "/envios", "/facturas", "/reporte"];
-  return ["/", "/facturas", "/entregas"];
+  if (rol === "coordinador") return ["/", "/envios", "/facturas", "/reporte", "/legalizaciones"];
+  return ["/mi-cuenta", "/facturas", "/entregas"];
 }
 
 export function MobileBottomNav({ session }: { session: Session }) {
   const pathname = usePathname();
   const rol = String(session.user?.rol || "user").toLowerCase();
   const allowed = new Set(allowedRoutesByRole(rol));
-  const tabs = SHORT.filter((s) => allowed.has(s.href));
-  const shortTabs = tabs.length ? tabs : [{ href: "/", label: "Inicio", icon: LayoutDashboard }];
+  const shortList = rol === "coordinador" ? SHORT_COORD : SHORT_USER;
+  const tabs = shortList.filter((s) => allowed.has(s.href));
+  const shortTabs = tabs.length
+    ? tabs
+    : [{ href: rol === "coordinador" ? "/" : "/mi-cuenta", label: "Inicio", icon: LayoutDashboard }];
   const moreHref = Array.from(allowed).find((href) => !shortTabs.some((s) => s.href === href)) || "/";
 
   return (

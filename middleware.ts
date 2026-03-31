@@ -12,8 +12,15 @@ export default withAuth(
 
     if (
       rol === "user" &&
-      (pathname.startsWith("/envios") || pathname.startsWith("/reporte") || pathname.startsWith("/usuarios"))
+      (pathname.startsWith("/envios") ||
+        pathname.startsWith("/reporte") ||
+        pathname.startsWith("/usuarios") ||
+        pathname.startsWith("/legalizaciones"))
     ) {
+      return NextResponse.redirect(new URL("/mi-cuenta", req.url));
+    }
+
+    if (rol === "coordinador" && pathname.startsWith("/mi-cuenta")) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 

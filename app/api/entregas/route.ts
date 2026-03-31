@@ -8,6 +8,7 @@ import { uniqueSheetKey } from "@/lib/ids";
 import { parseSheetDate, todayISO } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import type { EntregaRow } from "@/types/models";
+import { responsablesEnZonaSet } from "@/lib/users-fallback";
 
 const ENTREGAS_HEADERS = ["ID", "Fecha", "Responsable", "Sector", "Monto", "EnviadoPor", "Observaciones"];
 
@@ -28,10 +29,20 @@ export async function GET(req: NextRequest) {
     const responsableQ = searchParams.get("responsable")?.trim().toLowerCase() || "";
     const desde = parseSheetDate(searchParams.get("desde") || "");
     const hasta = parseSheetDate(searchParams.get("hasta") || "");
+    const zonaSector = searchParams.get("zonaSector")?.trim() || "";
+    const rol = String(session.user.rol || "").toLowerCase();
+    let zonaSet: Set<string> | null = null;
+    if (zonaSector) {
+      if (rol === "admin") zonaSet = responsablesEnZonaSet(zonaSector);
+      else if (rol === "coordinador" && String(session.user.sector || "") === zonaSector)
+        zonaSet = responsablesEnZonaSet(zonaSector);
+      else return NextResponse.json({ data: [] });
+    }
     const rows = await getEntregasRowsWithHeaders();
     const data = rowsToObjects<EntregaRow>(rows).filter((row) => {
       const responsable = getCellCaseInsensitive(row, "Responsable");
       const fecha = parseSheetDate(getCellCaseInsensitive(row, "Fecha", "Fecha_Entrega"));
+      if (zonaSet && !zonaSet.has(responsable.toLowerCase())) return false;
       if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
       if (desde && (!fecha || fecha < desde)) return false;
       if (hasta && (!fecha || fecha > hasta)) return false;
