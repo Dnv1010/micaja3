@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
-  try {
-    assertSheetsConfigured();
+  console.log("[upload] ENV CHECK:", { hasEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL, hasKey: !!process.env.GOOGLE_PRIVATE_KEY, keyLength: process.env.GOOGLE_PRIVATE_KEY?.length, keyStart: process.env.GOOGLE_PRIVATE_KEY?.slice(0,27) });
+  try { assertSheetsConfigured();
   } catch {
     return NextResponse.json(
       { error: "Servicio de almacenamiento no disponible. Contacta al administrador." },
@@ -182,3 +182,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
