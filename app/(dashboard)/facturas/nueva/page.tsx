@@ -327,27 +327,30 @@ export default function NuevaFacturaPage() {
     setSaveError("");
     setUploadState("saving");
     try {
+      const body = {
+        fecha: fecha.trim(),
+        proveedor: proveedor.trim(),
+        nit: nit.trim(),
+        numFactura: numFactura.trim(),
+        concepto: concepto.trim(),
+        valor: String(valor).trim(),
+        tipoFactura,
+        servicioDeclarado,
+        tipoOperacion,
+        aNombreBia,
+        ciudad,
+        sector: sectorForm,
+        responsable: String(user.responsable || ""),
+        area: String(user.area || ""),
+        imagenUrl: imagenUrl.trim(),
+        driveFileId: driveFileId.trim(),
+      };
+      // eslint-disable-next-line no-console -- depuración envío POST facturas
+      console.log("guardando factura:", body);
       const res = await fetch("/api/facturas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fecha: fecha.trim(),
-          proveedor: proveedor.trim(),
-          nit: nit.trim(),
-          numFactura: numFactura.trim(),
-          concepto: concepto.trim(),
-          valor: valor.trim(),
-          tipoFactura,
-          servicioDeclarado,
-          tipoOperacion,
-          aNombreBia,
-          ciudad,
-          responsable: user.responsable || "",
-          area: user.area || "",
-          sector: sectorForm,
-          imagenUrl: imagenUrl.trim(),
-          driveFileId: driveFileId.trim(),
-        }),
+        body: JSON.stringify(body),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {

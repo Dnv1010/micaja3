@@ -104,12 +104,13 @@ export function FacturasUsuarioClient() {
                   ))
                 ) : facturas.length ? (
                   facturas.map((f, i) => {
-                    const estado = getCellCaseInsensitive(f, "Estado") || "Pendiente";
+                    const estado =
+                      getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
                     const estadoLower = estado.toLowerCase();
                     const motivo = getCellCaseInsensitive(f, "MotivoRechazo");
-                    const fid = String(getCellCaseInsensitive(f, "ID") || "");
+                    const fid = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
                     const aBia = sheetANombreBiaTrue(
-                      getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia")
+                      getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia", "Nombre_bia")
                     );
                     return (
                       <TableRow key={`f-${i}`}>
