@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaItem = Record<string, unknown>;
@@ -18,6 +19,8 @@ function estadoClass(estado: string): string {
   if (e === "rechazada") return "border-red-700 text-red-300";
   return "border-yellow-700 text-yellow-300";
 }
+
+const COLS = 11;
 
 export function FacturasUsuarioClient() {
   const { data } = useSession();
@@ -69,6 +72,10 @@ export function FacturasUsuarioClient() {
                   <TableHead>Proveedor</TableHead>
                   <TableHead>NIT</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead>Ciudad</TableHead>
+                  <TableHead>Servicio</TableHead>
+                  <TableHead>Operación</TableHead>
+                  <TableHead>BIA</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead></TableHead>
@@ -78,7 +85,7 @@ export function FacturasUsuarioClient() {
                 {loading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={`sk-${i}`}>
-                      <TableCell colSpan={7}>
+                      <TableCell colSpan={COLS}>
                         <div className="h-5 w-full animate-pulse rounded bg-zinc-800" />
                       </TableCell>
                     </TableRow>
@@ -87,13 +94,34 @@ export function FacturasUsuarioClient() {
                   facturas.map((f, i) => {
                     const estado = getCellCaseInsensitive(f, "Estado") || "Pendiente";
                     const motivo = getCellCaseInsensitive(f, "MotivoRechazo");
+                    const aBia = sheetANombreBiaTrue(
+                      getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia")
+                    );
                     return (
                       <TableRow key={`f-${i}`}>
-                        <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura"))}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura"))}
+                        </TableCell>
                         <TableCell>{getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || "-"}</TableCell>
-                        <TableCell>{getCellCaseInsensitive(f, "NIT", "Nit_Factura") || "-"}</TableCell>
-                        <TableCell>{formatCOP(parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")))}</TableCell>
-                        <TableCell>{getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "-"}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {getCellCaseInsensitive(f, "NIT", "Nit_Factura") || "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatCOP(parseCOPString(getCellCaseInsensitive(f, "Valor", "Monto_Factura")))}
+                        </TableCell>
+                        <TableCell>{getCellCaseInsensitive(f, "Ciudad") || "—"}</TableCell>
+                        <TableCell>{getCellCaseInsensitive(f, "ServicioDeclarado") || "—"}</TableCell>
+                        <TableCell className="max-w-[140px] truncate" title={getCellCaseInsensitive(f, "TipoOperacion")}>
+                          {getCellCaseInsensitive(f, "TipoOperacion") || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {aBia ? (
+                            <Badge className="border-emerald-700 bg-emerald-950 text-emerald-200">BIA</Badge>
+                          ) : (
+                            <span className="text-zinc-600">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={estadoClass(estado)} title={motivo || undefined}>
                             {estado}
@@ -115,7 +143,7 @@ export function FacturasUsuarioClient() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-zinc-500">
+                    <TableCell colSpan={COLS} className="text-zinc-500">
                       No hay facturas registradas
                     </TableCell>
                   </TableRow>

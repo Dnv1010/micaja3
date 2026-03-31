@@ -1,16 +1,31 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatCOP, formatDateDDMMYYYY } from "@/lib/format";
+import {
+  CIUDADES_FACTURA,
+  SERVICIOS_DECLARADOS,
+  SECTORES_FACTURA,
+  TIPOS_FACTURA_FIJOS,
+  TIPOS_OPERACION,
+} from "@/lib/factura-field-options";
+import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import {
+  isFechaFacturaFutura,
+  nitIndicaBiaEnergy,
+  parseFechaFacturaDDMMYYYY,
+} from "@/lib/nueva-factura-validation";
 
 const GALLERY_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -25,6 +40,7 @@ type OcrPayload = {
   monto_factura?: number | null;
   image_url?: string | null;
   message?: string | null;
+  nombre_bia?: boolean | null;
 };
 
 const PROGRESS_STEPS = ["Seleccionar", "Subir", "Extraer", "Revisar", "Guardar"] as const;
@@ -36,7 +52,7 @@ function validateFile(f: File): string | null {
   if (f.type === "application/pdf") {
     /* ok */
   } else if (f.type.startsWith("image/")) {
-    /* ok — cámara puede devolver HEIC u otros */
+    /* ok */
   } else {
     return "Use una imagen o un PDF.";
   }
@@ -44,7 +60,6 @@ function validateFile(f: File): string | null {
   return null;
 }
 
-/** Pasos ya terminados con ● (excluye el paso que está en curso). */
 function progressSolidCount(state: UploadState): number {
   switch (state) {
     case "idle":
@@ -66,7 +81,6 @@ function progressSolidCount(state: UploadState): number {
   }
 }
 
-/** Paso activo (pulso) — mismo índice que `solidCount` mientras se ejecuta esa fase. */
 function progressPulseIndex(state: UploadState): number {
   switch (state) {
     case "idle":
@@ -90,6 +104,8 @@ export default function NuevaFacturaPage() {
   const router = useRouter();
   const { data } = useSession();
   const user = data?.user;
+  const idOpAct = useId();
+  const idOpRet = useId();
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -109,18 +125,31 @@ export default function NuevaFacturaPage() {
   const [concepto, setConcepto] = useState("");
   const [valor, setValor] = useState("");
   const [tipoFactura, setTipoFactura] = useState("");
-  const [tipos, setTipos] = useState<string[]>([]);
+  const [servicioDeclarado, setServicioDeclarado] = useState("");
+  const [tipoOperacion, setTipoOperacion] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  const [sectorForm, setSectorForm] = useState("");
+  const [aNombreBia, setANombreBia] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const sector = String(user?.sector || "");
+  const sessionSector = String(user?.sector || "");
   const responsable = String(user?.responsable || user?.name || "");
 
   useEffect(() => {
-    fetch("/api/catalogos?tab=TipoFactura")
-      .then((r) => r.json())
-      .then((j) => setTipos(Array.isArray(j.data) ? j.data : []))
-      .catch(() => setTipos([]));
-  }, []);
+    const s = String(user?.sector || "");
+    setSectorForm((prev) => (prev ? prev : s));
+    setCiudad((prev) => {
+      if (prev) return prev;
+      if (s === "Bogota") return "Bogotá";
+      if (s === "Costa Caribe") return "Barranquilla";
+      return prev;
+    });
+  }, [user?.sector]);
+
+  const nitBiaWarning = useMemo(() => {
+    if (!aNombreBia || !nit.trim()) return false;
+    return !nitIndicaBiaEnergy(nit);
+  }, [aNombreBia, nit]);
 
   function resetPreview() {
     if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
@@ -161,7 +190,7 @@ export default function NuevaFacturaPage() {
       setUploadError(err);
       return;
     }
-    if (!sector || (sector !== "Bogota" && sector !== "Costa Caribe")) {
+    if (!sessionSector || (sessionSector !== "Bogota" && sessionSector !== "Costa Caribe")) {
       setUploadError("Su cuenta no tiene un sector válido (Bogota / Costa Caribe).");
       return;
     }
@@ -173,7 +202,7 @@ export default function NuevaFacturaPage() {
     try {
       const formUp = new FormData();
       formUp.append("file", file);
-      formUp.append("sector", sector);
+      formUp.append("sector", sessionSector);
       formUp.append("responsable", responsable);
       if (fecha.trim()) formUp.append("fecha", fecha.trim());
 
@@ -214,6 +243,7 @@ export default function NuevaFacturaPage() {
         if (d.monto_factura != null && !Number.isNaN(d.monto_factura)) {
           setValor(String(Math.round(d.monto_factura)));
         }
+        if (d.nombre_bia === true) setANombreBia(true);
         setImagenUrl(String(d.image_url || url));
         if (d.message) {
           setOcrHint(d.message);
@@ -234,10 +264,31 @@ export default function NuevaFacturaPage() {
     }
   }
 
+  function validateLocal(): string | null {
+    if (!imagenUrl.trim()) return "Debes subir la imagen a Drive antes de guardar.";
+    const fd = parseFechaFacturaDDMMYYYY(fecha);
+    if (!fd) return "La fecha es obligatoria (DD/MM/YYYY).";
+    if (isFechaFacturaFutura(fd)) return "La fecha no puede ser futura.";
+    if (!proveedor.trim()) return "Proveedor es obligatorio.";
+    if (!concepto.trim()) return "Concepto es obligatorio.";
+    if (!tipoFactura) return "Tipo de factura es obligatorio.";
+    if (!servicioDeclarado) return "Servicio declarado es obligatorio.";
+    if (!tipoOperacion) return "Tipo de operación es obligatorio.";
+    if (!ciudad) return "Ciudad es obligatoria.";
+    if (!sectorForm) return "Sector es obligatorio.";
+    const v = parseCOPString(valor || "0");
+    if (!Number.isFinite(v) || v <= 0) return "El valor debe ser mayor a 0.";
+    if (aNombreBia && !nit.trim()) {
+      return "Si la factura es a nombre de BIA, el NIT es obligatorio.";
+    }
+    return null;
+  }
+
   async function saveFactura() {
     if (!user) return;
-    if (!imagenUrl.trim()) {
-      setSaveError("Debes subir la imagen a Drive antes de guardar.");
+    const localErr = validateLocal();
+    if (localErr) {
+      setSaveError(localErr);
       return;
     }
     setSaveError("");
@@ -247,15 +298,19 @@ export default function NuevaFacturaPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fecha,
-          proveedor,
-          nit,
-          concepto,
-          valor,
+          fecha: fecha.trim(),
+          proveedor: proveedor.trim(),
+          nit: nit.trim(),
+          concepto: concepto.trim(),
+          valor: valor.trim(),
           tipoFactura,
+          servicioDeclarado,
+          tipoOperacion,
+          aNombreBia,
+          ciudad,
           responsable: user.responsable || "",
           area: user.area || "",
-          sector: user.sector || "",
+          sector: sectorForm,
           imagenUrl: imagenUrl.trim(),
           driveFileId: driveFileId.trim(),
         }),
@@ -288,35 +343,35 @@ export default function NuevaFacturaPage() {
             const done = i < solidCount;
             const pulse = pulseIdx === i && !done;
             return (
-            <span key={label} className="inline-flex items-center gap-1">
-              <span
-                className={
-                  done
-                    ? "text-emerald-400"
-                    : pulse
-                      ? "text-amber-400 animate-pulse"
-                      : "text-zinc-600"
-                }
-              >
-                {done ? "●" : "○"}
-              </span>
-              <span
-                className={
-                  done
-                    ? "text-zinc-200"
-                    : pulse
-                      ? "text-zinc-200 animate-pulse"
-                      : "text-zinc-500"
-                }
-              >
-                {label}
-              </span>
-              {i < PROGRESS_STEPS.length - 1 ? (
-                <span className="mx-0.5 text-zinc-600 sm:mx-1" aria-hidden>
-                  →
+              <span key={label} className="inline-flex items-center gap-1">
+                <span
+                  className={
+                    done
+                      ? "text-emerald-400"
+                      : pulse
+                        ? "text-amber-400 animate-pulse"
+                        : "text-zinc-600"
+                  }
+                >
+                  {done ? "●" : "○"}
                 </span>
-              ) : null}
-            </span>
+                <span
+                  className={
+                    done
+                      ? "text-zinc-200"
+                      : pulse
+                        ? "text-zinc-200 animate-pulse"
+                        : "text-zinc-500"
+                  }
+                >
+                  {label}
+                </span>
+                {i < PROGRESS_STEPS.length - 1 ? (
+                  <span className="mx-0.5 text-zinc-600 sm:mx-1" aria-hidden>
+                    →
+                  </span>
+                ) : null}
+              </span>
             );
           })}
         </div>
@@ -429,7 +484,7 @@ export default function NuevaFacturaPage() {
         <CardHeader>
           <CardTitle>Paso 2 — Revisar y completar</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Imagen en Drive</Label>
             <Input
@@ -439,6 +494,7 @@ export default function NuevaFacturaPage() {
               placeholder="Se llena al subir el archivo"
             />
           </div>
+
           <div className="space-y-1.5">
             <Label>Fecha</Label>
             <Input
@@ -450,34 +506,30 @@ export default function NuevaFacturaPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Proveedor</Label>
-            <Input value={proveedor} onChange={(e) => setProveedor(e.target.value)} className="bg-zinc-900 border-zinc-700" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>NIT</Label>
-            <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-zinc-900 border-zinc-700" />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Concepto</Label>
-            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} className="bg-zinc-900 border-zinc-700" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Valor</Label>
             <Input
-              type="number"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
+              value={proveedor}
+              onChange={(e) => setProveedor(e.target.value)}
               className="bg-zinc-900 border-zinc-700"
             />
-            <p className="text-xs text-zinc-500">{valorVista}</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>NIT {!aNombreBia ? <span className="text-zinc-500">(opcional)</span> : null}</Label>
+            <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            {nitBiaWarning ? (
+              <p className="text-xs text-amber-300">
+                ⚠️ El NIT no coincide con BIA Energy. Verifica la factura.
+              </p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label>Tipo de Factura</Label>
             <Select value={tipoFactura} onValueChange={(value) => setTipoFactura(value || "")}>
               <SelectTrigger className="bg-zinc-900 border-zinc-700">
-                <SelectValue placeholder="Seleccionar tipo" />
+                <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
-                {tipos.map((t) => (
+                {TIPOS_FACTURA_FIJOS.map((t) => (
                   <SelectItem value={t} key={t}>
                     {t}
                   </SelectItem>
@@ -485,6 +537,92 @@ export default function NuevaFacturaPage() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-1.5">
+            <Label>Concepto</Label>
+            <Input
+              value={concepto}
+              onChange={(e) => setConcepto(e.target.value)}
+              className="bg-zinc-900 border-zinc-700"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Servicio declarado</Label>
+            <Select value={servicioDeclarado} onValueChange={(value) => setServicioDeclarado(value || "")}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                {SERVICIOS_DECLARADOS.map((t) => (
+                  <SelectItem value={t} key={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Valor</Label>
+            <Input
+              type="number"
+              min={1}
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              className="bg-zinc-900 border-zinc-700"
+            />
+            <p className="text-xs text-zinc-500">{valorVista}</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Ciudad</Label>
+            <Select value={ciudad} onValueChange={(value) => setCiudad(value || "")}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                {CIUDADES_FACTURA.map((c) => (
+                  <SelectItem value={c} key={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Tipo de operación</Label>
+            <RadioGroup
+              value={tipoOperacion}
+              onValueChange={(v) => setTipoOperacion(String(v ?? ""))}
+              className="grid gap-2 sm:max-w-md"
+            >
+              <RadioGroupItem id={idOpAct} value={TIPOS_OPERACION[0]} label={TIPOS_OPERACION[0]} />
+              <RadioGroupItem id={idOpRet} value={TIPOS_OPERACION[1]} label={TIPOS_OPERACION[1]} />
+            </RadioGroup>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <Checkbox
+                checked={aNombreBia}
+                onCheckedChange={(c) => setANombreBia(c === true)}
+                className="border-zinc-500"
+              />
+              <Label className="cursor-pointer text-sm font-normal leading-snug">
+                Factura a nombre de BIA Energy SAS ESP (NIT 901.588.413-2)
+              </Label>
+            </div>
+            {aNombreBia ? (
+              <Badge className="w-fit border-emerald-700 bg-emerald-950 text-emerald-200">
+                ✅ A nombre de BIA
+              </Badge>
+            ) : (
+              <Badge className="w-fit border-amber-700 bg-amber-950 text-amber-200">
+                ⚠️ No es a nombre de BIA
+              </Badge>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <Label>Responsable</Label>
             <Input value={user?.responsable || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
@@ -493,9 +631,21 @@ export default function NuevaFacturaPage() {
             <Label>Área</Label>
             <Input value={user?.area || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
           </div>
-          <div className="space-y-1.5">
+
+          <div className="space-y-1.5 sm:col-span-2">
             <Label>Sector</Label>
-            <Input value={user?.sector || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
+            <Select value={sectorForm} onValueChange={(value) => setSectorForm(value || "")}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                {SECTORES_FACTURA.map((s) => (
+                  <SelectItem value={s} key={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>

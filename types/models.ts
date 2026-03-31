@@ -27,6 +27,10 @@ export type FacturaRow = {
   Concepto?: string;
   Valor?: string;
   TipoFactura?: string;
+  ServicioDeclarado?: string;
+  TipoOperacion?: string;
+  ANombreBia?: string;
+  Ciudad?: string;
   Responsable?: string;
   Area?: string;
   Sector?: string;
@@ -50,7 +54,6 @@ export type FacturaRow = {
   URL?: string;
   Legalizado?: string;
   Verificado?: string;
-  Ciudad?: string;
   "Centro de Costo"?: string;
   InfoCentroCosto?: string;
   [key: string]: string | number | undefined;
