@@ -94,10 +94,12 @@ export async function POST(req: NextRequest) {
             body: Readable.from(buffer),
           },
           fields: "id, webViewLink",
+          supportsAllDrives: true,
         });
         await drive.permissions.create({
           fileId: driveResponse.data.id!,
           requestBody: { role: "reader", type: "anyone" },
+          supportsAllDrives: true,
         });
         pdfUrl = `https://drive.google.com/file/d/${driveResponse.data.id}/view`;
       } catch {

@@ -20,6 +20,8 @@ export async function findChildFolderByName(
     fields: "files(id,name)",
     spaces: "drive",
     pageSize: 5,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
   });
   const id = res.data.files?.[0]?.id;
   return id || null;
@@ -39,6 +41,7 @@ export async function findOrCreateChildFolder(
       parents: [parentId],
     },
     fields: "id",
+    supportsAllDrives: true,
   });
   if (!created.data.id) throw new Error(`No se pudo crear la carpeta "${name}"`);
   return created.data.id;

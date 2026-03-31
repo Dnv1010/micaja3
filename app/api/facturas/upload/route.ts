@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
           body: Readable.from(buffer),
         },
         fields: "id",
+        supportsAllDrives: true,
       });
 
       const fileId = driveResponse.data.id;
@@ -156,6 +157,7 @@ export async function POST(req: NextRequest) {
       await drive.permissions.create({
         fileId,
         requestBody: { role: "reader", type: "anyone" },
+        supportsAllDrives: true,
       });
 
       return { fileId, driveFileName };
