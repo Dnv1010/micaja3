@@ -1,6 +1,9 @@
-"use client";
+﻿"use client";
 
-import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+
+Font.register({ family: 'Roboto', src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf' });
+
 
 Font.register({
   family: "Roboto",
@@ -26,7 +29,7 @@ Font.register({
 
 const FONT = "Roboto";
 
-/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:…). */
+/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:â€¦). */
 export function normalizeFirmaDataUrlForPdf(raw: string): string {
   const t = raw.trim();
   if (!t) return t;
@@ -166,10 +169,10 @@ export function LegalizacionPdf({
 }: LegalizacionPdfProps) {
   const total = facturas.reduce((acc, f) => acc + valorNum(f.valor), 0);
   const ejecutado = limiteZona > 0 ? Math.round((total / limiteZona) * 100) : 0;
-  const cc = coordinador.cedula?.trim() || "—";
+  const cc = coordinador.cedula?.trim() || "â€”";
   const firmaCoordSrc = firmaCoordinador ? normalizeFirmaDataUrlForPdf(firmaCoordinador) : "";
   const firmaAdminSrc = firmaAdmin ? normalizeFirmaDataUrlForPdf(firmaAdmin) : "";
-  const emDash = "—";
+  const emDash = "â€”";
 
   return (
     <Document>
@@ -178,7 +181,7 @@ export function LegalizacionPdf({
           <Text style={styles.logoBolt}>{"\u26A1"}</Text>
           <Text style={styles.logoText}>Bia</Text>
         </View>
-        <Text style={styles.mainTitle}>LEGALIZACIÓN DE CAJA MENOR GASTOS</Text>
+        <Text style={styles.mainTitle}>LEGALIZACIÃ“N DE CAJA MENOR GASTOS</Text>
 
         <View style={styles.twoCol}>
           <View style={styles.col}>
@@ -199,7 +202,7 @@ export function LegalizacionPdf({
               <Text style={styles.value}>BIA ENERGY SAS ESP</Text>
             </View>
             <View style={styles.labelRow}>
-              <Text style={styles.label}>Responsable de Autorización:</Text>
+              <Text style={styles.label}>Responsable de AutorizaciÃ³n:</Text>
               <Text style={styles.value}>Hernan Manjarres</Text>
             </View>
             <View style={styles.labelRow}>
@@ -237,7 +240,7 @@ export function LegalizacionPdf({
             <Text style={[styles.td, styles.wConcepto]}>CONCEPTO</Text>
             <Text style={[styles.td, styles.wFactura]}>No. DE FACTURA</Text>
             <Text style={[styles.td, styles.wCentro]}>CENTRO DE COSTOS</Text>
-            <Text style={[styles.td, styles.wCat]}>CATEGORÍA</Text>
+            <Text style={[styles.td, styles.wCat]}>CATEGORÃA</Text>
             <Text style={[styles.td, styles.wFecha]}>FECHA</Text>
             <Text style={[styles.td, styles.wValor, styles.tdLast]}>VALOR</Text>
           </View>
