@@ -70,12 +70,14 @@ export async function POST(req: NextRequest) {
       facturasIds?: string[];
       facturasPdf?: Array<Record<string, unknown>>;
       firmaCoordinador?: string;
+      pdfUrl?: string;
     };
 
     const periodoDe = String(body.periodoDe || "").trim();
     const periodoHasta = String(body.periodoHasta || "").trim();
     const facturasIds = Array.isArray(body.facturasIds) ? body.facturasIds.map(String) : [];
     const firmaCoordinador = String(body.firmaCoordinador || "").trim().slice(0, 45000);
+    const pdfUrl = String(body.pdfUrl || "").trim();
     const totalStr = String(
       typeof body.total === "number" && Number.isFinite(body.total) ? Math.round(body.total) : body.total || "0"
     );
@@ -140,7 +142,7 @@ export async function POST(req: NextRequest) {
       facturasJson,
       firmaCoordinador,
       "",
-      "",
+      pdfUrl,
       new Date().toISOString(),
     ];
 
@@ -159,7 +161,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, id });
+    return NextResponse.json({ ok: true, id, pdfUrl });
   } catch (e) {
     console.error("legalizaciones POST:", e);
     return NextResponse.json({ ok: false, error: "No se pudo crear el reporte" }, { status: 500 });

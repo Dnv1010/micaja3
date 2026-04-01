@@ -121,10 +121,56 @@ export function ReporteCoordinadorClient() {
     setSignOpen(false);
     setProcesando(true);
     setOkMsg("");
+
+    const user = data?.user;
+
     try {
       const facturasIds = selectedRows.map((f) => String(getCellCaseInsensitive(f, "ID_Factura", "ID")));
-      const userArea = String(data?.user?.area || "");
-      const facturasPdf = selectedRows.map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: userArea }));
+      const userArea = String(user?.area || "");
+      const facturasPdf = selectedRows.map((f) =>
+        facturaRowToFacturaPdfForLegalizacion(f, { area: userArea })
+      );
+
+      const { pdf } = await import("@react-pdf/renderer");
+      const { LegalizacionPdf } = await import("@/components/pdf/legalizacion-pdf");
+
+      const pdfBlob = await pdf(
+        <LegalizacionPdf
+          coordinador={{
+            responsable: user?.responsable || user?.name || "",
+            cargo: user?.cargo || "",
+            cedula: user?.cedula || "",
+            sector: user?.sector || "",
+            area: user?.area || "",
+          }}
+          facturas={facturasPdf}
+          firmaCoordinador={firmaDataUrl}
+          fechaGeneracion={new Date().toLocaleDateString("es-CO")}
+          limiteZona={limite}
+        />
+      ).toBlob();
+
+      const formData = new FormData();
+      formData.append(
+        "file",
+        pdfBlob,
+        `Reporte_${(user?.responsable || user?.name || "coordinador").replace(/\s+/g, "_")}_${Date.now()}.pdf`
+      );
+      formData.append("sector", user?.sector || "Bogota");
+      formData.append("responsable", user?.responsable || user?.name || "");
+      formData.append("fecha", new Date().toISOString().slice(0, 7));
+
+      const uploadRes = await fetch("/api/facturas/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      let pdfUrl = "";
+      if (uploadRes.ok) {
+        const uploadJson = (await uploadRes.json().catch(() => ({}))) as { url?: string };
+        pdfUrl = String(uploadJson.url || "").trim();
+      }
+
       const res = await fetch("/api/legalizaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,20 +181,24 @@ export function ReporteCoordinadorClient() {
           facturasIds,
           facturasPdf,
           firmaCoordinador: firmaDataUrl,
+          pdfUrl,
         }),
       });
-      const j = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        setOkMsg(String(j.error || "No se pudo enviar el reporte"));
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setOkMsg(err.error || "Error al guardar el reporte");
         return;
       }
+
       setOkMsg("✅ Reporte enviado al administrador");
       setLista([]);
       setSelected(new Set());
-      await cargarReportes();
       setTab("pdfs");
-    } catch {
-      setOkMsg("Error de red al enviar");
+      await cargarReportes();
+    } catch (e) {
+      console.error("onFirmaLista error:", e);
+      setOkMsg("Error al generar o enviar el reporte. Intenta de nuevo.");
     } finally {
       setProcesando(false);
     }
@@ -379,7 +429,7 @@ export function ReporteCoordinadorClient() {
                         <TableCell>{estadoReporteBadge(est)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-1">
-                            {est === "Firmado" && pdfUrl ? (
+                            {pdfUrl ? (
                               <a
                                 href={pdfUrl}
                                 target="_blank"
