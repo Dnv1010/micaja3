@@ -120,7 +120,6 @@ function formatCOPpdf(n: number): string {
   return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function limpiarUrl(u?: string): string { return (u||"").trim().replace(/\s+/g,""); }
 function adjuntoUrlParaTexto(f: FacturaPdf): string {
   const u = f.imagenUrl?.trim();
   if (u && (u.startsWith("http://") || u.startsWith("https://"))) return u;

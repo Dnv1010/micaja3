@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -70,7 +70,7 @@ export function FacturaImagenModal({ src, onClose }: Props) {
         aria-label="Imagen de factura"
       >
         <div className="flex items-center justify-between border-b border-[#525A72]/20 px-4 py-3">
-          <span className="text-sm font-medium text-white">📎 Imagen de factura</span>
+          <span className="text-sm font-medium text-white">ðŸ“Ž Imagen de factura</span>
           <div className="flex items-center gap-3">
             <a
               href={src}
@@ -78,7 +78,7 @@ export function FacturaImagenModal({ src, onClose }: Props) {
               rel="noopener noreferrer"
               className="text-sm text-[#08DDBC] hover:underline"
             >
-              Abrir en Drive ↗
+              Abrir en Drive â†—
             </a>
             <button
               type="button"
@@ -86,7 +86,7 @@ export function FacturaImagenModal({ src, onClose }: Props) {
               className="text-lg text-[#525A72] transition-colors hover:text-white"
               aria-label="Cerrar"
             >
-              ✕
+              âœ•
             </button>
           </div>
         </div>
@@ -125,7 +125,7 @@ export function FacturaImagenModal({ src, onClose }: Props) {
             Haz clic fuera del modal o presiona ESC para cerrar
           </span>
           <a href={src} download className="text-xs text-[#08DDBC] hover:underline">
-            ⬇ Descargar
+            â¬‡ Descargar
           </a>
         </div>
       </div>
