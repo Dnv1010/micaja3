@@ -1,3 +1,11 @@
+/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:…). */
+export function normalizeFirmaDataUrlForPdf(raw: string): string {
+  const t = raw.trim();
+  if (!t) return t;
+  if (t.startsWith("data:image/")) return t;
+  return `data:image/png;base64,${t}`;
+}
+
 /**
  * URLs directas de Google Drive suelen fallar en @react-pdf/renderer; este formato
  * fuerza descarga binaria para que la librería pueda incrustar la imagen.

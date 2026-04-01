@@ -1,9 +1,7 @@
-﻿"use client";
+"use client";
 
-import { Document, Font, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-
-Font.register({ family: 'Roboto', src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf' });
-
+import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { normalizeFirmaDataUrlForPdf } from "@/lib/drive-image-url";
 
 Font.register({
   family: "Roboto",
@@ -26,16 +24,6 @@ Font.register({
     },
   ],
 });
-
-const FONT = "Roboto";
-
-/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:â€¦). */
-export function normalizeFirmaDataUrlForPdf(raw: string): string {
-  const t = raw.trim();
-  if (!t) return t;
-  if (t.startsWith("data:image/")) return t;
-  return `data:image/png;base64,${t}`;
-}
 
 export type FacturaPdf = {
   id: string;
@@ -65,99 +53,58 @@ export type LegalizacionPdfProps = {
   limiteZona: number;
 };
 
-const styles = StyleSheet.create({
-  page: {
-    fontFamily: FONT,
-    fontSize: 9,
-    padding: 30,
-    color: "#1a1a1a",
-  },
-  logoRow: { flexDirection: "row", alignItems: "center", marginBottom: 8, fontFamily: FONT },
-  logoBolt: { fontSize: 18, marginRight: 4, fontFamily: FONT },
-  logoText: { fontSize: 16, fontWeight: 700, fontFamily: FONT },
-  mainTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    textAlign: "center",
-    marginBottom: 14,
-    fontFamily: FONT,
-  },
-  twoCol: { flexDirection: "row", gap: 16, marginBottom: 12, fontFamily: FONT },
-  col: { flex: 1, fontFamily: FONT },
-  labelRow: { flexDirection: "row", marginBottom: 4, fontFamily: FONT },
-  label: { width: 120, fontWeight: 700, fontFamily: FONT },
-  value: { flex: 1, fontFamily: FONT },
-  table: { marginTop: 8, borderWidth: 1, borderColor: "#cccccc", fontFamily: FONT },
-  th: {
-    flexDirection: "row",
-    backgroundColor: "#1a1a2e",
-    color: "#ffffff",
-    fontWeight: 700,
-    fontSize: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#cccccc",
-    fontFamily: FONT,
-  },
-  tr: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#cccccc",
-    fontSize: 8,
-    fontFamily: FONT,
-  },
-  trEven: { backgroundColor: "#f8f8f8" },
-  trOdd: { backgroundColor: "#ffffff" },
-  td: { paddingVertical: 4, paddingHorizontal: 3, borderRightWidth: 0.5, borderRightColor: "#cccccc", fontFamily: FONT },
-  tdLast: { borderRightWidth: 0 },
-  wNo: { width: "6%" },
-  wConcepto: { width: "22%" },
-  wFactura: { width: "14%" },
-  wCentro: { width: "16%" },
-  wCat: { width: "14%" },
-  wFecha: { width: "10%" },
-  wValor: { width: "18%" },
-  totalRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    backgroundColor: "#e8e8e8",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: "#cccccc",
-    borderTopWidth: 0,
-    fontWeight: 700,
-    fontSize: 9,
-    fontFamily: FONT,
-  },
-  legalNote: { fontSize: 7, marginTop: 10, lineHeight: 1.35, color: "#333", fontFamily: FONT },
-  signSection: { flexDirection: "row", marginTop: 20, gap: 24, fontFamily: FONT },
-  signCol: { flex: 1, fontFamily: FONT },
-  signTitle: { fontSize: 9, fontWeight: 700, marginBottom: 6, fontFamily: FONT },
-  signImg: { width: 150, height: 60, objectFit: "contain", marginBottom: 4 },
-  signName: { fontSize: 9, fontFamily: FONT },
-  sectionTitle: { fontSize: 11, fontWeight: 700, textAlign: "center", marginBottom: 12, fontFamily: FONT },
-  muted: { fontSize: 9, color: "#666", fontStyle: "italic", fontFamily: FONT },
-  facturaAdjunta: { marginBottom: 8, paddingBottom: 8, fontFamily: FONT },
-  facturaAdjuntaTitulo: { fontSize: 9, fontWeight: 700, color: "#111", fontFamily: FONT },
-});
+export { normalizeFirmaDataUrlForPdf };
 
 function valorNum(v: unknown): number {
   if (v == null) return 0;
   if (typeof v === "number") return Number.isNaN(v) ? 0 : v;
   const s = String(v).replace(/\$/g, "").replace(/\s/g, "").trim();
-  if (!s || s === "0") return 0;
+  if (!s) return 0;
   if (/^\d{1,3}(\.\d{3})+$/.test(s)) return parseInt(s.replace(/\./g, ""), 10);
   if (s.includes(",")) return parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
-  const cleaned = s.replace(/\./g, "");
-  const n = parseInt(cleaned, 10);
-  return Number.isNaN(n) ? 0 : n;
+  return parseInt(s.replace(/\./g, ""), 10) || 0;
 }
 
 function formatCOPpdf(n: number): string {
   if (!n) return "$0";
   return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
+
+const styles = StyleSheet.create({
+  page: { fontFamily: "Roboto", fontSize: 9, padding: 30, color: "#1a1a1a" },
+  title: { fontSize: 14, fontWeight: 700, textAlign: "center", marginBottom: 12 },
+  logo: { fontSize: 16, fontWeight: 700, marginBottom: 8 },
+  infoGrid: { flexDirection: "row", marginBottom: 14, gap: 20 },
+  infoCol: { flex: 1 },
+  labelRow: { flexDirection: "row", marginBottom: 3 },
+  label: { fontWeight: 700, width: 120, fontSize: 8 },
+  value: { flex: 1, fontSize: 8 },
+  tableHeader: { flexDirection: "row", backgroundColor: "#1a1a2e", color: "#ffffff", fontWeight: 700, fontSize: 8 },
+  tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#cccccc" },
+  td: { padding: 4, fontSize: 8, borderRightWidth: 0.5, borderRightColor: "#cccccc" },
+  wNo: { width: "5%" },
+  wConcepto: { width: "22%" },
+  wFactura: { width: "14%" },
+  wCentro: { width: "15%" },
+  wCategoria: { width: "14%" },
+  wFecha: { width: "12%" },
+  wValor: { width: "18%" },
+  tdLast: { borderRightWidth: 0 },
+  totalRow: { flexDirection: "row", justifyContent: "flex-end", padding: 4, fontWeight: 700, fontSize: 9 },
+  legalNote: { fontSize: 7, color: "#555", marginTop: 8, marginBottom: 12 },
+  sigRow: { flexDirection: "row", marginTop: 16 },
+  sigBox: { flex: 1 },
+  sigLabel: { fontSize: 8, marginBottom: 4 },
+  sigImg: { width: 120, height: 50, objectFit: "contain", marginBottom: 4 },
+  sigName: { fontSize: 8, fontWeight: 700 },
+  sigCargo: { fontSize: 7, color: "#555" },
+  adjPage: { fontFamily: "Roboto", fontSize: 9, padding: 30 },
+  adjTitle: { fontSize: 13, fontWeight: 700, textAlign: "center", marginBottom: 16 },
+  adjBlock: { marginBottom: 12 },
+  adjBlockTitle: { fontSize: 9, fontWeight: 700, marginBottom: 4 },
+  adjImg: { width: "100%", maxHeight: 280, objectFit: "contain", marginTop: 6 },
+  adjSep: { borderBottomWidth: 0.5, borderBottomColor: "#ccc", marginTop: 8 },
+});
 
 export function LegalizacionPdf({
   coordinador,
@@ -169,22 +116,17 @@ export function LegalizacionPdf({
 }: LegalizacionPdfProps) {
   const total = facturas.reduce((acc, f) => acc + valorNum(f.valor), 0);
   const ejecutado = limiteZona > 0 ? Math.round((total / limiteZona) * 100) : 0;
-  const cc = coordinador.cedula?.trim() || "â€”";
   const firmaCoordSrc = firmaCoordinador ? normalizeFirmaDataUrlForPdf(firmaCoordinador) : "";
   const firmaAdminSrc = firmaAdmin ? normalizeFirmaDataUrlForPdf(firmaAdmin) : "";
-  const emDash = "â€”";
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.logoRow}>
-          <Text style={styles.logoBolt}>{"\u26A1"}</Text>
-          <Text style={styles.logoText}>Bia</Text>
-        </View>
-        <Text style={styles.mainTitle}>LEGALIZACIÃ“N DE CAJA MENOR GASTOS</Text>
+        <Text style={styles.logo}>Bia</Text>
+        <Text style={styles.title}>LEGALIZACION DE CAJA MENOR GASTOS</Text>
 
-        <View style={styles.twoCol}>
-          <View style={styles.col}>
+        <View style={styles.infoGrid}>
+          <View style={styles.infoCol}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Nombre:</Text>
               <Text style={styles.value}>{coordinador.responsable}</Text>
@@ -195,14 +137,14 @@ export function LegalizacionPdf({
             </View>
             <View style={styles.labelRow}>
               <Text style={styles.label}>CC:</Text>
-              <Text style={styles.value}>{cc}</Text>
+              <Text style={styles.value}>{coordinador.cedula || "--"}</Text>
             </View>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Subsidiaria:</Text>
               <Text style={styles.value}>BIA ENERGY SAS ESP</Text>
             </View>
             <View style={styles.labelRow}>
-              <Text style={styles.label}>Responsable de AutorizaciÃ³n:</Text>
+              <Text style={styles.label}>Resp. Autorizacion:</Text>
               <Text style={styles.value}>Hernan Manjarres</Text>
             </View>
             <View style={styles.labelRow}>
@@ -210,7 +152,7 @@ export function LegalizacionPdf({
               <Text style={styles.value}>11051015</Text>
             </View>
           </View>
-          <View style={styles.col}>
+          <View style={styles.infoCol}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Fecha:</Text>
               <Text style={styles.value}>{fechaGeneracion}</Text>
@@ -234,33 +176,32 @@ export function LegalizacionPdf({
           </View>
         </View>
 
-        <View style={styles.table}>
-          <View style={styles.th}>
-            <Text style={[styles.td, styles.wNo]}>No.</Text>
-            <Text style={[styles.td, styles.wConcepto]}>CONCEPTO</Text>
-            <Text style={[styles.td, styles.wFactura]}>No. DE FACTURA</Text>
-            <Text style={[styles.td, styles.wCentro]}>CENTRO DE COSTOS</Text>
-            <Text style={[styles.td, styles.wCat]}>CATEGORÃA</Text>
-            <Text style={[styles.td, styles.wFecha]}>FECHA</Text>
-            <Text style={[styles.td, styles.wValor, styles.tdLast]}>VALOR</Text>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.td, styles.wNo]}>No.</Text>
+          <Text style={[styles.td, styles.wConcepto]}>CONCEPTO</Text>
+          <Text style={[styles.td, styles.wFactura]}>No. FACTURA</Text>
+          <Text style={[styles.td, styles.wCentro]}>CENTRO COSTOS</Text>
+          <Text style={[styles.td, styles.wCategoria]}>CATEGORIA</Text>
+          <Text style={[styles.td, styles.wFecha]}>FECHA</Text>
+          <Text style={[styles.td, styles.wValor, styles.tdLast]}>VALOR</Text>
+        </View>
+
+        {facturas.map((f, i) => (
+          <View key={f.id || `r-${i}`} style={styles.tableRow}>
+            <Text style={[styles.td, styles.wNo]}>{i + 1}</Text>
+            <Text style={[styles.td, styles.wConcepto]}>{f.concepto || "--"}</Text>
+            <Text style={[styles.td, styles.wFactura]}>{f.nit || "--"}</Text>
+            <Text style={[styles.td, styles.wCentro]}>{f.area || "--"}</Text>
+            <Text style={[styles.td, styles.wCategoria]}>{f.tipoFactura || "--"}</Text>
+            <Text style={[styles.td, styles.wFecha]}>{f.fecha || "--"}</Text>
+            <Text style={[styles.td, styles.wValor, styles.tdLast]}>{formatCOPpdf(valorNum(f.valor))}</Text>
           </View>
-          {facturas.map((f, i) => (
-            <View key={f.id || `row-${i}`} style={[styles.tr, i % 2 === 0 ? styles.trEven : styles.trOdd]} wrap={false}>
-              <Text style={[styles.td, styles.wNo]}>{i + 1}</Text>
-              <Text style={[styles.td, styles.wConcepto]}>{f.concepto}</Text>
-              <Text style={[styles.td, styles.wFactura]}>{f.nit}</Text>
-              <Text style={[styles.td, styles.wCentro]}>{f.area || emDash}</Text>
-              <Text style={[styles.td, styles.wCat]}>{f.tipoFactura || emDash}</Text>
-              <Text style={[styles.td, styles.wFecha]}>{f.fecha}</Text>
-              <Text style={[styles.td, styles.wValor, styles.tdLast]}>
-                {formatCOPpdf(valorNum(f.valor))}
-              </Text>
-            </View>
-          ))}
-          <View style={styles.totalRow}>
-            <Text>Total:</Text>
-            <Text> {formatCOPpdf(total)}</Text>
-          </View>
+        ))}
+
+        <View style={styles.totalRow}>
+          <Text>
+            Total: {formatCOPpdf(total)} COP
+          </Text>
         </View>
 
         <Text style={styles.legalNote}>
@@ -268,67 +209,57 @@ export function LegalizacionPdf({
           DE BIA ENERGY S.A.S. C.S.P NIT 901.588.413-2.
         </Text>
 
-        <View style={styles.signSection}>
-          <View style={styles.signCol}>
-            <Text style={styles.signTitle}>Empleado que legaliza:</Text>
+        <View style={styles.sigRow}>
+          <View style={styles.sigBox}>
+            <Text style={styles.sigLabel}>Empleado que legaliza:</Text>
             {firmaCoordSrc ? (
-              /* eslint-disable-next-line jsx-a11y/alt-text -- PDF firma */
-              <Image style={styles.signImg} src={firmaCoordSrc} />
+              /* eslint-disable-next-line jsx-a11y/alt-text -- firma en PDF */
+              <Image style={styles.sigImg} src={firmaCoordSrc} />
             ) : null}
-            <Text style={styles.signName}>{coordinador.responsable}</Text>
-            <Text style={styles.signName}>{coordinador.cargo}</Text>
+            <Text style={styles.sigName}>{coordinador.responsable}</Text>
+            <Text style={styles.sigCargo}>{coordinador.cargo}</Text>
           </View>
-          <View style={styles.signCol}>
-            <Text style={styles.signTitle}>Jefe directo (Aprueba):</Text>
+          <View style={styles.sigBox}>
+            <Text style={styles.sigLabel}>Jefe directo (Aprueba):</Text>
             {firmaAdminSrc ? (
-              /* eslint-disable-next-line jsx-a11y/alt-text -- PDF firma admin */
-              <Image style={styles.signImg} src={firmaAdminSrc} />
-            ) : (
-              <View style={{ height: 60 }} />
-            )}
-            <Text style={styles.signName}>Hernan Manjarres</Text>
-            <Text style={styles.signName}>Manager Field Ops</Text>
+              /* eslint-disable-next-line jsx-a11y/alt-text -- firma admin en PDF */
+              <Image style={styles.sigImg} src={firmaAdminSrc} />
+            ) : null}
+            <Text style={styles.sigName}>Hernan Manjarres</Text>
+            <Text style={styles.sigCargo}>Manager Field Ops</Text>
           </View>
         </View>
       </Page>
 
-      {facturas.length ? (
-        <Page size="A4" style={styles.page}>
-          <Text style={styles.sectionTitle}>Facturas Adjuntas</Text>
-          {facturas.map((f, i) => {
+      <Page size="A4" style={styles.adjPage}>
+        <Text style={styles.adjTitle}>Facturas Adjuntas</Text>
+        {facturas.length === 0 ? (
+          <Text style={{ fontSize: 9, color: "#999" }}>Sin facturas en este reporte.</Text>
+        ) : (
+          facturas.map((f, i) => {
             const imgSrc = f.imagenUrl?.startsWith("data:") ? f.imagenUrl : null;
             return (
-              <View key={f.id || `f-${i}`} style={styles.facturaAdjunta} wrap={false}>
-                <Text style={styles.facturaAdjuntaTitulo}>
-                  Factura {i + 1}: {f.nit || emDash} Fecha: {f.fecha || emDash}
+              <View key={f.id || `a-${i}`} style={styles.adjBlock}>
+                <Text style={styles.adjBlockTitle}>
+                  Factura: {f.nit || "--"} Fecha: {f.fecha || "--"}
                 </Text>
-                <Text style={{ fontSize: 8, color: "#333", marginTop: 2, fontFamily: FONT }}>
-                  Proveedor: {f.proveedor || emDash} Valor: {formatCOPpdf(valorNum(f.valor))}
+                <Text style={{ fontSize: 8, color: "#333" }}>
+                  Proveedor: {f.proveedor || "--"} Valor: {formatCOPpdf(valorNum(f.valor))}
                 </Text>
                 {imgSrc ? (
                   /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto en PDF */
-                  <Image
-                    src={imgSrc}
-                    style={{ width: "100%", maxHeight: 280, objectFit: "contain", marginTop: 6 }}
-                  />
+                  <Image style={styles.adjImg} src={imgSrc} />
                 ) : (
-                  <Text style={{ fontSize: 8, color: "#999", marginTop: 4, fontStyle: "italic", fontFamily: FONT }}>
+                  <Text style={{ fontSize: 8, color: "#999", marginTop: 4 }}>
                     {f.imagenUrl ? "Imagen no disponible" : "Sin imagen adjunta"}
                   </Text>
                 )}
-                {i < facturas.length - 1 ? (
-                  <View style={{ borderBottomWidth: 0.5, borderBottomColor: "#ccc", marginTop: 8 }} />
-                ) : null}
+                {i < facturas.length - 1 ? <View style={styles.adjSep} /> : null}
               </View>
             );
-          })}
-        </Page>
-      ) : (
-        <Page size="A4" style={styles.page}>
-          <Text style={styles.sectionTitle}>Facturas Adjuntas</Text>
-          <Text style={styles.muted}>Sin facturas en este reporte.</Text>
-        </Page>
-      )}
+          })
+        )}
+      </Page>
     </Document>
   );
 }
