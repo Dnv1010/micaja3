@@ -25,6 +25,10 @@ Font.register({
   ],
 });
 
+/** Rayo BIA (Aqua Green #08DDBC) como SVG en base64 — react-pdf no dibuja emojis. */
+const RAYO_SRC =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzA4RERCQyI+PHBhdGggZD0iTTEzIDJMNC41IDEzLjVIMTFMMTAgMjJMMjAuNSA5LjVIMTRMMTMgMloiLz48L3N2Zz4=";
+
 export type FacturaPdf = {
   id: string;
   fecha: string;
@@ -85,9 +89,20 @@ function textoConceptoCelda(concepto: string): string {
 const styles = StyleSheet.create({
   page: { fontFamily: "Roboto", fontSize: 9, padding: 30, color: "#1a1a1a" },
   title: { fontSize: 14, fontWeight: 700, textAlign: "center", marginBottom: 12 },
-  logoContainer: { flexDirection: "row", alignItems: "center", marginBottom: 10, fontFamily: "Roboto" },
-  logoRayo: { fontSize: 20, fontWeight: 700, color: "#08DDBC", fontFamily: "Roboto" },
-  logoTexto: { fontSize: 20, fontWeight: 700, color: "#001035", marginLeft: 2, fontFamily: "Roboto" },
+  logoBrandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    fontFamily: "Roboto",
+  },
+  logoRayoImg: { width: 18, height: 18, marginRight: 4 },
+  logoBiaText: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: "#001035",
+    fontFamily: "Roboto",
+    letterSpacing: 0.5,
+  },
   infoGrid: { flexDirection: "row", marginBottom: 14, gap: 20 },
   infoCol: { flex: 1 },
   labelRow: { flexDirection: "row", marginBottom: 3 },
@@ -114,10 +129,11 @@ const styles = StyleSheet.create({
   sigCargo: { fontSize: 7, color: "#555" },
   adjPage: { fontFamily: "Roboto", fontSize: 9, padding: 30 },
   adjTitle: { fontSize: 13, fontWeight: 700, textAlign: "center", marginBottom: 16 },
-  adjBlock: { marginBottom: 12 },
-  adjBlockTitle: { fontSize: 9, fontWeight: 700, marginBottom: 4 },
-  adjImg: { width: "100%", maxHeight: 280, objectFit: "contain", marginTop: 6 },
-  adjSep: { borderBottomWidth: 0.5, borderBottomColor: "#ccc", marginTop: 8 },
+  adjBlockWrap: { marginBottom: 20 },
+  adjHeading: { fontSize: 10, fontWeight: 700, marginBottom: 4, fontFamily: "Roboto" },
+  adjMeta: { fontSize: 8, color: "#555", marginBottom: 6, fontFamily: "Roboto" },
+  adjImg: { width: "100%", height: 440, objectFit: "contain" },
+  adjSep: { borderBottomWidth: 1, borderBottomColor: "#ddd", marginTop: 12 },
 });
 
 export function LegalizacionPdf({
@@ -136,9 +152,10 @@ export function LegalizacionPdf({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoRayo}>/</Text>
-          <Text style={styles.logoTexto}>Bia</Text>
+        <View style={styles.logoBrandRow}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- logo marca en PDF */}
+          <Image src={RAYO_SRC} style={styles.logoRayoImg} />
+          <Text style={styles.logoBiaText}>Bia</Text>
         </View>
         <Text style={styles.title}>LEGALIZACION DE CAJA MENOR GASTOS</Text>
 
@@ -256,18 +273,19 @@ export function LegalizacionPdf({
           facturas.map((f, i) => {
             const imgSrc = f.imagenUrl?.startsWith("data:") ? f.imagenUrl : null;
             return (
-              <View key={f.id || `a-${i}`} style={styles.adjBlock}>
-                <Text style={styles.adjBlockTitle}>
-                  Factura: {f.nit || "--"} Fecha: {f.fecha || "--"}
+              <View key={f.id || `a-${i}`} style={styles.adjBlockWrap} wrap={false}>
+                <Text style={styles.adjHeading}>
+                  Factura {i + 1} — {f.proveedor || "--"}
                 </Text>
-                <Text style={{ fontSize: 8, color: "#333" }}>
-                  Proveedor: {f.proveedor || "--"} Valor: {formatCOPpdf(valorNum(f.valor))}
+                <Text style={styles.adjMeta}>
+                  No. Factura: {f.nit || "--"} | Fecha: {f.fecha || "--"} | Valor:{" "}
+                  {formatCOPpdf(valorNum(f.valor))}
                 </Text>
                 {imgSrc ? (
                   /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto en PDF */
                   <Image style={styles.adjImg} src={imgSrc} />
                 ) : (
-                  <Text style={{ fontSize: 8, color: "#999", marginTop: 4 }}>
+                  <Text style={{ fontSize: 8, color: "#999", fontStyle: "italic", fontFamily: "Roboto" }}>
                     {f.imagenUrl ? "Imagen no disponible" : "Sin imagen adjunta"}
                   </Text>
                 )}
