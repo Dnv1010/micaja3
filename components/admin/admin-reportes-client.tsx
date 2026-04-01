@@ -42,6 +42,36 @@ function firmaSrc(raw: string): string {
   return `data:image/png;base64,${t}`;
 }
 
+function urlParaProxyFactura(f: FacturaPdf): string | null {
+  const u = f.imagenUrl?.trim();
+  if (u?.startsWith("data:")) return null;
+  if (u && (u.startsWith("http://") || u.startsWith("https://"))) {
+    if (u.includes("drive.google.com") || u.includes("googleusercontent.com")) return u;
+    return null;
+  }
+  const id = f.driveFileId?.trim();
+  if (id) return `https://drive.google.com/uc?id=${id}`;
+  return null;
+}
+
+async function resolveFacturaImages(facturas: FacturaPdf[]): Promise<FacturaPdf[]> {
+  return Promise.all(
+    facturas.map(async (f) => {
+      const target = urlParaProxyFactura(f);
+      if (!target) return f;
+      try {
+        const res = await fetch(`/api/proxy-imagen-base64?url=${encodeURIComponent(target)}`);
+        if (!res.ok) return f;
+        const j = (await res.json()) as { dataUrl?: string };
+        if (!j.dataUrl) return f;
+        return { ...f, imagenUrl: j.dataUrl };
+      } catch {
+        return f;
+      }
+    })
+  );
+}
+
 export function AdminReportesClient() {
   const { data } = useSession();
   const adminSector = String(data?.user?.sector || "Bogota");
@@ -94,8 +124,7 @@ export function AdminReportesClient() {
     setErrorMsg("");
     try {
       const sectorRep = String(activo.Sector || adminSector);
-      const limite =
-        sectorRep === "Bogota" ? 1_000_000 : sectorRep === "Costa Caribe" ? 3_000_000 : limiteAprobacionZona(sectorRep);
+      const limite = limiteAprobacionZona(sectorRep);
       const coordNombre = String(activo.Coordinador || "");
       const firmaCoord = String(activo.Firma_Coordinador || activo.FirmaCoordinador || "");
       const generadoTxt = new Date().toLocaleDateString("es-CO");
@@ -117,6 +146,8 @@ export function AdminReportesClient() {
             : facturasDelReporteLocal(activo);
       }
 
+      const facturasConImagenes = await resolveFacturaImages(facturasPdf);
+
       const [{ pdf }, { LegalizacionPdf }] = await Promise.all([
         import("@react-pdf/renderer"),
         import("@/components/pdf/legalizacion-pdf"),
@@ -127,10 +158,11 @@ export function AdminReportesClient() {
           coordinador={{
             responsable: coordNombre,
             cargo: "",
+            cedula: "",
             sector: sectorRep,
             area: "",
           }}
-          facturas={facturasPdf}
+          facturas={facturasConImagenes}
           firmaCoordinador={firmaCoord}
           firmaAdmin={firmaAdmin}
           fechaGeneracion={generadoTxt}
@@ -140,12 +172,16 @@ export function AdminReportesClient() {
       const blob = await pdf(doc).toBlob();
 
       const idRep = reporteId(activo);
+      const sectorUpload = isMicajaSector(sectorRep) ? sectorRep : adminSector;
       const fd = new FormData();
-      fd.append("file", blob, `Reporte_${idRep}.pdf`);
-      fd.append("destino", "reportes");
-      fd.append("sector", isMicajaSector(sectorRep) ? sectorRep : adminSector);
+      fd.append(
+        "file",
+        blob,
+        `Reporte_${coordNombre.replace(/\s+/g, "_")}_Firmado_${Date.now()}.pdf`
+      );
+      fd.append("sector", sectorUpload);
       fd.append("responsable", coordNombre || "admin");
-      fd.append("fecha", String(activo.Fecha || "").trim() || new Date().toISOString().slice(0, 10));
+      fd.append("fecha", new Date().toISOString().slice(0, 7));
 
       const upRes = await fetch("/api/facturas/upload", { method: "POST", body: fd });
       const upJson = await upRes.json().catch(() => ({}));
@@ -168,8 +204,9 @@ export function AdminReportesClient() {
       setActivo(null);
       setFirmaAdmin("");
       await cargar();
+      window.alert("✅ Reporte firmado y PDF generado correctamente");
     } catch (e: unknown) {
-      setErrorMsg(e instanceof Error ? e.message : "Error");
+      setErrorMsg(e instanceof Error ? e.message : "Error al generar el PDF. Intenta de nuevo.");
     } finally {
       setProcesando(false);
     }

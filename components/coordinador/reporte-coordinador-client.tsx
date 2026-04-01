@@ -123,53 +123,13 @@ export function ReporteCoordinadorClient() {
     setOkMsg("");
 
     const user = data?.user;
+    const userArea = String(user?.area || "");
 
     try {
       const facturasIds = selectedRows.map((f) => String(getCellCaseInsensitive(f, "ID_Factura", "ID")));
-      const userArea = String(user?.area || "");
       const facturasPdf = selectedRows.map((f) =>
         facturaRowToFacturaPdfForLegalizacion(f, { area: userArea })
       );
-
-      const { pdf } = await import("@react-pdf/renderer");
-      const { LegalizacionPdf } = await import("@/components/pdf/legalizacion-pdf");
-
-      const pdfBlob = await pdf(
-        <LegalizacionPdf
-          coordinador={{
-            responsable: user?.responsable || user?.name || "",
-            cargo: user?.cargo || "",
-            cedula: user?.cedula || "",
-            sector: user?.sector || "",
-            area: user?.area || "",
-          }}
-          facturas={facturasPdf}
-          firmaCoordinador={firmaDataUrl}
-          fechaGeneracion={new Date().toLocaleDateString("es-CO")}
-          limiteZona={limite}
-        />
-      ).toBlob();
-
-      const formData = new FormData();
-      formData.append(
-        "file",
-        pdfBlob,
-        `Reporte_${(user?.responsable || user?.name || "coordinador").replace(/\s+/g, "_")}_${Date.now()}.pdf`
-      );
-      formData.append("sector", user?.sector || "Bogota");
-      formData.append("responsable", user?.responsable || user?.name || "");
-      formData.append("fecha", new Date().toISOString().slice(0, 7));
-
-      const uploadRes = await fetch("/api/facturas/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      let pdfUrl = "";
-      if (uploadRes.ok) {
-        const uploadJson = (await uploadRes.json().catch(() => ({}))) as { url?: string };
-        pdfUrl = String(uploadJson.url || "").trim();
-      }
 
       const res = await fetch("/api/legalizaciones", {
         method: "POST",
@@ -181,7 +141,7 @@ export function ReporteCoordinadorClient() {
           facturasIds,
           facturasPdf,
           firmaCoordinador: firmaDataUrl,
-          pdfUrl,
+          pdfUrl: "",
         }),
       });
 
@@ -191,14 +151,13 @@ export function ReporteCoordinadorClient() {
         return;
       }
 
-      setOkMsg("✅ Reporte enviado al administrador");
-      setLista([]);
+      setOkMsg("✅ Reporte enviado al administrador para su firma");
       setSelected(new Set());
       setTab("pdfs");
       await cargarReportes();
     } catch (e) {
       console.error("onFirmaLista error:", e);
-      setOkMsg("Error al generar o enviar el reporte. Intenta de nuevo.");
+      setOkMsg("Error al enviar el reporte. Intenta de nuevo.");
     } finally {
       setProcesando(false);
     }
@@ -429,16 +388,20 @@ export function ReporteCoordinadorClient() {
                         <TableCell>{estadoReporteBadge(est)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-1">
-                            {pdfUrl ? (
+                            {est.toLowerCase().includes("firmado") && pdfUrl ? (
                               <a
                                 href={pdfUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex h-7 items-center rounded-lg border border-bia-gray/30 px-2.5 text-[0.8rem] text-white hover:bg-bia-blue-mid"
+                                className="text-sm text-bia-aqua hover:underline"
                               >
-                                ⬇ Descargar PDF
+                                ⬇ Descargar PDF firmado
                               </a>
-                            ) : null}
+                            ) : est.toLowerCase().includes("firmado") ? (
+                              <span className="text-xs text-amber-200">PDF no disponible</span>
+                            ) : (
+                              <span className="text-xs text-amber-300">⏳ Pendiente firma del admin</span>
+                            )}
                             <Button
                               type="button"
                               variant="outline"

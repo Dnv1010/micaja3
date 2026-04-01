@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
-/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:â€¦). */
+/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:…). */
 export function normalizeFirmaDataUrlForPdf(raw: string): string {
   const t = raw.trim();
   if (!t) return t;
@@ -264,22 +264,24 @@ export function LegalizacionPdf({
         <Page size="A4" style={styles.page}>
           <Text style={styles.sectionTitle}>Facturas Adjuntas</Text>
           {facturas.map((f, i) => {
-            const urlAdjunto = adjuntoUrlParaTexto(f);
+            const imgSrc = f.imagenUrl?.startsWith("data:") ? f.imagenUrl : null;
             return (
               <View key={f.id || `f-${i}`} style={styles.facturaAdjunta} wrap={false}>
                 <Text style={styles.facturaAdjuntaTitulo}>
-                  Factura {i + 1}: {f.nit || "â€”"} Fecha: {f.fecha || "â€”"}
+                  Factura {i + 1}: {f.nit || "—"} Fecha: {f.fecha || "—"}
                 </Text>
                 <Text style={{ fontSize: 8, color: "#333", marginTop: 2 }}>
-                  Proveedor: {f.proveedor || "â€”"}
+                  Proveedor: {f.proveedor || "—"} Valor: {formatCOPpdf(valorNum(f.valor))}
                 </Text>
-                {urlAdjunto ? (
-                  <Text style={{ fontSize: 8, color: "#0066CC", marginTop: 4 }}>
-                    Ver imagen: {urlAdjunto}
-                  </Text>
+                {imgSrc ? (
+                  /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto en PDF */
+                  <Image
+                    src={imgSrc}
+                    style={{ width: "100%", maxHeight: 280, objectFit: "contain", marginTop: 6 }}
+                  />
                 ) : (
                   <Text style={{ fontSize: 8, color: "#999", marginTop: 4, fontStyle: "italic" }}>
-                    Sin imagen adjunta
+                    {f.imagenUrl ? "Imagen no disponible" : "Sin imagen adjunta"}
                   </Text>
                 )}
                 {i < facturas.length - 1 ? (

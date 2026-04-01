@@ -54,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const sheetRow = rowIndex + 1;
 
+    // Solo estas columnas: no tocar Facturas_IDs, Firma_Coordinador ni el resto.
     const updateCol = async (colName: string, value: string) => {
       const colIndex = headers.findIndex((h) => h === colName);
       if (colIndex === -1) return;
