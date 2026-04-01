@@ -70,7 +70,7 @@ export function FacturasUsuarioClient() {
         }}
         onSaved={() => void loadFacturas()}
       />
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Facturas</CardTitle>
           {saved ? <Badge className="bg-emerald-700 text-white">✅ Factura guardada</Badge> : null}
@@ -98,7 +98,7 @@ export function FacturasUsuarioClient() {
                   Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={`sk-${i}`}>
                       <TableCell colSpan={COLS}>
-                        <div className="h-5 w-full animate-pulse rounded bg-zinc-800" />
+                        <div className="h-5 w-full animate-pulse rounded bg-bia-blue-mid" />
                       </TableCell>
                     </TableRow>
                   ))
@@ -135,7 +135,7 @@ export function FacturasUsuarioClient() {
                           {aBia ? (
                             <Badge className="border-emerald-700 bg-emerald-950 text-emerald-200">BIA</Badge>
                           ) : (
-                            <span className="text-zinc-600">—</span>
+                            <span className="text-bia-gray">—</span>
                           )}
                         </TableCell>
                         <TableCell>{getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—"}</TableCell>
@@ -150,7 +150,7 @@ export function FacturasUsuarioClient() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="border-zinc-600"
+                              className="border-bia-gray/30"
                               onClick={() => {
                                 setEditar(f);
                                 setDialogOpen(true);
@@ -165,7 +165,7 @@ export function FacturasUsuarioClient() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={COLS} className="text-zinc-500">
+                    <TableCell colSpan={COLS} className="text-bia-gray">
                       No hay facturas registradas
                     </TableCell>
                   </TableRow>
@@ -177,7 +177,7 @@ export function FacturasUsuarioClient() {
       </Card>
 
       <Link href="/facturas/nueva" className="fixed bottom-20 right-4 z-40">
-        <Button className="h-12 w-12 rounded-full bg-black text-white shadow-lg">+</Button>
+        <Button className="h-12 w-12 rounded-full bg-bia-aqua text-bia-blue font-semibold shadow-lg">+</Button>
       </Link>
     </div>
   );

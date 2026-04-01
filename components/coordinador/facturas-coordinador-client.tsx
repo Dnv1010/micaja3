@@ -147,7 +147,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const responsableSesion = String(data?.user?.responsable || "");
 
   return (
-    <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+    <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
       <Dialog
         open={!!modalRechazo}
         onOpenChange={(open) => {
@@ -157,14 +157,14 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
           }
         }}
       >
-        <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-md" showCloseButton>
+        <DialogContent className="border-bia-gray/20 bg-bia-blue-mid text-white sm:max-w-md" showCloseButton>
           <DialogHeader>
             <DialogTitle>Motivo del rechazo</DialogTitle>
           </DialogHeader>
           <Textarea
             value={motivoRechazo}
             onChange={(e) => setMotivoRechazo(e.target.value)}
-            className="min-h-24 resize-none bg-zinc-900 border-zinc-700"
+            className="min-h-24 resize-none bg-bia-blue border-bia-gray/40"
             placeholder="Describe el motivo del rechazo..."
             autoFocus
           />
@@ -172,7 +172,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
             <Button
               type="button"
               variant="outline"
-              className="border-zinc-600"
+              className="border-bia-gray/30"
               onClick={() => {
                 setModalRechazo(null);
                 setMotivoRechazo("");
@@ -210,7 +210,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
           <div className="space-y-1">
             <Label>Usuario</Label>
             <Select value={usuario} onValueChange={(v) => setUsuario(v || "__todos__")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -225,16 +225,16 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
           </div>
           <div className="space-y-1">
             <Label>Desde</Label>
-            <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>Hasta</Label>
-            <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>Estado</Label>
             <Select value={estado} onValueChange={(v) => setEstado(v || "__todas__")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -246,7 +246,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
             </Select>
           </div>
           <div className="flex items-end">
-            <Button type="button" className="w-full bg-black text-white hover:bg-zinc-800" onClick={filtrar} disabled={loading}>
+            <Button type="button" className="w-full bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid" onClick={filtrar} disabled={loading}>
               Filtrar
             </Button>
           </div>
@@ -274,7 +274,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={COLS}>
-                    <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
               ) : facturas.length ? (
@@ -319,7 +319,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                         {aBia ? (
                           <Badge className="border-emerald-700 bg-emerald-950 text-emerald-200">BIA</Badge>
                         ) : (
-                          <span className="text-zinc-600">—</span>
+                          <span className="text-bia-gray">—</span>
                         )}
                       </TableCell>
                       <TableCell>{getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "-"}</TableCell>
@@ -356,7 +356,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                               type="button"
                               size="sm"
                               variant="outline"
-                              className="h-7 border-zinc-600 px-2 text-xs"
+                              className="h-7 border-bia-gray/30 px-2 text-xs"
                               onClick={() => handleEditar(f)}
                             >
                               ✏️ Editar
@@ -380,7 +380,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={COLS} className="text-zinc-500">
+                  <TableCell colSpan={COLS} className="text-bia-gray">
                     Sin resultados
                   </TableCell>
                 </TableRow>
@@ -388,11 +388,11 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
             </TableBody>
           </Table>
         </div>
-        <p className="text-right text-sm text-zinc-400">Total facturas: {facturas.length}</p>
+        <p className="text-right text-sm text-bia-gray-light">Total facturas: {facturas.length}</p>
       </CardContent>
       <Link
         href="/facturas/nueva"
-        className="fixed bottom-20 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-black text-lg text-white shadow-lg hover:bg-zinc-800"
+        className="fixed bottom-20 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-black text-lg text-white shadow-lg hover:bg-bia-blue-mid"
         aria-label="Nueva factura"
       >
         +

@@ -9,6 +9,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        bia: {
+          blue: "#001035",
+          "blue-mid": "#0A1B4D",
+          gray: "#525A72",
+          "gray-light": "#8892A4",
+          aqua: "#08DDBC",
+          purple: "#4728EF",
+          "purple-light": "#DEDEF9",
+          white: "#FFFFFF",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -53,7 +63,16 @@ const config: Config = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
-      borderRadius: { lg: "var(--radius)", md: "calc(var(--radius) - 2px)", sm: "calc(var(--radius) - 4px)" },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+        xl: "1rem",
+        "2xl": "1rem",
+      },
+      fontFamily: {
+        sans: ["Open Sauce One", "var(--font-sans)", "Inter", "system-ui", "sans-serif"],
+      },
     },
   },
   plugins: [],

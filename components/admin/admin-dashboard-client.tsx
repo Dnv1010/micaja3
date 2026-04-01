@@ -92,48 +92,48 @@ export function AdminDashboardClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Panel administrador</h1>
-        <p className="text-sm text-zinc-400">Resumen MiCaja · todas las zonas</p>
+        <h1 className="text-2xl font-bold text-white">Panel administrador</h1>
+        <p className="text-sm text-bia-gray-light">Resumen MiCaja · todas las zonas</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">🧾 Total fact. (mes actual)</CardTitle>
+            <CardTitle className="text-sm font-medium text-bia-gray-light">🧾 Total fact. (mes actual)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-bold tabular-nums">{loading ? "—" : formatCOP(stats.totalMes)}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">✅ Aprobadas (mes actual)</CardTitle>
+            <CardTitle className="text-sm font-medium text-bia-gray-light">✅ Aprobadas (mes actual)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-bold tabular-nums">{loading ? "—" : formatCOP(stats.aprobadasMes)}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">⏳ Pendientes revisión</CardTitle>
+            <CardTitle className="text-sm font-medium text-bia-gray-light">⏳ Pendientes revisión</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-bold tabular-nums">{loading ? "—" : stats.pendientes}</p>
-            <p className="text-xs text-zinc-500">facturas</p>
+            <p className="text-xs text-bia-gray">facturas</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">✍️ Rep. pend. firma admin</CardTitle>
+            <CardTitle className="text-sm font-medium text-bia-gray-light">✍️ Rep. pend. firma admin</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-bold tabular-nums">{loading ? "—" : stats.repPendientes}</p>
-            <p className="text-xs text-zinc-500">reportes</p>
+            <p className="text-xs text-bia-gray">reportes</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Últimas 10 facturas</CardTitle>
         </CardHeader>
@@ -153,7 +153,7 @@ export function AdminDashboardClient() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6}>
-                    <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
               ) : ultimasFacturas.length ? (
@@ -176,7 +176,7 @@ export function AdminDashboardClient() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-zinc-500">
+                  <TableCell colSpan={6} className="text-bia-gray">
                     Sin facturas
                   </TableCell>
                 </TableRow>
@@ -186,12 +186,12 @@ export function AdminDashboardClient() {
         </CardContent>
       </Card>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle>Reportes pendientes de firma</CardTitle>
           <Link
             href="/admin/reportes"
-            className="inline-flex h-8 items-center rounded-lg border border-zinc-600 px-2.5 text-sm hover:bg-zinc-800"
+            className="inline-flex h-8 items-center rounded-lg border border-bia-gray/30 px-2.5 text-sm hover:bg-bia-blue-mid"
           >
             Ir a reportes
           </Link>
@@ -211,7 +211,7 @@ export function AdminDashboardClient() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5}>
-                    <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
               ) : reportesPendientes.length ? (
@@ -226,7 +226,7 @@ export function AdminDashboardClient() {
                     <TableCell className="text-right">
                       <Link
                         href="/admin/reportes"
-                        className="inline-flex h-7 items-center rounded-lg bg-zinc-800 px-2.5 text-xs hover:bg-zinc-700"
+                        className="inline-flex h-7 items-center rounded-lg bg-bia-blue-mid px-2.5 text-xs hover:bg-bia-gray/25"
                       >
                         ✍️ Firmar
                       </Link>
@@ -235,7 +235,7 @@ export function AdminDashboardClient() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-zinc-500">
+                  <TableCell colSpan={5} className="text-bia-gray">
                     No hay reportes pendientes
                   </TableCell>
                 </TableRow>

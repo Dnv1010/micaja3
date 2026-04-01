@@ -178,7 +178,7 @@ export function ReporteCoordinadorClient() {
         <Button
           type="button"
           variant={tab === "nuevo" ? "default" : "outline"}
-          className={cn(tab === "nuevo" ? "bg-black text-white" : "border-zinc-600")}
+          className={cn(tab === "nuevo" ? "bg-bia-aqua text-bia-blue font-semibold" : "border-bia-gray/30")}
           onClick={() => setTab("nuevo")}
         >
           📋 Nuevo reporte
@@ -186,7 +186,7 @@ export function ReporteCoordinadorClient() {
         <Button
           type="button"
           variant={tab === "pdfs" ? "default" : "outline"}
-          className={cn(tab === "pdfs" ? "bg-black text-white" : "border-zinc-600")}
+          className={cn(tab === "pdfs" ? "bg-bia-aqua text-bia-blue font-semibold" : "border-bia-gray/30")}
           onClick={() => setTab("pdfs")}
         >
           📄 PDFs
@@ -195,7 +195,7 @@ export function ReporteCoordinadorClient() {
 
       {tab === "nuevo" ? (
         <>
-          <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+          <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
             <CardHeader>
               <CardTitle>Paso 1 — Período y facturas aprobadas</CardTitle>
             </CardHeader>
@@ -206,7 +206,7 @@ export function ReporteCoordinadorClient() {
                   type="date"
                   value={desde}
                   onChange={(e) => setDesde(e.target.value)}
-                  className="bg-zinc-900 border-zinc-700"
+                  className="bg-bia-blue border-bia-gray/40"
                 />
               </div>
               <div className="space-y-1">
@@ -215,12 +215,12 @@ export function ReporteCoordinadorClient() {
                   type="date"
                   value={hasta}
                   onChange={(e) => setHasta(e.target.value)}
-                  className="bg-zinc-900 border-zinc-700"
+                  className="bg-bia-blue border-bia-gray/40"
                 />
               </div>
               <Button
                 type="button"
-                className="bg-black text-white hover:bg-zinc-800"
+                className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
                 onClick={() => void cargarDisponibles()}
                 disabled={loading || !desde || !hasta}
               >
@@ -230,7 +230,7 @@ export function ReporteCoordinadorClient() {
           </Card>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Card className="border-zinc-800 bg-zinc-950 text-zinc-100 lg:col-span-2">
+            <Card className="border-bia-gray/20 bg-bia-blue-mid text-white lg:col-span-2">
               <CardHeader>
                 <CardTitle>Paso 2 — Seleccionar facturas</CardTitle>
               </CardHeader>
@@ -251,7 +251,7 @@ export function ReporteCoordinadorClient() {
                     {loading ? (
                       <TableRow>
                         <TableCell colSpan={7}>
-                          <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                          <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                         </TableCell>
                       </TableRow>
                     ) : lista.length ? (
@@ -280,7 +280,7 @@ export function ReporteCoordinadorClient() {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-zinc-500">
+                        <TableCell colSpan={7} className="text-bia-gray">
                           Indique fechas y cargue facturas aprobadas aún no incluidas en un reporte
                         </TableCell>
                       </TableRow>
@@ -290,7 +290,7 @@ export function ReporteCoordinadorClient() {
               </CardContent>
             </Card>
 
-            <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+            <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
               <CardHeader>
                 <CardTitle>Paso 3 — Resumen y firma</CardTitle>
               </CardHeader>
@@ -304,7 +304,7 @@ export function ReporteCoordinadorClient() {
                 <p>
                   Límite zona ({zonaLabel}): <strong>{formatCOP(limite)}</strong>
                 </p>
-                <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div className="h-3 w-full overflow-hidden rounded-full bg-bia-blue-mid">
                   <div
                     className={`h-full transition-all ${superaLimite ? "bg-red-500" : "bg-emerald-500"}`}
                     style={{ width: `${pctBarra}%` }}
@@ -315,7 +315,7 @@ export function ReporteCoordinadorClient() {
                 ) : null}
                 <Button
                   type="button"
-                  className="mt-4 w-full bg-black text-white hover:bg-zinc-800"
+                  className="mt-4 w-full bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
                   disabled={!selectedRows.length || superaLimite || procesando}
                   onClick={() => setSignOpen(true)}
                 >
@@ -327,7 +327,7 @@ export function ReporteCoordinadorClient() {
           </div>
 
           <Dialog open={signOpen} onOpenChange={setSignOpen}>
-            <DialogContent className="max-w-lg border-zinc-800 bg-zinc-950 text-zinc-100">
+            <DialogContent className="max-w-lg border-bia-gray/20 bg-bia-blue-mid text-white">
               <DialogHeader>
                 <DialogTitle>Firma del coordinador</DialogTitle>
               </DialogHeader>
@@ -337,12 +337,12 @@ export function ReporteCoordinadorClient() {
                 onFirma={(b64) => void onFirmaLista(b64)}
                 onLimpiar={() => {}}
               />
-              {procesando ? <p className="text-sm text-zinc-400">Enviando reporte...</p> : null}
+              {procesando ? <p className="text-sm text-bia-gray-light">Enviando reporte...</p> : null}
             </DialogContent>
           </Dialog>
         </>
       ) : (
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader>
             <CardTitle>Mis reportes — {coordinador}</CardTitle>
           </CardHeader>
@@ -361,7 +361,7 @@ export function ReporteCoordinadorClient() {
                 {repLoading ? (
                   <TableRow>
                     <TableCell colSpan={5}>
-                      <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                      <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                     </TableCell>
                   </TableRow>
                 ) : reportes.length ? (
@@ -384,7 +384,7 @@ export function ReporteCoordinadorClient() {
                                 href={pdfUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex h-7 items-center rounded-lg border border-zinc-600 px-2.5 text-[0.8rem] text-zinc-100 hover:bg-zinc-800"
+                                className="inline-flex h-7 items-center rounded-lg border border-bia-gray/30 px-2.5 text-[0.8rem] text-white hover:bg-bia-blue-mid"
                               >
                                 ⬇ Descargar PDF
                               </a>
@@ -393,7 +393,7 @@ export function ReporteCoordinadorClient() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="border-red-900 text-red-300"
+                              className="border-red-500/30 text-red-400"
                               onClick={() => void eliminarReporte(id)}
                             >
                               🗑️ Eliminar
@@ -405,7 +405,7 @@ export function ReporteCoordinadorClient() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-zinc-500">
+                    <TableCell colSpan={5} className="text-bia-gray">
                       No hay reportes registrados
                     </TableCell>
                   </TableRow>

@@ -3,7 +3,7 @@ import { LegalizacionesCoordinadorClient } from "@/components/coordinador/legali
 
 export default function LegalizacionesPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-zinc-400">Cargando...</p>}>
+    <Suspense fallback={<p className="text-sm text-bia-gray-light">Cargando...</p>}>
       <LegalizacionesCoordinadorClient />
     </Suspense>
   );

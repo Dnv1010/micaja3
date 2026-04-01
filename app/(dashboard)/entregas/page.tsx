@@ -48,7 +48,7 @@ export default function EntregasPage() {
   );
 
   return (
-    <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+    <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
       <CardHeader className="space-y-3">
         <CardTitle>Entregas recibidas</CardTitle>
         <div className="grid grid-cols-2 gap-2">
@@ -70,7 +70,7 @@ export default function EntregasPage() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={`sk-${i}`}>
-                    <TableCell colSpan={3}><div className="h-5 w-full animate-pulse rounded bg-zinc-800" /></TableCell>
+                    <TableCell colSpan={3}><div className="h-5 w-full animate-pulse rounded bg-bia-blue-mid" /></TableCell>
                   </TableRow>
                 ))
               ) : entregas.length ? (
@@ -83,7 +83,7 @@ export default function EntregasPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-zinc-500">No hay entregas para el rango seleccionado</TableCell>
+                  <TableCell colSpan={3} className="text-bia-gray">No hay entregas para el rango seleccionado</TableCell>
                 </TableRow>
               )}
             </TableBody>

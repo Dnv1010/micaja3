@@ -161,7 +161,7 @@ export function LegalizacionesCoordinadorClient() {
           ✅ Reporte enviado correctamente
         </p>
       ) : null}
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Legalizaciones enviadas</CardTitle>
         </CardHeader>
@@ -180,7 +180,7 @@ export function LegalizacionesCoordinadorClient() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5}>
-                    <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
               ) : sorted.length ? (
@@ -221,7 +221,7 @@ export function LegalizacionesCoordinadorClient() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-zinc-500">
+                  <TableCell colSpan={5} className="text-bia-gray">
                     No hay reportes registrados
                   </TableCell>
                 </TableRow>

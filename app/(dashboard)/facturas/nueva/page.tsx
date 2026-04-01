@@ -390,8 +390,8 @@ export default function NuevaFacturaPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-        <p className="mb-3 text-xs font-medium text-zinc-400">Progreso</p>
+      <div className="rounded-lg border border-bia-gray/25 bg-bia-blue/50 p-4">
+        <p className="mb-3 text-xs font-medium text-bia-gray-light">Progreso</p>
         <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-xs sm:text-sm">
           {PROGRESS_STEPS.map((label, i) => {
             const done = i < solidCount;
@@ -404,7 +404,7 @@ export default function NuevaFacturaPage() {
                       ? "text-emerald-400"
                       : pulse
                         ? "text-amber-400 animate-pulse"
-                        : "text-zinc-600"
+                        : "text-bia-gray"
                   }
                 >
                   {done ? "●" : "○"}
@@ -412,16 +412,16 @@ export default function NuevaFacturaPage() {
                 <span
                   className={
                     done
-                      ? "text-zinc-200"
+                      ? "text-white"
                       : pulse
-                        ? "text-zinc-200 animate-pulse"
-                        : "text-zinc-500"
+                        ? "text-white animate-pulse"
+                        : "text-bia-gray"
                   }
                 >
                   {label}
                 </span>
                 {i < PROGRESS_STEPS.length - 1 ? (
-                  <span className="mx-0.5 text-zinc-600 sm:mx-1" aria-hidden>
+                  <span className="mx-0.5 text-bia-gray sm:mx-1" aria-hidden>
                     →
                   </span>
                 ) : null}
@@ -431,7 +431,7 @@ export default function NuevaFacturaPage() {
         </div>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Paso 1 — Seleccionar archivo</CardTitle>
         </CardHeader>
@@ -455,7 +455,7 @@ export default function NuevaFacturaPage() {
             <Button
               type="button"
               variant="secondary"
-              className="bg-zinc-800 text-white hover:bg-zinc-700"
+              className="bg-bia-blue-mid text-white hover:bg-bia-gray/25"
               onClick={() => cameraInputRef.current?.click()}
             >
               📷 Tomar foto
@@ -463,26 +463,26 @@ export default function NuevaFacturaPage() {
             <Button
               type="button"
               variant="secondary"
-              className="bg-zinc-800 text-white hover:bg-zinc-700"
+              className="bg-bia-blue-mid text-white hover:bg-bia-gray/25"
               onClick={() => galleryInputRef.current?.click()}
             >
               📁 Galería / archivo
             </Button>
           </div>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-bia-gray">
             Imagen (JPG, PNG, WebP, HEIC…) o PDF · máximo 10MB
           </p>
 
           {uploadError ? <p className="text-sm text-red-400">{uploadError}</p> : null}
 
           {file ? (
-            <div className="rounded-md border border-zinc-700 bg-zinc-900/40 p-3">
+            <div className="rounded-md border border-bia-gray/40 bg-bia-blue/40 p-3">
               {isPdf ? (
-                <div className="flex items-center gap-3 text-zinc-300">
+                <div className="flex items-center gap-3 text-bia-gray-light">
                   <FileText className="h-12 w-12 shrink-0 text-amber-400" />
                   <div>
                     <p className="font-medium">PDF</p>
-                    <p className="text-sm text-zinc-500">{file.name}</p>
+                    <p className="text-sm text-bia-gray">{file.name}</p>
                   </div>
                 </div>
               ) : previewUrl ? (
@@ -492,7 +492,7 @@ export default function NuevaFacturaPage() {
                   width={640}
                   height={360}
                   unoptimized
-                  className="max-h-64 w-full rounded-md border border-zinc-700 object-contain"
+                  className="max-h-64 w-full rounded-md border border-bia-gray/40 object-contain"
                 />
               ) : null}
             </div>
@@ -507,7 +507,7 @@ export default function NuevaFacturaPage() {
               uploadState === "extracting" ||
               uploadState === "saving"
             }
-            className="bg-black text-white hover:bg-zinc-800"
+            className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
           >
             {uploadState === "uploading"
               ? "Subiendo imagen ☁️..."
@@ -516,7 +516,7 @@ export default function NuevaFacturaPage() {
                 : "☁️ Subir y extraer datos"}
           </Button>
           {(uploadState === "uploading" || uploadState === "extracting") && (
-            <p className="text-sm text-zinc-400 animate-pulse">
+            <p className="text-sm text-bia-gray-light animate-pulse">
               {uploadState === "uploading"
                 ? "Subiendo imagen ☁️..."
                 : "Extrayendo datos 🔍..."}
@@ -534,7 +534,7 @@ export default function NuevaFacturaPage() {
         </p>
       ) : null}
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Paso 2 — Revisar y completar</CardTitle>
         </CardHeader>
@@ -544,7 +544,7 @@ export default function NuevaFacturaPage() {
             <Input
               readOnly
               value={imagenUrl}
-              className="bg-zinc-900 border-zinc-700 font-mono text-xs"
+              className="bg-bia-blue border-bia-gray/40 font-mono text-xs"
               placeholder="Se llena al subir el archivo"
             />
           </div>
@@ -559,22 +559,22 @@ export default function NuevaFacturaPage() {
                 const v = e.target.value;
                 setFecha(v ? fromInputDate(v) : getTodayDDMMYYYY());
               }}
-              className="bg-zinc-900 border-zinc-700 [color-scheme:dark]"
+              className="bg-bia-blue border-bia-gray/40 [color-scheme:dark]"
             />
-            <p className="text-xs text-zinc-500">Guardado como {fecha || "—"}</p>
+            <p className="text-xs text-bia-gray">Guardado como {fecha || "—"}</p>
           </div>
           <div className="space-y-1.5">
             <Label>Proveedor</Label>
             <Input
               value={proveedor}
               onChange={(e) => setProveedor(e.target.value)}
-              className="bg-zinc-900 border-zinc-700"
+              className="bg-bia-blue border-bia-gray/40"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>NIT {!aNombreBia ? <span className="text-zinc-500">(opcional)</span> : null}</Label>
-            <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Label>NIT {!aNombreBia ? <span className="text-bia-gray">(opcional)</span> : null}</Label>
+            <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1.5">
             <Label>Número de Factura</Label>
@@ -582,13 +582,13 @@ export default function NuevaFacturaPage() {
               value={numFactura}
               onChange={(e) => setNumFactura(e.target.value)}
               placeholder="Ej: FEV3418"
-              className="bg-zinc-900 border-zinc-700"
+              className="bg-bia-blue border-bia-gray/40"
             />
           </div>
           <div className="space-y-1.5">
             <Label>Tipo de Factura</Label>
             <Select value={tipoFactura} onValueChange={(value) => setTipoFactura(value || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -606,13 +606,13 @@ export default function NuevaFacturaPage() {
             <Input
               value={concepto}
               onChange={(e) => setConcepto(e.target.value)}
-              className="bg-zinc-900 border-zinc-700"
+              className="bg-bia-blue border-bia-gray/40"
             />
           </div>
           <div className="space-y-1.5">
             <Label>Servicio declarado</Label>
             <Select value={servicioDeclarado} onValueChange={(value) => setServicioDeclarado(value || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -632,14 +632,14 @@ export default function NuevaFacturaPage() {
               min={1}
               value={valor}
               onChange={(e) => setValor(e.target.value)}
-              className="bg-zinc-900 border-zinc-700"
+              className="bg-bia-blue border-bia-gray/40"
             />
-            <p className="text-xs text-zinc-500">{valorVista}</p>
+            <p className="text-xs text-bia-gray">{valorVista}</p>
           </div>
           <div className="space-y-1.5">
             <Label>Ciudad</Label>
             <Select value={ciudad} onValueChange={(value) => setCiudad(value || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -669,7 +669,7 @@ export default function NuevaFacturaPage() {
               <Checkbox
                 checked={aNombreBia}
                 onCheckedChange={(c) => setANombreBia(c === true)}
-                className="border-zinc-500"
+                className="border-bia-gray"
               />
               <Label className="cursor-pointer text-sm font-normal leading-snug">
                 Factura a nombre de BIA Energy SAS ESP (NIT 901.588.413-2)
@@ -693,7 +693,7 @@ export default function NuevaFacturaPage() {
                 value={responsableTarget}
                 onValueChange={(v) => setResponsableTarget(v || "")}
               >
-                <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                   <SelectValue placeholder="Seleccionar responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -715,19 +715,19 @@ export default function NuevaFacturaPage() {
               <Input
                 value={responsableTarget}
                 readOnly
-                className="bg-zinc-900 border-zinc-700 opacity-80"
+                className="bg-bia-blue border-bia-gray/40 opacity-80"
               />
             )}
           </div>
           <div className="space-y-1.5">
             <Label>Área</Label>
-            <Input value={user?.area || ""} readOnly className="bg-zinc-900 border-zinc-700 opacity-80" />
+            <Input value={user?.area || ""} readOnly className="bg-bia-blue border-bia-gray/40 opacity-80" />
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Sector</Label>
             <Select value={sectorForm} onValueChange={(value) => setSectorForm(value || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -747,7 +747,7 @@ export default function NuevaFacturaPage() {
       <Button
         onClick={() => void saveFactura()}
         disabled={uploadState === "saving" || !imagenUrl.trim()}
-        className="w-full bg-black text-white hover:bg-zinc-800"
+        className="w-full bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
       >
         {uploadState === "saving" ? "Guardando en hoja..." : "Guardar factura"}
       </Button>

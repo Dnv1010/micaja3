@@ -134,22 +134,22 @@ export function AdminFacturasClient() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Todas las facturas</h1>
-        <p className="text-sm text-zinc-400">Administración · filtros y acciones</p>
+        <h1 className="text-2xl font-bold text-white">Todas las facturas</h1>
+        <p className="text-sm text-bia-gray-light">Administración · filtros y acciones</p>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <div className="min-w-[160px] space-y-1">
-            <Label className="text-xs text-zinc-400">Zona</Label>
+            <Label className="text-xs text-bia-gray-light">Zona</Label>
             <Select
               value={filtroZona || "__all__"}
               onValueChange={(v) => setFiltroZona(!v || v === "__all__" ? "" : v)}
             >
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
@@ -160,12 +160,12 @@ export function AdminFacturasClient() {
             </Select>
           </div>
           <div className="min-w-[200px] space-y-1">
-            <Label className="text-xs text-zinc-400">Usuario</Label>
+            <Label className="text-xs text-bia-gray-light">Usuario</Label>
             <Select
               value={filtroResponsable || "__all__"}
               onValueChange={(v) => setFiltroResponsable(!v || v === "__all__" ? "" : v)}
             >
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -179,12 +179,12 @@ export function AdminFacturasClient() {
             </Select>
           </div>
           <div className="min-w-[160px] space-y-1">
-            <Label className="text-xs text-zinc-400">Estado</Label>
+            <Label className="text-xs text-bia-gray-light">Estado</Label>
             <Select
               value={filtroEstado || "__all__"}
               onValueChange={(v) => setFiltroEstado(!v || v === "__all__" ? "" : v)}
             >
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -197,17 +197,17 @@ export function AdminFacturasClient() {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-zinc-400">Desde</Label>
-            <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="bg-zinc-900 border-zinc-700 w-[160px]" />
+            <Label className="text-xs text-bia-gray-light">Desde</Label>
+            <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="bg-bia-blue border-bia-gray/40 w-[160px]" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-zinc-400">Hasta</Label>
-            <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="bg-zinc-900 border-zinc-700 w-[160px]" />
+            <Label className="text-xs text-bia-gray-light">Hasta</Label>
+            <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="bg-bia-blue border-bia-gray/40 w-[160px]" />
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardContent className="overflow-x-auto pt-6">
           <Table>
             <TableHeader>
@@ -228,7 +228,7 @@ export function AdminFacturasClient() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={10}>
-                    <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
               ) : filtradas.length ? (
@@ -262,7 +262,7 @@ export function AdminFacturasClient() {
                               <Button
                                 type="button"
                                 size="sm"
-                                className="h-7 bg-emerald-800 px-2 text-xs"
+                                className="h-7 bg-bia-aqua px-2 text-xs font-semibold text-bia-blue hover:bg-[#06C4A8]"
                                 onClick={() => void aprobar(id)}
                               >
                                 ✓
@@ -282,7 +282,7 @@ export function AdminFacturasClient() {
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-7 border-zinc-600 px-2 text-xs text-red-300"
+                            className="h-7 border-bia-gray/30 px-2 text-xs text-red-300"
                             onClick={() => void eliminar(id)}
                           >
                             🗑️
@@ -294,14 +294,14 @@ export function AdminFacturasClient() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-zinc-500">
+                  <TableCell colSpan={10} className="text-bia-gray">
                     Sin resultados con los filtros actuales
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
-          <div className="mt-4 flex flex-wrap gap-6 text-sm text-zinc-400">
+          <div className="mt-4 flex flex-wrap gap-6 text-sm text-bia-gray-light">
             <span>Total facturas (filtradas): {filtradas.length}</span>
             <span>Total aprobadas + completadas: {formatCOP(totalAprobadas)}</span>
             <span>Pendientes: {pendientesCount}</span>
@@ -310,14 +310,14 @@ export function AdminFacturasClient() {
       </Card>
 
       <Dialog open={!!rejectId} onOpenChange={(o) => !o && setRejectId(null)}>
-        <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <DialogContent className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <DialogHeader>
             <DialogTitle>Motivo del rechazo</DialogTitle>
           </DialogHeader>
           <Textarea
             value={motivoRechazo}
             onChange={(e) => setMotivoRechazo(e.target.value)}
-            className="bg-zinc-900 border-zinc-700"
+            className="bg-bia-blue border-bia-gray/40"
             placeholder="Describe el motivo..."
           />
           <DialogFooter>

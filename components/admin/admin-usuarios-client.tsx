@@ -89,31 +89,31 @@ export function AdminUsuariosClient() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Usuarios</h1>
-        <p className="text-sm text-zinc-400">Lista base · balances desde Entregas y Facturas</p>
+        <h1 className="text-2xl font-bold text-white">Usuarios</h1>
+        <p className="text-sm text-bia-gray-light">Lista base · balances desde Entregas y Facturas</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-400">👥 Total (filtrado)</CardTitle>
+            <CardTitle className="text-sm text-bia-gray-light">👥 Total (filtrado)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : resumen.total}</p>
-            <p className="text-xs text-zinc-500">usuarios</p>
+            <p className="text-xs text-bia-gray">usuarios</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-400">✅ Al día</CardTitle>
+            <CardTitle className="text-sm text-bia-gray-light">✅ Al día</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-emerald-400">{loading ? "—" : resumen.alDia}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-400">⚠️ No al día</CardTitle>
+            <CardTitle className="text-sm text-bia-gray-light">⚠️ No al día</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-red-400">{loading ? "—" : resumen.deuda}</p>
@@ -121,18 +121,18 @@ export function AdminUsuariosClient() {
         </Card>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <div className="min-w-[180px] space-y-1">
-            <label className="text-xs text-zinc-400">Zona</label>
+            <label className="text-xs text-bia-gray-light">Zona</label>
             <Select
               value={filtroZona || "__all__"}
               onValueChange={(v) => setFiltroZona(!v || v === "__all__" ? "" : v)}
             >
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -143,12 +143,12 @@ export function AdminUsuariosClient() {
             </Select>
           </div>
           <div className="min-w-[180px] space-y-1">
-            <label className="text-xs text-zinc-400">Rol</label>
+            <label className="text-xs text-bia-gray-light">Rol</label>
             <Select
               value={filtroRol || "__all__"}
               onValueChange={(v) => setFiltroRol(!v || v === "__all__" ? "" : v)}
             >
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -161,7 +161,7 @@ export function AdminUsuariosClient() {
         </CardContent>
       </Card>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardContent className="overflow-x-auto pt-6">
           <Table>
             <TableHeader>
@@ -179,7 +179,7 @@ export function AdminUsuariosClient() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={7}>
-                    <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
               ) : filtrados.length ? (
@@ -189,19 +189,19 @@ export function AdminUsuariosClient() {
                   return (
                     <TableRow key={u.email}>
                       <TableCell className="font-medium">{u.responsable}</TableCell>
-                      <TableCell className="text-sm text-zinc-400">{u.cargo}</TableCell>
+                      <TableCell className="text-sm text-bia-gray-light">{u.cargo}</TableCell>
                       <TableCell>{etiquetaZona(u.sector)}</TableCell>
                       <TableCell className="tabular-nums text-sm">{formatCOP(b.totalRecibido)}</TableCell>
                       <TableCell className="tabular-nums text-sm">{formatCOP(b.totalGastado)}</TableCell>
                       <TableCell className="tabular-nums text-sm">
                         <span className={tone.cls}>{formatCOP(b.balance)}</span>
-                        <span className="ml-2 text-xs text-zinc-500">{tone.label}</span>
+                        <span className="ml-2 text-xs text-bia-gray">{tone.label}</span>
                       </TableCell>
                       <TableCell>
                         {u.userActive ? (
                           <Badge className="border-emerald-800 bg-emerald-950 text-emerald-200">Activo</Badge>
                         ) : (
-                          <Badge className="border-zinc-600 bg-zinc-900 text-zinc-400">Inactivo</Badge>
+                          <Badge className="border-bia-gray/30 bg-bia-blue text-bia-gray-light">Inactivo</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -209,7 +209,7 @@ export function AdminUsuariosClient() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-zinc-500">
+                  <TableCell colSpan={7} className="text-bia-gray">
                     Sin usuarios con estos filtros
                   </TableCell>
                 </TableRow>

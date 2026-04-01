@@ -12,50 +12,39 @@ export function Header({ serverSession }: { serverSession: Session }) {
   const { data } = useSession();
   const user = data?.user ?? serverSession.user;
   const rol = user?.rol || "user";
-  const sector = user?.sector || "";
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-bia-gray/20 bg-bia-blue px-4 backdrop-blur supports-[backdrop-filter]:bg-bia-blue/95">
       <div className="flex items-center gap-2 md:hidden">
         <Sheet>
           <SheetTrigger className="inline-flex">
-            <Button variant="ghost" size="icon" className="shrink-0" aria-label="Abrir menú" type="button">
+            <Button variant="ghost" size="icon" className="shrink-0 text-bia-gray-light hover:text-white" aria-label="Abrir menú" type="button">
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-0">
-            <SidebarNav session={serverSession} className="border-0" />
+          <SheetContent side="left" className="w-72 border-bia-gray/20 bg-bia-blue p-0">
+            <SidebarNav session={serverSession} className="min-h-screen border-0" />
           </SheetContent>
         </Sheet>
-        <span className="font-semibold text-sm truncate">
-          {process.env.NEXT_PUBLIC_APP_NAME || "MiCaja"}
+        <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-white">
+          <span className="text-bia-aqua" aria-hidden>
+            ⚡
+          </span>
+          Bia · {process.env.NEXT_PUBLIC_APP_NAME || "MiCaja"}
         </span>
       </div>
 
       <div className="hidden md:flex md:flex-1 md:items-center md:justify-end md:gap-3">
-        <span className="text-sm text-muted-foreground truncate max-w-[280px] text-right">
-          <span className="block font-medium text-foreground truncate">
-            {user?.name || user?.email}
-          </span>
-          {(user?.cargo || sector) ? (
-            <span className="block text-xs truncate">
-              {user?.cargo || "Sin cargo"}
-              {sector ? ` · ${sector}` : ""}
-            </span>
-          ) : null}
-        </span>
         <RoleBadge rol={rol} />
         <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/login" })}>
-          <LogOut className="h-4 w-4 mr-2" />
+          <LogOut className="mr-2 h-4 w-4" />
           Salir
         </Button>
       </div>
 
       <div className="flex items-center gap-2 md:hidden">
-        <span className="text-xs text-right leading-tight text-zinc-300 max-w-[140px] truncate">
-          {user?.name}
-        </span>
-        <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesion">
+        <RoleBadge rol={rol} />
+        <Button variant="ghost" size="icon" className="text-bia-gray-light hover:text-bia-aqua" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesión">
           <LogOut className="h-5 w-5" />
         </Button>
       </div>

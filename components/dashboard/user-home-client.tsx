@@ -73,38 +73,38 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
 
   return (
     <div className="space-y-4">
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardContent className="pt-6 flex items-center gap-4">
-          <Avatar className="h-14 w-14 border border-zinc-700">
-            <AvatarFallback className="bg-zinc-900 text-zinc-100">{initials(String(user.name || "MiCaja"))}</AvatarFallback>
+          <Avatar className="h-14 w-14 border border-bia-gray/40">
+            <AvatarFallback className="bg-bia-blue text-white">{initials(String(user.name || "MiCaja"))}</AvatarFallback>
           </Avatar>
           <div>
             <p className="text-lg font-semibold">{user.name}</p>
-            <p className="text-sm text-zinc-400">{user.cargo || "Sin cargo"}</p>
-            <p className="text-xs text-zinc-500">{user.area || "Sin area"} · {user.sector || "Sin sector"}</p>
+            <p className="text-sm text-bia-gray-light">{user.cargo || "Sin cargo"}</p>
+            <p className="text-xs text-bia-gray">{user.area || "Sin area"} · {user.sector || "Sin sector"}</p>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader><CardTitle className="text-sm">💰 Recibido</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.recibido)}</p><p className="text-xs text-zinc-400">Total enviado</p></CardContent>
+          <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.recibido)}</p><p className="text-xs text-bia-gray-light">Total enviado</p></CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader><CardTitle className="text-sm">🧾 Gastado</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.gastado)}</p><p className="text-xs text-zinc-400">Fact. aprobadas</p></CardContent>
+          <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.gastado)}</p><p className="text-xs text-bia-gray-light">Fact. aprobadas</p></CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader><CardTitle className="text-sm">📊 Balance</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.balance)}</p><p className={`text-xs ${tone.cls}`}>{tone.label}</p></CardContent>
         </Card>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader><CardTitle className="text-base">Ultimas entregas</CardTitle></CardHeader>
         <CardContent>
-          {loading ? <p className="text-sm text-zinc-400">Cargando...</p> : (
+          {loading ? <p className="text-sm text-bia-gray-light">Cargando...</p> : (
             <Table>
               <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Monto</TableHead><TableHead>Enviado por</TableHead></TableRow></TableHeader>
               <TableBody>
@@ -116,17 +116,17 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
                       {getCellCaseInsensitive(e, "ComprobanteEnvio", "Comprobante") || "—"}
                     </TableCell>
                   </TableRow>
-                )) : <TableRow><TableCell colSpan={3} className="text-zinc-500">Sin entregas</TableCell></TableRow>}
+                )) : <TableRow><TableCell colSpan={3} className="text-bia-gray">Sin entregas</TableCell></TableRow>}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader><CardTitle className="text-base">Ultimas facturas</CardTitle></CardHeader>
         <CardContent>
-          {loading ? <p className="text-sm text-zinc-400">Cargando...</p> : (
+          {loading ? <p className="text-sm text-bia-gray-light">Cargando...</p> : (
             <Table>
               <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Proveedor</TableHead><TableHead>Valor</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader>
               <TableBody>
@@ -141,7 +141,7 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
                       <TableCell><Badge variant="outline">{estado}</Badge></TableCell>
                     </TableRow>
                   );
-                }) : <TableRow><TableCell colSpan={4} className="text-zinc-500">Sin facturas</TableCell></TableRow>}
+                }) : <TableRow><TableCell colSpan={4} className="text-bia-gray">Sin facturas</TableCell></TableRow>}
               </TableBody>
             </Table>
           )}

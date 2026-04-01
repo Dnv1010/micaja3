@@ -7,7 +7,7 @@ import { FacturasUsuarioClient } from "@/components/coordinador/facturas-usuario
 export default function FacturasPage() {
   const { data, status } = useSession();
   if (status === "loading") {
-    return <p className="text-sm text-zinc-400">Cargando...</p>;
+    return <p className="text-sm text-bia-gray-light">Cargando...</p>;
   }
   const rol = String(data?.user?.rol || "user").toLowerCase();
   if (rol === "coordinador") return <FacturasCoordinadorClient />;

@@ -2,9 +2,9 @@
 
 export function PlaceholderPage({ title }: { title: string }) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-950 p-6 text-zinc-100">
+    <section className="rounded-xl border border-bia-gray/20 bg-bia-blue-mid p-6 text-white">
       <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="mt-2 text-zinc-400">Modulo en construccion 🚧</p>
+      <p className="mt-2 text-bia-gray-light">Modulo en construccion 🚧</p>
     </section>
   );
 }

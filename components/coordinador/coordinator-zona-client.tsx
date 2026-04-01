@@ -117,43 +117,43 @@ export function CoordinatorZonaClient({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Mi Zona — {zonaLabel}</h1>
-        <p className="text-sm text-zinc-400">
+        <h1 className="text-2xl font-bold text-white">Mi Zona — {zonaLabel}</h1>
+        <p className="text-sm text-bia-gray-light">
           {coordinatorName} · {coordinatorCargo}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader>
             <CardTitle className="text-sm">👥 Usuarios</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : stats.activos}</p>
-            <p className="text-xs text-zinc-400">activos</p>
+            <p className="text-xs text-bia-gray-light">activos</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader>
             <CardTitle className="text-sm">🧾 Fact. Pend.</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : stats.pendientes}</p>
-            <p className="text-xs text-zinc-400">pendientes</p>
+            <p className="text-xs text-bia-gray-light">pendientes</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader>
             <CardTitle className="text-sm">💸 Total enviado</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : formatCOP(stats.totalEnviado)}</p>
-            <p className="text-xs text-zinc-400">en envíos</p>
+            <p className="text-xs text-bia-gray-light">en envíos</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Usuarios de la zona</CardTitle>
         </CardHeader>
@@ -174,7 +174,7 @@ export function CoordinatorZonaClient({
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell colSpan={6}>
-                      <div className="h-5 animate-pulse rounded bg-zinc-800" />
+                      <div className="h-5 animate-pulse rounded bg-bia-blue-mid" />
                     </TableCell>
                   </TableRow>
                 ))
@@ -187,12 +187,12 @@ export function CoordinatorZonaClient({
                   return (
                     <TableRow key={u.responsable}>
                       <TableCell className="font-medium">{u.responsable}</TableCell>
-                      <TableCell className="text-zinc-400">{u.cargo}</TableCell>
+                      <TableCell className="text-bia-gray-light">{u.cargo}</TableCell>
                       <TableCell>{formatCOP(rec)}</TableCell>
                       <TableCell>{formatCOP(gas)}</TableCell>
                       <TableCell>
                         <span className={`tabular-nums ${tone.cls}`}>{formatCOP(bal)}</span>
-                        <p className="text-xs text-zinc-500">{tone.label}</p>
+                        <p className="text-xs text-bia-gray">{tone.label}</p>
                       </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" type="button" onClick={() => setDetalleUser(u.responsable)}>
@@ -204,7 +204,7 @@ export function CoordinatorZonaClient({
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-zinc-500">
+                  <TableCell colSpan={6} className="text-bia-gray">
                     No hay usuarios en esta zona
                   </TableCell>
                 </TableRow>
@@ -215,13 +215,13 @@ export function CoordinatorZonaClient({
       </Card>
 
       <Dialog open={!!detalleUser} onOpenChange={(o) => !o && setDetalleUser(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-100">
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-bia-gray/20 bg-bia-blue-mid text-white">
           <DialogHeader>
             <DialogTitle>{detalleUser}</DialogTitle>
           </DialogHeader>
           {detalleUser ? (
             <>
-              <p className="mb-2 text-sm text-zinc-400">Últimas facturas</p>
+              <p className="mb-2 text-sm text-bia-gray-light">Últimas facturas</p>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -248,7 +248,7 @@ export function CoordinatorZonaClient({
                   ))}
                 </TableBody>
               </Table>
-              <p className="mb-2 mt-4 text-sm text-zinc-400">Últimas entregas</p>
+              <p className="mb-2 mt-4 text-sm text-bia-gray-light">Últimas entregas</p>
               <Table>
                 <TableHeader>
                   <TableRow>

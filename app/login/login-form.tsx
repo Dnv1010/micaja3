@@ -2,10 +2,6 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function LoginForm({ error }: { error?: string }) {
@@ -36,57 +32,66 @@ export function LoginForm({ error }: { error?: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] p-4 flex items-center justify-center">
-      <Card className="w-full max-w-md border-zinc-800 bg-zinc-950 text-zinc-100 shadow-2xl">
-        <CardHeader className="space-y-1 text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">BIA Energy SAS ESP</p>
-          <CardTitle className="text-3xl font-bold text-white">MiCaja</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {loginError && (
-            <Alert className="border-red-900 bg-red-950/30 text-red-100">
-              <AlertDescription>{loginError}</AlertDescription>
-            </Alert>
-          )}
-          <form onSubmit={handlePinSubmit} className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-zinc-300">
-                Correo electronico
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="usuario@bia.app"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11 border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pin" className="text-zinc-300">
-                PIN
-              </Label>
-              <Input
-                id="pin"
-                type="password"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="4 digitos"
-                maxLength={4}
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                className="h-11 border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500 tracking-[0.25em]"
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full h-11 bg-black text-white hover:bg-zinc-800" disabled={loading}>
-              {loading ? "Validando..." : "Ingresar"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="flex min-h-screen items-center justify-center bg-bia-blue p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-bia-gray/30 bg-bia-blue-mid p-8 shadow-2xl">
+        <div className="mb-8 flex items-center justify-center gap-2">
+          <span className="text-3xl text-bia-aqua" aria-hidden>
+            ⚡
+          </span>
+          <span className="text-2xl font-bold tracking-wide text-white">Bia</span>
+        </div>
+
+        <h1 className="mb-1 text-center text-xl font-semibold text-white">MiCaja</h1>
+        <p className="mb-6 text-center text-sm text-bia-gray-light">BIA Energy SAS ESP</p>
+
+        {loginError ? (
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+            <p className="text-sm font-medium text-red-400">⚠️ {loginError}</p>
+          </div>
+        ) : null}
+
+        <form onSubmit={handlePinSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-bia-gray-light">
+              Correo electrónico
+            </Label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="usuario@bia.app"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mb-1 w-full rounded-xl border border-bia-gray/50 bg-bia-blue px-4 py-3 text-white placeholder:text-bia-gray focus:border-bia-aqua focus:outline-none"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pin" className="text-bia-gray-light">
+              PIN
+            </Label>
+            <input
+              id="pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="4 dígitos"
+              maxLength={4}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              className="w-full rounded-xl border border-bia-gray/50 bg-bia-blue px-4 py-3 tracking-[0.25em] text-white placeholder:text-bia-gray focus:border-bia-aqua focus:outline-none"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-bia-aqua py-3 font-bold text-bia-blue transition-colors hover:bg-[#06C4A8] disabled:opacity-50"
+          >
+            {loading ? "Validando…" : "Ingresar"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

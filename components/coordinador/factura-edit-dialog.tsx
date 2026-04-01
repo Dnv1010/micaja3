@@ -126,39 +126,39 @@ export function FacturaEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto bg-zinc-950 text-zinc-100 ring-zinc-700">
+      <DialogContent className="max-h-[90vh] overflow-y-auto bg-bia-blue-mid text-white ring-bia-gray/40 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar factura</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="space-y-1">
             <Label>Fecha (DD/MM/YYYY)</Label>
-            <Input value={fecha} onChange={(e) => setFecha(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input value={fecha} onChange={(e) => setFecha(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>Proveedor</Label>
-            <Input value={proveedor} onChange={(e) => setProveedor(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input value={proveedor} onChange={(e) => setProveedor(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>NIT</Label>
-            <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input value={nit} onChange={(e) => setNit(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>Número de factura</Label>
-            <Input value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input value={numFactura} onChange={(e) => setNumFactura(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>Concepto</Label>
-            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>Valor (COP)</Label>
-            <Input type="number" min={1} value={valor} onChange={(e) => setValor(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+            <Input type="number" min={1} value={valor} onChange={(e) => setValor(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
           </div>
           <div className="space-y-1">
             <Label>Tipo de factura</Label>
             <Select value={tipoFactura} onValueChange={(v) => setTipoFactura(v || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -173,7 +173,7 @@ export function FacturaEditDialog({
           <div className="space-y-1">
             <Label>Servicio declarado</Label>
             <Select value={servicioDeclarado} onValueChange={(v) => setServicioDeclarado(v || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -188,7 +188,7 @@ export function FacturaEditDialog({
           <div className="space-y-1">
             <Label>Tipo de operación</Label>
             <Select value={tipoOperacion} onValueChange={(v) => setTipoOperacion(v || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -203,7 +203,7 @@ export function FacturaEditDialog({
           <div className="space-y-1">
             <Label>Ciudad</Label>
             <Select value={ciudad} onValueChange={(v) => setCiudad(v || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -218,7 +218,7 @@ export function FacturaEditDialog({
           <div className="space-y-1">
             <Label>Sector</Label>
             <Select value={sector} onValueChange={(v) => setSector(v || "")}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700">
+              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
@@ -232,11 +232,11 @@ export function FacturaEditDialog({
           </div>
           <div className="space-y-1">
             <Label>URL imagen (Drive)</Label>
-            <Input value={imagenUrl} onChange={(e) => setImagenUrl(e.target.value)} className="bg-zinc-900 border-zinc-700 text-xs" />
+            <Input value={imagenUrl} onChange={(e) => setImagenUrl(e.target.value)} className="bg-bia-blue border-bia-gray/40 text-xs" />
           </div>
           <div className="space-y-1">
             <Label>Drive file ID</Label>
-            <Input value={driveFileId} onChange={(e) => setDriveFileId(e.target.value)} className="bg-zinc-900 border-zinc-700 text-xs" />
+            <Input value={driveFileId} onChange={(e) => setDriveFileId(e.target.value)} className="bg-bia-blue border-bia-gray/40 text-xs" />
           </div>
           <div className="flex items-center gap-2">
             <Checkbox id="fe-bia" checked={aNombreBia} onCheckedChange={(c) => setANombreBia(Boolean(c))} />
@@ -244,8 +244,8 @@ export function FacturaEditDialog({
           </div>
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
         </div>
-        <DialogFooter className="border-t border-zinc-800 bg-zinc-950 sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="border-zinc-600">
+        <DialogFooter className="border-t border-bia-gray/20 bg-bia-blue-mid sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="border-bia-gray/30">
             Cancelar
           </Button>
           <Button type="button" className="bg-emerald-700 text-white hover:bg-emerald-600" disabled={saving} onClick={() => void guardar()}>

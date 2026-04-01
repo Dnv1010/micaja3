@@ -104,7 +104,7 @@ export function FirmaCanvas({ onFirma, onLimpiar, width = 400, height = 200 }: P
         ref={canvasRef}
         width={width}
         height={height}
-        className="w-full max-w-full touch-none rounded-md border border-zinc-600 bg-white"
+        className="w-full max-w-full touch-none rounded-md border border-bia-gray/30 bg-white"
         style={{ maxHeight: height, aspectRatio: `${width} / ${height}` }}
         onMouseDown={start}
         onMouseMove={move}
@@ -118,7 +118,7 @@ export function FirmaCanvas({ onFirma, onLimpiar, width = 400, height = 200 }: P
         <Button type="button" variant="outline" onClick={limpiar}>
           Limpiar
         </Button>
-        <Button type="button" className="bg-black text-white hover:bg-zinc-800" onClick={confirmar}>
+        <Button type="button" className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid" onClick={confirmar}>
           Confirmar firma
         </Button>
       </div>

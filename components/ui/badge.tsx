@@ -9,16 +9,22 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        default: "rounded-full bg-primary/15 text-bia-aqua border border-bia-aqua/20 [a]:hover:bg-primary/25",
         secondary:
-          "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
+          "rounded-full bg-bia-purple/10 text-bia-purple border border-bia-purple/20 [a]:hover:bg-bia-purple/20",
         destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+          "rounded-full border border-red-500/20 bg-red-500/10 text-red-400 focus-visible:ring-red-500/20 [a]:hover:bg-red-500/20",
         outline:
-          "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+          "rounded-full border-bia-gray/30 text-bia-gray-light [a]:hover:bg-bia-blue-mid [a]:hover:text-white",
         ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "rounded-full hover:bg-bia-blue-mid hover:text-white dark:hover:bg-bia-blue-mid",
+        link: "text-bia-aqua underline-offset-4 hover:underline",
+        success:
+          "rounded-full border border-bia-aqua/20 bg-bia-aqua/10 text-bia-aqua [a]:hover:bg-bia-aqua/20",
+        warning:
+          "rounded-full border border-yellow-500/20 bg-yellow-500/10 text-yellow-400 [a]:hover:bg-yellow-500/20",
+        completed:
+          "rounded-full border border-bia-purple/20 bg-bia-purple/10 text-bia-purple [a]:hover:bg-bia-purple/20",
       },
     },
     defaultVariants: {

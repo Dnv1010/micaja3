@@ -187,7 +187,7 @@ export function AdminReportesClient() {
 
   return (
     <div className="space-y-4">
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Reportes de legalización</CardTitle>
         </CardHeader>
@@ -208,7 +208,7 @@ export function AdminReportesClient() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={7}>
-                    <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                    <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
               ) : reportes.length ? (
@@ -227,7 +227,7 @@ export function AdminReportesClient() {
                       <TableCell>{formatCOP(parseCOPString(String(r.Total || r.TotalAprobado || "0")))}</TableCell>
                       <TableCell>
                         {est === "Firmado" ? (
-                          <Badge className="border-emerald-700 bg-emerald-950 text-emerald-200">{est}</Badge>
+                          <Badge className="border-bia-aqua/30 bg-bia-aqua/10 text-bia-aqua">{est}</Badge>
                         ) : (
                           <Badge className="border-amber-700 bg-amber-950 text-amber-200">{est}</Badge>
                         )}
@@ -244,7 +244,7 @@ export function AdminReportesClient() {
                               href={pdfUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex h-7 items-center rounded-lg border border-zinc-600 px-2.5 text-[0.8rem] text-zinc-100 hover:bg-zinc-800"
+                              className="inline-flex h-7 items-center rounded-lg border border-bia-gray/30 px-2.5 text-[0.8rem] text-white hover:bg-bia-blue-mid"
                             >
                               ⬇ Descargar
                             </a>
@@ -253,7 +253,7 @@ export function AdminReportesClient() {
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="border-red-900 text-red-300"
+                            className="border-red-500/30 text-red-400"
                             onClick={() => void eliminarReporte(id)}
                           >
                             🗑️
@@ -265,7 +265,7 @@ export function AdminReportesClient() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-zinc-500">
+                  <TableCell colSpan={7} className="text-bia-gray">
                     No hay reportes
                   </TableCell>
                 </TableRow>
@@ -276,7 +276,7 @@ export function AdminReportesClient() {
       </Card>
 
       <Dialog open={!!activo} onOpenChange={(o) => !o && setActivo(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-bia-gray/20 bg-bia-blue-mid text-white sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Revisar y firmar</DialogTitle>
           </DialogHeader>
@@ -284,43 +284,43 @@ export function AdminReportesClient() {
             <>
               <div className="mb-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
                 <div>
-                  <span className="text-zinc-500">Coordinador</span>
-                  <p className="text-zinc-100">{activo.Coordinador || "—"}</p>
+                  <span className="text-bia-gray">Coordinador</span>
+                  <p className="text-white">{activo.Coordinador || "—"}</p>
                 </div>
                 <div>
-                  <span className="text-zinc-500">Sector</span>
-                  <p className="text-zinc-100">{activo.Sector || "—"}</p>
+                  <span className="text-bia-gray">Sector</span>
+                  <p className="text-white">{activo.Sector || "—"}</p>
                 </div>
                 <div className="sm:col-span-2">
-                  <span className="text-zinc-500">Período</span>
-                  <p className="text-zinc-100">
+                  <span className="text-bia-gray">Período</span>
+                  <p className="text-white">
                     {activo.Periodo_Desde || activo.Periodo || "—"} al {activo.Periodo_Hasta || "—"}
                   </p>
                 </div>
                 <div>
-                  <span className="text-zinc-500">Total</span>
-                  <p className="text-zinc-100">
+                  <span className="text-bia-gray">Total</span>
+                  <p className="text-white">
                     {formatCOP(parseCOPString(String(activo.Total || activo.TotalAprobado || "0")))}
                   </p>
                 </div>
               </div>
 
               <div className="mb-4">
-                <p className="mb-1 text-sm text-zinc-400">Firma del coordinador:</p>
+                <p className="mb-1 text-sm text-bia-gray-light">Firma del coordinador:</p>
                 {firmaSrc(String(activo.Firma_Coordinador || activo.FirmaCoordinador || "")) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={firmaSrc(String(activo.Firma_Coordinador || activo.FirmaCoordinador || ""))}
                     alt="Firma coordinador"
-                    className="h-20 max-w-full rounded border border-zinc-700 bg-white object-contain"
+                    className="h-20 max-w-full rounded border border-bia-gray/40 bg-white object-contain"
                   />
                 ) : (
-                  <p className="text-xs text-zinc-500">Sin firma registrada</p>
+                  <p className="text-xs text-bia-gray">Sin firma registrada</p>
                 )}
               </div>
 
               <div className="mt-4">
-                <p className="mb-1 text-sm text-zinc-400">Tu firma:</p>
+                <p className="mb-1 text-sm text-bia-gray-light">Tu firma:</p>
                 <FirmaCanvas
                   width={400}
                   height={150}
@@ -337,7 +337,7 @@ export function AdminReportesClient() {
                 </Button>
                 <Button
                   type="button"
-                  className="bg-emerald-700 hover:bg-emerald-600"
+                  className="bg-bia-aqua text-bia-blue hover:bg-[#06C4A8]"
                   disabled={!firmaAdmin.trim() || procesando}
                   onClick={() => void confirmarFirmaAdmin()}
                 >

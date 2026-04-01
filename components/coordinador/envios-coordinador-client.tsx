@@ -112,7 +112,7 @@ export function EnviosCoordinadorClient({
 
   return (
     <div className="space-y-6">
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Nuevo envío</CardTitle>
         </CardHeader>
@@ -121,7 +121,7 @@ export function EnviosCoordinadorClient({
             <div className="space-y-1 sm:col-span-2">
               <Label>Usuario</Label>
               <Select value={responsable} onValueChange={(v) => setResponsable(v || "")}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                   <SelectValue placeholder="Seleccione usuario" />
                 </SelectTrigger>
                 <SelectContent>
@@ -135,8 +135,8 @@ export function EnviosCoordinadorClient({
             </div>
             <div className="space-y-1">
               <Label>Fecha</Label>
-              <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="bg-zinc-900 border-zinc-700" />
-              <p className="text-xs text-zinc-500">Se guarda como {isoDateToDDMMYYYY(fecha)}</p>
+              <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
+              <p className="text-xs text-bia-gray">Se guarda como {isoDateToDDMMYYYY(fecha)}</p>
             </div>
             <div className="space-y-1">
               <Label>Monto</Label>
@@ -145,9 +145,9 @@ export function EnviosCoordinadorClient({
                 min={1}
                 value={monto}
                 onChange={(e) => setMonto(e.target.value)}
-                className="bg-zinc-900 border-zinc-700"
+                className="bg-bia-blue border-bia-gray/40"
               />
-              <p className="text-xs text-zinc-500">{formatCOP(Number(monto || 0))}</p>
+              <p className="text-xs text-bia-gray">{formatCOP(Number(monto || 0))}</p>
             </div>
             <div className="space-y-1">
               <Label>Comprobante</Label>
@@ -155,7 +155,7 @@ export function EnviosCoordinadorClient({
                 value={comprobante}
                 onChange={(e) => setComprobante(e.target.value)}
                 placeholder="Opcional"
-                className="bg-zinc-900 border-zinc-700"
+                className="bg-bia-blue border-bia-gray/40"
               />
             </div>
             <div className="space-y-1">
@@ -164,11 +164,11 @@ export function EnviosCoordinadorClient({
                 value={telefono}
                 onChange={(e) => setTelefono(e.target.value)}
                 placeholder="Opcional"
-                className="bg-zinc-900 border-zinc-700"
+                className="bg-bia-blue border-bia-gray/40"
               />
             </div>
             <div className="sm:col-span-2">
-              <Button type="submit" className="bg-black text-white hover:bg-zinc-800" disabled={sending}>
+              <Button type="submit" className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid" disabled={sending}>
                 {sending ? "Enviando..." : "Enviar dinero 💸"}
               </Button>
               {okMsg ? <p className="mt-2 text-sm text-emerald-400">{okMsg}</p> : null}
@@ -177,7 +177,7 @@ export function EnviosCoordinadorClient({
         </CardContent>
       </Card>
 
-      <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+      <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Envíos realizados</CardTitle>
         </CardHeader>
@@ -186,7 +186,7 @@ export function EnviosCoordinadorClient({
             <div className="space-y-1">
               <Label>Usuario</Label>
               <Select value={filtroUser} onValueChange={(v) => setFiltroUser(v || "__todos__")}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700">
+                <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,11 +201,11 @@ export function EnviosCoordinadorClient({
             </div>
             <div className="space-y-1">
               <Label>Desde</Label>
-              <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+              <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
             </div>
             <div className="space-y-1">
               <Label>Hasta</Label>
-              <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="bg-zinc-900 border-zinc-700" />
+              <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="bg-bia-blue border-bia-gray/40" />
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -223,7 +223,7 @@ export function EnviosCoordinadorClient({
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={5}>
-                      <div className="h-6 animate-pulse rounded bg-zinc-800" />
+                      <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                     </TableCell>
                   </TableRow>
                 ) : lista.length ? (
@@ -238,7 +238,7 @@ export function EnviosCoordinadorClient({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-zinc-500">
+                    <TableCell colSpan={5} className="text-bia-gray">
                       Sin envíos en el período
                     </TableCell>
                   </TableRow>
