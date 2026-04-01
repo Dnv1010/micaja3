@@ -31,7 +31,7 @@ export function facturaAttachmentSrcForPdf(driveFileId?: string, imagenUrl?: str
   return null;
 }
 
-/** Para mostrar en la app (no para react-pdf). Prioridad: DriveFileId → URL/ImagenURL → Adjuntar_Factura. */
+/** Para mostrar en la app (no para react-pdf). Prioridad: DriveFileId → URL → Adjuntar_Factura; URL original sin modificar (el modal usa proxy si aplica). */
 export function facturaImageUrlForDisplay(
   adjuntarFactura?: string,
   url?: string,
@@ -40,13 +40,12 @@ export function facturaImageUrlForDisplay(
   const id = driveFileId?.trim();
   if (id) return `https://drive.google.com/uc?id=${id}`;
 
-  const u = (url || adjuntarFactura || "").trim();
-  if (!u) return null;
-
-  if (u.startsWith("https://drive.google.com")) return u;
-  if (u.startsWith("https://") || u.startsWith("http://")) return u;
-
-  if (u.startsWith("Facturas_Images/") || u.startsWith("Facturas/")) return null;
-
+  const candidates = [url, adjuntarFactura].map((s) => s?.trim()).filter(Boolean) as string[];
+  for (const u of candidates) {
+    if (u.startsWith("https://drive.google.com")) return u;
+    if (u.startsWith("https://")) return u;
+    if (u.startsWith("http://")) return u;
+    if (u.startsWith("Facturas_Images/") || u.startsWith("Facturas/")) continue;
+  }
   return null;
 }

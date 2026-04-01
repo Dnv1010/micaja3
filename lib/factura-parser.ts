@@ -161,22 +161,25 @@ function extractNumFactura(text: string): string | null {
 
 // ─── DESCRIPCIÓN / CONCEPTO ───────────────────────────────────────────────────
 function extractDescripcion(lines: string[], text: string): string | null {
-  void text; // reservado (texto completo en mayúsculas); la lógica usa solo `lines`
-  // Ignorar líneas que parecen ser CUFE (hash hexadecimal largo)
-  const isCufe = (line: string) => /^[a-f0-9]{20,}$/i.test(line.replace(/\s/g, ""));
+  void text;
 
-  const keywords = ["CONCEPTO", "DESCRIPCI", "SERVICIO", "DETALLE", "PRODUCTO", "ARTÍCULO", "ARTICULO"];
+  const isCufe = (line: string) =>
+    /^[a-f0-9]{20,}$/i.test(line.replace(/\s/g, "")) ||
+    line.toLowerCase().startsWith("cufe") ||
+    line.toLowerCase().startsWith("cude");
+
+  const keywords = ["CONCEPTO", "DESCRIPCI", "SERVICIO", "DETALLE", "PRODUCTO"];
   for (let i = 0; i < lines.length; i++) {
     const upper = lines[i].toUpperCase();
     if (keywords.some((k) => upper.includes(k))) {
       const next = lines[i + 1];
       if (next && next.length > 2 && !isCufe(next)) return next.trim();
-      return lines[i].replace(/^.*?[:\-]\s*/, "").replace(/CUFE.*/i, "").trim();
+      const current = lines[i].replace(/^.*?[:\-]\s*/, "").replace(/cufe.*/i, "").trim();
+      if (current && !isCufe(current)) return current;
     }
   }
-  // Para tickets POS: tomar líneas del medio ignorando CUFEs
   const middleLines = lines.slice(2, 6).filter((l) => !isCufe(l) && l.length > 3);
-  return middleLines[0] || null;
+  return middleLines[0]?.trim() || null;
 }
 
 // ─── TIPO DE FACTURA ──────────────────────────────────────────────────────────

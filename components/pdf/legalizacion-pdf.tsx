@@ -1,8 +1,6 @@
 "use client";
 
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { facturaAttachmentSrcForPdf } from "@/lib/drive-image-url";
-import { formatCOP, parseCOPString } from "@/lib/format";
 
 /** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:…). */
 export function normalizeFirmaDataUrlForPdf(raw: string): string {
@@ -10,15 +8,6 @@ export function normalizeFirmaDataUrlForPdf(raw: string): string {
   if (!t) return t;
   if (t.startsWith("data:image/")) return t;
   return `data:image/png;base64,${t}`;
-}
-
-function imagenAdjuntaSrcForPdf(f: FacturaPdf): string | null {
-  const base = facturaAttachmentSrcForPdf(f.driveFileId, f.imagenUrl);
-  if (!base) return null;
-  if (base.includes("drive.google.com") && base.includes("uc?id=") && !base.includes("export=download")) {
-    return base.replace("uc?id=", "uc?export=download&id=");
-  }
-  return base;
 }
 
 export type FacturaPdf = {
@@ -113,16 +102,30 @@ const styles = StyleSheet.create({
   signImg: { width: 150, height: 60, objectFit: "contain", marginBottom: 4 },
   signName: { fontSize: 9 },
   sectionTitle: { fontSize: 11, fontWeight: 700, textAlign: "center", marginBottom: 12 },
-  attachBlock: { marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#cccccc" },
-  separador: { height: 1, backgroundColor: "#ddd", marginTop: 8 },
-  attachHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8, fontSize: 9 },
-  attachImg: { width: "100%", maxHeight: 300, objectFit: "contain", marginTop: 4 },
   muted: { fontSize: 9, color: "#666", fontStyle: "italic" },
+  facturaAdjunta: { marginBottom: 8, paddingBottom: 8 },
+  facturaAdjuntaTitulo: { fontSize: 9, fontWeight: 700, color: "#111" },
 });
 
-function valorNum(v: string | number): number {
+function valorNum(v: unknown): number {
   if (typeof v === "number") return v;
-  return parseCOPString(String(v));
+  const s = String(v || "0").replace(/\$/g, "").replace(/\s/g, "");
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) return parseInt(s.replace(/\./g, ""), 10);
+  const n = parseFloat(s.replace(/\./g, "").replace(",", "."));
+  return Number.isNaN(n) ? 0 : n;
+}
+
+function formatCOPpdf(n: number): string {
+  if (!n) return "$0";
+  return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function adjuntoUrlParaTexto(f: FacturaPdf): string {
+  const u = f.imagenUrl?.trim();
+  if (u && (u.startsWith("http://") || u.startsWith("https://"))) return u;
+  const id = f.driveFileId?.trim();
+  if (id) return `https://drive.google.com/file/d/${id}/view`;
+  return "";
 }
 
 export function LegalizacionPdf({
@@ -186,11 +189,11 @@ export function LegalizacionPdf({
             </View>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Monto Asignado:</Text>
-              <Text style={styles.value}>{formatCOP(limiteZona)}</Text>
+              <Text style={styles.value}>{formatCOPpdf(limiteZona)}</Text>
             </View>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Valor a Reembolsar:</Text>
-              <Text style={styles.value}>{formatCOP(total)}</Text>
+              <Text style={styles.value}>{formatCOPpdf(total)}</Text>
             </View>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Ejecutado:</Text>
@@ -218,13 +221,13 @@ export function LegalizacionPdf({
               <Text style={[styles.td, styles.wCat]}>{f.tipoFactura || "—"}</Text>
               <Text style={[styles.td, styles.wFecha]}>{f.fecha}</Text>
               <Text style={[styles.td, styles.wValor, styles.tdLast]}>
-                {formatCOP(valorNum(f.valor))} COP
+                {formatCOPpdf(valorNum(f.valor))}
               </Text>
             </View>
           ))}
           <View style={styles.totalRow}>
             <Text>Total:</Text>
-            <Text> {formatCOP(total)} COP</Text>
+            <Text> {formatCOPpdf(total)}</Text>
           </View>
         </View>
 
@@ -258,33 +261,34 @@ export function LegalizacionPdf({
       </Page>
 
       {facturas.length ? (
-        facturas.map((f, i) => {
-          const attachSrc = imagenAdjuntaSrcForPdf(f);
-          return (
-            <Page key={`att-${f.id}-${i}`} size="A4" style={styles.page}>
-              {i === 0 ? <Text style={styles.sectionTitle}>Facturas Adjuntas</Text> : null}
-              <View
-                style={[styles.attachBlock, i === facturas.length - 1 ? { borderBottomWidth: 0 } : {}]}
-                wrap={false}
-              >
-                <View style={styles.attachHeader}>
-                  <Text>
-                    Factura: {f.nit || "—"} · Fecha: {f.fecha || "—"}
+        <Page size="A4" style={styles.page}>
+          <Text style={styles.sectionTitle}>Facturas Adjuntas</Text>
+          {facturas.map((f, i) => {
+            const urlAdjunto = adjuntoUrlParaTexto(f);
+            return (
+              <View key={f.id || `f-${i}`} style={styles.facturaAdjunta} wrap={false}>
+                <Text style={styles.facturaAdjuntaTitulo}>
+                  Factura {i + 1}: {f.nit || "—"} Fecha: {f.fecha || "—"}
+                </Text>
+                <Text style={{ fontSize: 8, color: "#333", marginTop: 2 }}>
+                  Proveedor: {f.proveedor || "—"}
+                </Text>
+                {urlAdjunto ? (
+                  <Text style={{ fontSize: 8, color: "#0066CC", marginTop: 4 }}>
+                    Ver imagen: {urlAdjunto}
                   </Text>
-                </View>
-                {attachSrc ? (
-                  /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto factura */
-                  <Image style={styles.attachImg} src={attachSrc} />
                 ) : (
-                  <Text style={{ fontSize: 9, color: "#888", fontStyle: "italic", marginTop: 4 }}>
-                    Imagen no disponible (factura migrada de AppSheet)
+                  <Text style={{ fontSize: 8, color: "#999", marginTop: 4, fontStyle: "italic" }}>
+                    Sin imagen adjunta
                   </Text>
                 )}
-                <View style={styles.separador} />
+                {i < facturas.length - 1 ? (
+                  <View style={{ borderBottomWidth: 0.5, borderBottomColor: "#ccc", marginTop: 8 }} />
+                ) : null}
               </View>
-            </Page>
-          );
-        })
+            );
+          })}
+        </Page>
       ) : (
         <Page size="A4" style={styles.page}>
           <Text style={styles.sectionTitle}>Facturas Adjuntas</Text>

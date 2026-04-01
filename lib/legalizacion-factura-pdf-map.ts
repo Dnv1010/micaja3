@@ -1,4 +1,5 @@
 import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
+import { parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaLike = Record<string, unknown>;
@@ -13,17 +14,22 @@ export function facturaRowToFacturaPdfForLegalizacion(
   f: FacturaLike,
   defaults: { area?: string }
 ): FacturaPdf {
-  const valorRaw = String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0").replace(/[^\d]/g, "");
+  const valorCell = getCellCaseInsensitive(f, "Monto_Factura", "Valor");
   const driveId = String(getCellCaseInsensitive(f, "DriveFileId") || "").trim();
   const rawUrl = String(getCellCaseInsensitive(f, "Adjuntar_Factura", "URL", "ImagenURL") || "").trim();
   const imagenUrl = esUrlValida(rawUrl) ? rawUrl : undefined;
+  const concepto = String(getCellCaseInsensitive(f, "Observacion", "Concepto") || "").trim();
+  const conceptoLimpio =
+    /^(cufe|cude)\s/i.test(concepto) || /^[a-f0-9]{30,}$/i.test(concepto.replace(/\s/g, ""))
+      ? ""
+      : concepto;
   return {
     id: String(getCellCaseInsensitive(f, "ID_Factura", "ID") || ""),
     fecha: String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || ""),
     proveedor: String(getCellCaseInsensitive(f, "Razon_Social", "Proveedor") || ""),
     nit: String(getCellCaseInsensitive(f, "Nit_Factura", "NIT") || ""),
-    concepto: String(getCellCaseInsensitive(f, "Observacion", "Concepto") || ""),
-    valor: Number(valorRaw) || 0,
+    concepto: conceptoLimpio,
+    valor: parseMonto(valorCell),
     tipoFactura: String(getCellCaseInsensitive(f, "Tipo_Factura", "TipoFactura") || ""),
     area: String(getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || defaults.area || ""),
     imagenUrl,
