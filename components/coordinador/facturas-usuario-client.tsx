@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FacturaEditDialog } from "@/components/coordinador/factura-edit-dialog";
+import { FacturaImagenModal } from "@/components/factura-imagen-modal";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
@@ -30,6 +32,7 @@ export function FacturasUsuarioClient() {
   const [facturas, setFacturas] = useState<FacturaItem[]>([]);
   const [editar, setEditar] = useState<FacturaItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [imagenModal, setImagenModal] = useState<string | null>(null);
 
   const loadFacturas = useCallback(async () => {
     if (!responsable) {
@@ -90,6 +93,7 @@ export function FacturasUsuarioClient() {
                   <TableHead>BIA</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="text-center">Imagen</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -111,6 +115,11 @@ export function FacturasUsuarioClient() {
                     const fid = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
                     const aBia = sheetANombreBiaTrue(
                       getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia", "Nombre_bia")
+                    );
+                    const imgSrc = facturaImageUrlForDisplay(
+                      String(getCellCaseInsensitive(f, "Adjuntar_Factura") || ""),
+                      String(getCellCaseInsensitive(f, "URL", "ImagenURL") || ""),
+                      String(getCellCaseInsensitive(f, "DriveFileId") || "")
                     );
                     return (
                       <TableRow key={`f-${i}`}>
@@ -144,6 +153,22 @@ export function FacturasUsuarioClient() {
                             {estado}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-center">
+                          {imgSrc ? (
+                            <button
+                              type="button"
+                              onClick={() => setImagenModal(imgSrc)}
+                              className="rounded border border-bia-aqua/30 px-2 py-1 text-xs text-bia-aqua transition-colors hover:bg-bia-aqua/10 hover:text-white"
+                              title="Ver imagen"
+                            >
+                              🖼️ Ver
+                            </button>
+                          ) : (
+                            <span className="text-xs text-bia-gray" title="Sin imagen disponible">
+                              Sin imagen
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           {(estadoLower === "pendiente" || estadoLower === "rechazada") && fid ? (
                             <Button
@@ -175,6 +200,8 @@ export function FacturasUsuarioClient() {
           </div>
         </CardContent>
       </Card>
+
+      <FacturaImagenModal src={imagenModal} onClose={() => setImagenModal(null)} />
 
       <Link href="/facturas/nueva" className="fixed bottom-20 right-4 z-40">
         <Button className="h-12 w-12 rounded-full bg-bia-aqua text-bia-blue font-semibold shadow-lg">+</Button>

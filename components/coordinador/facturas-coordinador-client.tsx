@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { FacturaEditDialog } from "@/components/coordinador/factura-edit-dialog";
+import { FacturaImagenModal } from "@/components/factura-imagen-modal";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
+import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { fallbackActiveZoneUsers } from "@/lib/users-fallback";
@@ -33,7 +35,7 @@ function estadoClass(estado: string): string {
   return "border-yellow-700 text-yellow-300";
 }
 
-const COLS = 12;
+const COLS = 13;
 
 export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const { data } = useSession();
@@ -51,6 +53,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const [modalRechazo, setModalRechazo] = useState<{ id: string } | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [rechazando, setRechazando] = useState(false);
+  const [imagenModal, setImagenModal] = useState<string | null>(null);
 
   async function filtrar() {
     setLoading(true);
@@ -267,6 +270,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                 <TableHead>BIA</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead className="text-center">Imagen</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -294,6 +298,11 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                   const puedeEliminar = rolSesion === "coordinador" || rolSesion === "admin";
                   const aBia = sheetANombreBiaTrue(
                     getCellCaseInsensitive(f, "ANombreBia", "AnombreBia", "NombreBia", "Nombre_bia")
+                  );
+                  const imgSrc = facturaImageUrlForDisplay(
+                    String(getCellCaseInsensitive(f, "Adjuntar_Factura") || ""),
+                    String(getCellCaseInsensitive(f, "URL", "ImagenURL") || ""),
+                    String(getCellCaseInsensitive(f, "DriveFileId") || "")
                   );
                   return (
                     <TableRow key={i}>
@@ -327,6 +336,22 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                         <Badge variant="outline" className={estadoClass(est)}>
                           {est}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {imgSrc ? (
+                          <button
+                            type="button"
+                            onClick={() => setImagenModal(imgSrc)}
+                            className="rounded border border-bia-aqua/30 px-2 py-1 text-xs text-bia-aqua transition-colors hover:bg-bia-aqua/10 hover:text-white"
+                            title="Ver imagen"
+                          >
+                            🖼️ Ver
+                          </button>
+                        ) : (
+                          <span className="text-xs text-bia-gray" title="Sin imagen disponible">
+                            Sin imagen
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-1">
@@ -390,6 +415,9 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
         </div>
         <p className="text-right text-sm text-bia-gray-light">Total facturas: {facturas.length}</p>
       </CardContent>
+
+      <FacturaImagenModal src={imagenModal} onClose={() => setImagenModal(null)} />
+
       <Link
         href="/facturas/nueva"
         className="fixed bottom-20 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-black text-lg text-white shadow-lg hover:bg-bia-blue-mid"

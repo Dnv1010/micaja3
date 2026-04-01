@@ -21,7 +21,9 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { FacturaImagenModal } from "@/components/factura-imagen-modal";
 import { etiquetaZona } from "@/lib/coordinador-zona";
+import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { formatCOP, parseCOPString, parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { FALLBACK_USERS } from "@/lib/users-fallback";
@@ -47,6 +49,7 @@ export function AdminFacturasClient() {
 
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
+  const [imagenModal, setImagenModal] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,6 +136,8 @@ export function AdminFacturasClient() {
 
   return (
     <div className="space-y-4">
+      <FacturaImagenModal src={imagenModal} onClose={() => setImagenModal(null)} />
+
       <div>
         <h1 className="text-2xl font-bold text-white">Todas las facturas</h1>
         <p className="text-sm text-bia-gray-light">Administración · filtros y acciones</p>
@@ -221,13 +226,14 @@ export function AdminFacturasClient() {
                 <TableHead>Valor</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead className="text-center">Imagen</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={10}>
+                  <TableCell colSpan={11}>
                     <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
@@ -236,6 +242,11 @@ export function AdminFacturasClient() {
                   const id = String(getCellCaseInsensitive(f, "ID_Factura", "ID"));
                   const est = facturaEstado(f).toLowerCase();
                   const sector = String(getCellCaseInsensitive(f, "Sector") || "");
+                  const imgSrc = facturaImageUrlForDisplay(
+                    String(getCellCaseInsensitive(f, "Adjuntar_Factura") || ""),
+                    String(getCellCaseInsensitive(f, "URL", "ImagenURL") || ""),
+                    String(getCellCaseInsensitive(f, "DriveFileId") || "")
+                  );
                   return (
                     <TableRow key={`${id}-${i}`}>
                       <TableCell className="whitespace-nowrap text-xs">{facturaFecha(f) || "—"}</TableCell>
@@ -255,6 +266,22 @@ export function AdminFacturasClient() {
                       </TableCell>
                       <TableCell className="text-xs">{getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—"}</TableCell>
                       <TableCell className="text-xs">{facturaEstado(f)}</TableCell>
+                      <TableCell className="text-center">
+                        {imgSrc ? (
+                          <button
+                            type="button"
+                            onClick={() => setImagenModal(imgSrc)}
+                            className="rounded border border-bia-aqua/30 px-2 py-1 text-xs text-bia-aqua transition-colors hover:bg-bia-aqua/10 hover:text-white"
+                            title="Ver imagen"
+                          >
+                            🖼️ Ver
+                          </button>
+                        ) : (
+                          <span className="text-xs text-bia-gray" title="Sin imagen disponible">
+                            Sin imagen
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-1">
                           {est === "pendiente" ? (
@@ -294,7 +321,7 @@ export function AdminFacturasClient() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-bia-gray">
+                  <TableCell colSpan={11} className="text-bia-gray">
                     Sin resultados con los filtros actuales
                   </TableCell>
                 </TableRow>
