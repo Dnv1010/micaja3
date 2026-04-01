@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -13,7 +13,7 @@ function iframeSrcForFactura(src: string): string {
   return src;
 }
 
-function useIframeForSrc(src: string): boolean {
+function isIframeForSrc(src: string): boolean {
   return (
     /\.pdf(\?|#|$)/i.test(src) ||
     src.includes("/view") ||
@@ -36,9 +36,8 @@ export function FacturaImagenModal({ src, onClose }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  const iframe = src ? isIframeForSrc(src) : false;
   if (!mounted || !src) return null;
-
-  const iframe = useIframeForSrc(src);
   const iframeSrc = iframe ? iframeSrcForFactura(src) : src;
 
   return (
@@ -55,7 +54,7 @@ export function FacturaImagenModal({ src, onClose }: Props) {
         aria-label="Imagen de factura"
       >
         <div className="flex items-center justify-between border-b border-[#525A72]/20 px-4 py-3">
-          <span className="text-sm font-medium text-white">📎 Imagen de factura</span>
+          <span className="text-sm font-medium text-white">ðŸ“Ž Imagen de factura</span>
           <div className="flex gap-2">
             <a
               href={src}
@@ -63,7 +62,7 @@ export function FacturaImagenModal({ src, onClose }: Props) {
               rel="noopener noreferrer"
               className="text-sm text-[#08DDBC] hover:underline"
             >
-              Abrir en Drive ↗
+              Abrir en Drive â†—
             </a>
             <button
               type="button"
@@ -71,7 +70,7 @@ export function FacturaImagenModal({ src, onClose }: Props) {
               className="ml-4 text-xl leading-none text-[#525A72] hover:text-white"
               aria-label="Cerrar"
             >
-              ✕
+              âœ•
             </button>
           </div>
         </div>
