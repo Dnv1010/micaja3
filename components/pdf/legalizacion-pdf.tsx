@@ -25,9 +25,9 @@ Font.register({
   ],
 });
 
-/** Rayo BIA (Aqua Green #08DDBC) como SVG en base64 — react-pdf no dibuja emojis. */
+/** Rayo BIA turquesa (#08DDBC), viewBox 14×20 — react-pdf usa Image con data URL. */
 const RAYO_SRC =
-  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzA4RERCQyI+PHBhdGggZD0iTTEzIDJMNC41IDEzLjVIMTFMMTAgMjJMMjAuNSA5LjVIMTRMMTMgMloiLz48L3N2Zz4=";
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNCAyMCI+PHBvbHlnb24gcG9pbnRzPSI4LDAgMiwxMSA3LDExIDUsMjAgMTMsOCA4LDgiIGZpbGw9IiMwOEREQkMiLz48L3N2Zz4=";
 
 export type FacturaPdf = {
   id: string;
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontFamily: "Roboto",
   },
-  logoRayoImg: { width: 18, height: 18, marginRight: 4 },
+  logoRayoImg: { width: 14, height: 20, marginRight: 3 },
   logoBiaText: {
     fontSize: 22,
     fontWeight: 700,

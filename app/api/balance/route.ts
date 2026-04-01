@@ -7,22 +7,45 @@ import {
   type MicajaBalanceRow,
 } from "@/lib/balance-micaja";
 import { FALLBACK_USERS } from "@/lib/users-fallback";
+import { normalizeSector } from "@/lib/sector-normalize";
 
 /**
- * GET /api/balance — solo admin.
- * ?responsable=Nombre — una fila (si hay datos en Sheets para ese nombre).
- * sin query — todas las filas con movimientos en Entregas/Facturas.
+ * GET /api/balance — admin: todos; coordinador: solo su zona.
+ * ?responsable=Nombre — una fila (admin).
  */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const rol = String(session.user.rol || "user").toLowerCase();
-  if (rol !== "admin") {
-    return NextResponse.json({ error: "Solo administradores" }, { status: 403 });
-  }
 
   try {
+    if (rol === "coordinador") {
+      const sector = String(session.user.sector || "").trim();
+      if (!sector) return NextResponse.json({ error: "Sin zona asignada" }, { status: 400 });
+
+      const map = await loadMicajaBalancesByResponsable({ sectorRaw: sector });
+      const target = normalizeSector(sector);
+      const enZona = FALLBACK_USERS.filter((u) => {
+        const uCanon = normalizeSector(u.sector);
+        const zoneOk =
+          (target !== null && uCanon === target) || (target === null && u.sector === sector.trim());
+        return zoneOk;
+      });
+      const nombres = new Set(enZona.map((u) => u.responsable.trim().toLowerCase()));
+      for (const u of enZona) {
+        if (!map.has(u.responsable)) map.set(u.responsable, { recibido: 0, gastado: 0 });
+      }
+      const data = mapToBalanceRows(map).filter((row) =>
+        nombres.has(row.responsable.trim().toLowerCase())
+      );
+      return NextResponse.json({ data });
+    }
+
+    if (rol !== "admin") {
+      return NextResponse.json({ error: "Solo administradores o coordinadores" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const responsableQ = searchParams.get("responsable")?.trim() || "";
 

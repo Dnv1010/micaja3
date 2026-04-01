@@ -18,5 +18,12 @@ export default async function EnviosPage() {
     const uCanon = normalizeSector(u.sector);
     return (target !== null && uCanon === target) || (target === null && u.sector === sector.trim());
   });
-  return <EnviosCoordinadorClient sector={sector} zoneUsers={zoneUsers} />;
+  const uploadResponsableFallback = String(session.user?.responsable || session.user?.name || "").trim();
+  return (
+    <EnviosCoordinadorClient
+      sector={sector}
+      zoneUsers={zoneUsers}
+      uploadResponsableFallback={uploadResponsableFallback}
+    />
+  );
 }

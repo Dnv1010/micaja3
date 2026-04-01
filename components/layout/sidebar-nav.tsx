@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import type { Session } from "next-auth";
-import { FileText, LayoutDashboard, Send, Users, Package, FileBarChart2, Scale, LogOut } from "lucide-react";
+import { FileText, LayoutDashboard, Send, Users, Package, FileBarChart2, Scale, LogOut, Zap } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -62,9 +62,7 @@ export function SidebarNav({
       )}
     >
       <div className="flex items-center gap-2 border-b border-bia-gray/20 p-6">
-        <span className="text-2xl text-bia-aqua" aria-hidden>
-          ⚡
-        </span>
+        <Zap className="h-7 w-7 shrink-0 text-bia-aqua" aria-hidden strokeWidth={2.25} />
         <div>
           <span className="text-lg font-bold tracking-wide text-white">Bia</span>
           <p className="text-xs text-bia-gray-light">{process.env.NEXT_PUBLIC_APP_NAME || "MiCaja"}</p>

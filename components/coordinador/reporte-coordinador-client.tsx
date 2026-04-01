@@ -43,6 +43,7 @@ export function ReporteCoordinadorClient() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [signOpen, setSignOpen] = useState(false);
   const [procesando, setProcesando] = useState(false);
+  const [yaEnviando, setYaEnviando] = useState(false);
   const [okMsg, setOkMsg] = useState("");
 
   const [repLoading, setRepLoading] = useState(true);
@@ -117,7 +118,8 @@ export function ReporteCoordinadorClient() {
   }
 
   async function onFirmaLista(firmaDataUrl: string) {
-    if (!selectedRows.length || superaLimite) return;
+    if (yaEnviando || !selectedRows.length || superaLimite) return;
+    setYaEnviando(true);
     setSignOpen(false);
     setProcesando(true);
     setOkMsg("");
@@ -325,10 +327,10 @@ export function ReporteCoordinadorClient() {
                 <Button
                   type="button"
                   className="mt-4 w-full bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
-                  disabled={!selectedRows.length || superaLimite || procesando}
+                  disabled={!selectedRows.length || superaLimite || procesando || yaEnviando}
                   onClick={() => setSignOpen(true)}
                 >
-                  Firmar y enviar al administrador 📋
+                  {yaEnviando ? "Enviando..." : "Firmar y enviar al administrador"}
                 </Button>
                 {okMsg ? <p className="text-sm text-emerald-400">{okMsg}</p> : null}
               </CardContent>
@@ -343,6 +345,7 @@ export function ReporteCoordinadorClient() {
               <FirmaCanvas
                 width={400}
                 height={200}
+                disabled={yaEnviando || procesando}
                 onFirma={(b64) => void onFirmaLista(b64)}
                 onLimpiar={() => {}}
               />

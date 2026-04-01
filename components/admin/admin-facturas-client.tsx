@@ -151,14 +151,14 @@ export function AdminFacturasClient() {
           <div className="min-w-[160px] space-y-1">
             <Label className="text-xs text-bia-gray-light">Zona</Label>
             <Select
-              value={filtroZona || "__all__"}
-              onValueChange={(v) => setFiltroZona(!v || v === "__all__" ? "" : v)}
+              value={filtroZona || "all"}
+              onValueChange={(v) => setFiltroZona(!v || v === "all" ? "" : v)}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
-                <SelectValue placeholder="Todas" />
+                <SelectValue placeholder="Todas las zonas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Todas las zonas</SelectItem>
+                <SelectItem value="all">Todas las zonas</SelectItem>
                 <SelectItem value="Bogota">Bogotá</SelectItem>
                 <SelectItem value="Costa Caribe">Costa Caribe</SelectItem>
               </SelectContent>
@@ -167,14 +167,14 @@ export function AdminFacturasClient() {
           <div className="min-w-[200px] space-y-1">
             <Label className="text-xs text-bia-gray-light">Usuario</Label>
             <Select
-              value={filtroResponsable || "__all__"}
-              onValueChange={(v) => setFiltroResponsable(!v || v === "__all__" ? "" : v)}
+              value={filtroResponsable || "all"}
+              onValueChange={(v) => setFiltroResponsable(!v || v === "all" ? "" : v)}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
-                <SelectValue placeholder="Todos" />
+                <SelectValue placeholder="Todos los usuarios" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Todos los usuarios</SelectItem>
+                <SelectItem value="all">Todos los usuarios</SelectItem>
                 {usuariosOpciones.map((u) => (
                   <SelectItem key={u.email} value={u.responsable}>
                     {u.responsable}
@@ -186,14 +186,14 @@ export function AdminFacturasClient() {
           <div className="min-w-[160px] space-y-1">
             <Label className="text-xs text-bia-gray-light">Estado</Label>
             <Select
-              value={filtroEstado || "__all__"}
-              onValueChange={(v) => setFiltroEstado(!v || v === "__all__" ? "" : v)}
+              value={filtroEstado || "all"}
+              onValueChange={(v) => setFiltroEstado(!v || v === "all" ? "" : v)}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
-                <SelectValue placeholder="Todos" />
+                <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Todos los estados</SelectItem>
+                <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="Pendiente">Pendiente</SelectItem>
                 <SelectItem value="Aprobada">Aprobada</SelectItem>
                 <SelectItem value="Rechazada">Rechazada</SelectItem>

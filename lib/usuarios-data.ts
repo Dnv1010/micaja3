@@ -1,7 +1,12 @@
-import { assertSheetsConfigured, SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
-import { getSheetDataBySpreadsheetId, rowsToObjects } from "@/lib/sheets-helpers";
+import { assertSheetsConfigured, getSheetsClient, SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
+import { getSheetDataBySpreadsheetId, quoteSheetTitleForRange, rowsToObjects } from "@/lib/sheets-helpers";
 import { normalizeEmailForAuth } from "@/lib/email-normalize";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import {
+  isUserActiveInSheet,
+  usuarioSheetEmail,
+  usuarioSheetUserActiveRaw,
+} from "@/lib/usuario-sheet-fields";
 import type { UsuarioRow } from "@/types/models";
 
 function rowRecord(u: UsuarioRow): Record<string, unknown> {
@@ -9,13 +14,22 @@ function rowRecord(u: UsuarioRow): Record<string, unknown> {
 }
 
 function usuarioEmailFromRow(u: UsuarioRow): string {
-  return normalizeEmailForAuth(
-    getCellCaseInsensitive(rowRecord(u), "Correos", "Correo", "Email", "E-mail", "Correo electrónico", "Correo electronico")
-  );
+  return usuarioSheetEmail(rowRecord(u));
 }
 
 function usuarioUserActiveFromRow(u: UsuarioRow): string {
-  return getCellCaseInsensitive(rowRecord(u), "UserActive", "User Active", "Activo", "USERACTIVE", "User_Active");
+  return usuarioSheetUserActiveRaw(rowRecord(u));
+}
+
+function a1ColumnLetter(zeroBasedIndex: number): string {
+  let n = zeroBasedIndex + 1;
+  let s = "";
+  while (n > 0) {
+    const mod = (n - 1) % 26;
+    s = String.fromCharCode(65 + mod) + s;
+    n = Math.floor((n - mod) / 26);
+  }
+  return s;
 }
 
 /** Valor de la columna PIN (mayúsculas/minúsculas en encabezado). */
@@ -130,16 +144,49 @@ export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioR
   return null;
 }
 
-export function isUserActiveInSheet(value: string | undefined): boolean {
-  const v = String(value || "")
-    .trim()
-    .toUpperCase();
-  return (
-    v === "TRUE" ||
-    v === "SI" ||
-    v === "SÍ" ||
-    v === "YES" ||
-    v === "1" ||
-    v === "VERDADERO"
-  );
+/**
+ * Actualiza UserActive en cada libro de usuarios donde exista el correo.
+ */
+export async function patchUsuarioUserActiveByEmail(email: string, userActive: boolean): Promise<number> {
+  assertSheetsConfigured();
+  const want = normalizeEmailForAuth(email);
+  if (!want) throw new Error("email inválido");
+
+  const tab = usuariosTabName();
+  const sheets = getSheetsClient();
+  let updated = 0;
+
+  for (const { id } of idsToScanUsuarios()) {
+    const rows = await getSheetDataBySpreadsheetId(id, tab, "A:AZ");
+    if (rows.length < 2) continue;
+    const headers = rows[0].map((h) => String(h || "").trim());
+    const emailCol = headers.findIndex((h) => {
+      const t = h.toLowerCase();
+      return ["correos", "correo", "email", "e-mail", "correo electrónico", "correo electronico"].includes(t);
+    });
+    const activeCol = headers.findIndex((h) => {
+      const t = h.toLowerCase().replace(/\s/g, "");
+      return t === "useractive" || t === "activo" || t === "user_active";
+    });
+    if (emailCol < 0 || activeCol < 0) continue;
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      const cell = normalizeEmailForAuth(String(row[emailCol] || ""));
+      if (cell !== want) continue;
+      const letter = a1ColumnLetter(activeCol);
+      const sheetRow = r + 1;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: id.trim(),
+        range: `${quoteSheetTitleForRange(tab)}!${letter}${sheetRow}`,
+        valueInputOption: "RAW",
+        requestBody: { values: [[userActive ? "TRUE" : "FALSE"]] },
+      });
+      updated += 1;
+    }
+  }
+
+  return updated;
 }
+
+export { isUserActiveInSheet } from "@/lib/usuario-sheet-fields";

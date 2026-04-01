@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { findFallbackUserByResponsable } from "@/lib/users-fallback";
 import type { FallbackUser } from "@/lib/users-fallback";
 
 type EnvioRow = Record<string, unknown>;
@@ -22,14 +23,17 @@ function isoDateToDDMMYYYY(iso: string): string {
 export function EnviosCoordinadorClient({
   sector,
   zoneUsers,
+  uploadResponsableFallback,
 }: {
   sector: string;
   zoneUsers: FallbackUser[];
+  uploadResponsableFallback: string;
 }) {
   const [responsable, setResponsable] = useState("");
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [monto, setMonto] = useState("");
-  const [comprobante, setComprobante] = useState("");
+  const [comprobanteUrl, setComprobanteUrl] = useState("");
+  const [uploadingComp, setUploadingComp] = useState(false);
   const [telefono, setTelefono] = useState("");
   const [sending, setSending] = useState(false);
   const [okMsg, setOkMsg] = useState("");
@@ -68,6 +72,14 @@ export function EnviosCoordinadorClient({
     [lista]
   );
 
+  function onUsuarioChange(v: string) {
+    setResponsable(v);
+    const fromList = zoneUsers.find((u) => u.responsable === v);
+    const fromFallback = findFallbackUserByResponsable(v);
+    const t = fromList?.telefono || fromFallback?.telefono;
+    if (t) setTelefono(t);
+  }
+
   async function enviarDinero(e: React.FormEvent) {
     e.preventDefault();
     if (!responsable || !monto) return;
@@ -84,7 +96,7 @@ export function EnviosCoordinadorClient({
         responsable,
         monto: montoNum,
         fecha: isoDateToDDMMYYYY(fecha),
-        comprobante: comprobante.trim(),
+        comprobante: comprobanteUrl.trim(),
         telefono: telefono.trim(),
       };
       const res = await fetch("/api/envios", {
@@ -96,7 +108,7 @@ export function EnviosCoordinadorClient({
       if (res.ok) {
         setOkMsg(`✅ Envío registrado para ${responsable}`);
         setMonto("");
-        setComprobante("");
+        setComprobanteUrl("");
         setTelefono("");
         setResponsable("");
         void cargarLista();
@@ -120,7 +132,7 @@ export function EnviosCoordinadorClient({
           <form onSubmit={enviarDinero} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
               <Label>Usuario</Label>
-              <Select value={responsable} onValueChange={(v) => setResponsable(v || "")}>
+              <Select value={responsable} onValueChange={(v) => onUsuarioChange(v || "")}>
                 <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                   <SelectValue placeholder="Seleccione usuario" />
                 </SelectTrigger>
@@ -149,14 +161,49 @@ export function EnviosCoordinadorClient({
               />
               <p className="text-xs text-bia-gray">{formatCOP(Number(monto || 0))}</p>
             </div>
-            <div className="space-y-1">
-              <Label>Comprobante</Label>
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Comprobante (foto o PDF)</Label>
               <Input
-                value={comprobante}
-                onChange={(e) => setComprobante(e.target.value)}
-                placeholder="Opcional"
-                className="bg-bia-blue border-bia-gray/40"
+                type="file"
+                accept="image/*,application/pdf"
+                capture="environment"
+                disabled={uploadingComp}
+                className="cursor-pointer border-bia-gray/40 bg-bia-blue file:mr-3 file:rounded-md file:border-0 file:bg-bia-aqua/20 file:px-3 file:py-1.5 file:text-sm file:text-bia-aqua"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploadingComp(true);
+                  setOkMsg("");
+                  try {
+                    const form = new FormData();
+                    form.append("file", file);
+                    form.append("sector", sector);
+                    form.append(
+                      "responsable",
+                      responsable.trim() || uploadResponsableFallback || "coordinador"
+                    );
+                    form.append("fecha", fecha);
+                    const res = await fetch("/api/facturas/upload", { method: "POST", body: form });
+                    const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+                    if (res.ok && json.url) {
+                      setComprobanteUrl(json.url);
+                    } else {
+                      setOkMsg(String(json.error || "No se pudo subir el comprobante"));
+                    }
+                  } catch {
+                    setOkMsg("No se pudo subir el comprobante");
+                  } finally {
+                    setUploadingComp(false);
+                    e.target.value = "";
+                  }
+                }}
               />
+              {uploadingComp ? (
+                <p className="text-xs text-bia-gray-light">Subiendo comprobante…</p>
+              ) : null}
+              {comprobanteUrl ? (
+                <p className="mt-1 text-xs text-bia-aqua">Comprobante subido (URL lista para el envío)</p>
+              ) : null}
             </div>
             <div className="space-y-1">
               <Label>Teléfono</Label>
@@ -168,8 +215,12 @@ export function EnviosCoordinadorClient({
               />
             </div>
             <div className="sm:col-span-2">
-              <Button type="submit" className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid" disabled={sending}>
-                {sending ? "Enviando..." : "Enviar dinero 💸"}
+              <Button
+                type="submit"
+                className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
+                disabled={sending || uploadingComp}
+              >
+                {sending ? "Enviando..." : "Enviar dinero"}
               </Button>
               {okMsg ? <p className="mt-2 text-sm text-emerald-400">{okMsg}</p> : null}
             </div>

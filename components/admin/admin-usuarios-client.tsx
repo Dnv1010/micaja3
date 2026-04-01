@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -14,6 +13,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { balanceStatusTone } from "@/lib/balance-status";
 import { etiquetaZona } from "@/lib/coordinador-zona";
 import { formatCOP } from "@/lib/format";
+import {
+  isUserActiveInSheet,
+  usuarioSheetEmail,
+  usuarioSheetUserActiveRaw,
+} from "@/lib/usuario-sheet-fields";
 import { FALLBACK_USERS, type FallbackUser } from "@/lib/users-fallback";
 
 type BalanceApi = {
@@ -45,21 +49,42 @@ function balanceForUser(m: Map<string, BalanceApi>, u: FallbackUser): BalanceApi
 export function AdminUsuariosClient() {
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState<BalanceApi[]>([]);
+  const [activeFromSheet, setActiveFromSheet] = useState<Map<string, boolean>>(new Map());
   const [filtroZona, setFiltroZona] = useState("");
   const [filtroRol, setFiltroRol] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/balance");
-      const json = await res.json().catch(() => ({ data: [] }));
-      setBalances(Array.isArray(json.data) ? json.data : []);
+      const [bRes, uRes] = await Promise.all([fetch("/api/balance"), fetch("/api/usuarios")]);
+      const bJson = await bRes.json().catch(() => ({ data: [] }));
+      const uJson = await uRes.json().catch(() => ({ data: [] }));
+      setBalances(Array.isArray(bJson.data) ? bJson.data : []);
+      const rows = Array.isArray(uJson.data) ? uJson.data : [];
+      const m = new Map<string, boolean>();
+      for (const row of rows) {
+        const rec = row as Record<string, unknown>;
+        const em = usuarioSheetEmail(rec);
+        if (!em) continue;
+        m.set(em, isUserActiveInSheet(usuarioSheetUserActiveRaw(rec)));
+      }
+      setActiveFromSheet(m);
     } catch {
       setBalances([]);
+      setActiveFromSheet(new Map());
     } finally {
       setLoading(false);
     }
   }, []);
+
+  async function toggleUserActive(email: string, currentActive: boolean) {
+    const res = await fetch("/api/usuarios", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, userActive: !currentActive }),
+    });
+    if (res.ok) void load();
+  }
 
   useEffect(() => {
     void load();
@@ -96,7 +121,7 @@ export function AdminUsuariosClient() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-bia-gray-light">👥 Total (filtrado)</CardTitle>
+            <CardTitle className="text-sm text-bia-gray-light">Total (filtrado)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : resumen.total}</p>
@@ -105,7 +130,7 @@ export function AdminUsuariosClient() {
         </Card>
         <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-bia-gray-light">✅ Al día</CardTitle>
+            <CardTitle className="text-sm text-bia-gray-light">Al día</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-emerald-400">{loading ? "—" : resumen.alDia}</p>
@@ -113,7 +138,7 @@ export function AdminUsuariosClient() {
         </Card>
         <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-bia-gray-light">⚠️ No al día</CardTitle>
+            <CardTitle className="text-sm text-bia-gray-light">No al día</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-red-400">{loading ? "—" : resumen.deuda}</p>
@@ -129,14 +154,14 @@ export function AdminUsuariosClient() {
           <div className="min-w-[180px] space-y-1">
             <label className="text-xs text-bia-gray-light">Zona</label>
             <Select
-              value={filtroZona || "__all__"}
-              onValueChange={(v) => setFiltroZona(!v || v === "__all__" ? "" : v)}
+              value={filtroZona || "all"}
+              onValueChange={(v) => setFiltroZona(!v || v === "all" ? "" : v)}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
-                <SelectValue />
+                <SelectValue placeholder="Todas las zonas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Todas las zonas</SelectItem>
+                <SelectItem value="all">Todas las zonas</SelectItem>
                 <SelectItem value="Bogota">Bogotá</SelectItem>
                 <SelectItem value="Costa Caribe">Costa Caribe</SelectItem>
               </SelectContent>
@@ -145,14 +170,14 @@ export function AdminUsuariosClient() {
           <div className="min-w-[180px] space-y-1">
             <label className="text-xs text-bia-gray-light">Rol</label>
             <Select
-              value={filtroRol || "__all__"}
-              onValueChange={(v) => setFiltroRol(!v || v === "__all__" ? "" : v)}
+              value={filtroRol || "all"}
+              onValueChange={(v) => setFiltroRol(!v || v === "all" ? "" : v)}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
-                <SelectValue />
+                <SelectValue placeholder="Todos los roles" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Todos los roles</SelectItem>
+                <SelectItem value="all">Todos los roles</SelectItem>
                 <SelectItem value="user">Técnicos</SelectItem>
                 <SelectItem value="coordinador">Coordinadores</SelectItem>
               </SelectContent>
@@ -172,7 +197,7 @@ export function AdminUsuariosClient() {
                 <TableHead>Total recibido</TableHead>
                 <TableHead>Total gastado</TableHead>
                 <TableHead>Balance</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Cuenta</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -186,6 +211,8 @@ export function AdminUsuariosClient() {
                 filtrados.map((u) => {
                   const b = balanceForUser(bMap, u);
                   const tone = balanceStatusTone(b.balance);
+                  const sheetActive = activeFromSheet.get(usuarioSheetEmail({ Correos: u.email }));
+                  const cuentaActiva = sheetActive !== undefined ? sheetActive : u.userActive;
                   return (
                     <TableRow key={u.email}>
                       <TableCell className="font-medium">{u.responsable}</TableCell>
@@ -197,12 +224,18 @@ export function AdminUsuariosClient() {
                         <span className={tone.cls}>{formatCOP(b.balance)}</span>
                         <span className="ml-2 text-xs text-bia-gray">{tone.label}</span>
                       </TableCell>
-                      <TableCell>
-                        {u.userActive ? (
-                          <Badge className="border-emerald-800 bg-emerald-950 text-emerald-200">Activo</Badge>
-                        ) : (
-                          <Badge className="border-bia-gray/30 bg-bia-blue text-bia-gray-light">Inactivo</Badge>
-                        )}
+                      <TableCell className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => void toggleUserActive(u.email, cuentaActiva)}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                            cuentaActiva
+                              ? "border-bia-aqua/20 bg-bia-aqua/10 text-bia-aqua"
+                              : "border-red-500/20 bg-red-500/10 text-red-400"
+                          }`}
+                        >
+                          {cuentaActiva ? "Activo" : "Inactivo"}
+                        </button>
                       </TableCell>
                     </TableRow>
                   );

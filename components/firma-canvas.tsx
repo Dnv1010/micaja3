@@ -9,9 +9,10 @@ type Props = {
   onLimpiar?: () => void;
   width?: number;
   height?: number;
+  disabled?: boolean;
 };
 
-export function FirmaCanvas({ onFirma, onLimpiar, width = 400, height = 200 }: Props) {
+export function FirmaCanvas({ onFirma, onLimpiar, width = 400, height = 200, disabled = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
 
@@ -92,6 +93,7 @@ export function FirmaCanvas({ onFirma, onLimpiar, width = 400, height = 200 }: P
   };
 
   const confirmar = () => {
+    if (disabled) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
@@ -115,11 +117,16 @@ export function FirmaCanvas({ onFirma, onLimpiar, width = 400, height = 200 }: P
         onTouchEnd={end}
       />
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="outline" onClick={limpiar}>
+        <Button type="button" variant="outline" onClick={limpiar} disabled={disabled}>
           Limpiar
         </Button>
-        <Button type="button" className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid" onClick={confirmar}>
-          Confirmar firma
+        <Button
+          type="button"
+          className="bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
+          onClick={confirmar}
+          disabled={disabled}
+        >
+          {disabled ? "Enviando..." : "Confirmar firma"}
         </Button>
       </div>
     </div>
