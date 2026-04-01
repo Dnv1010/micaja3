@@ -111,6 +111,8 @@ export function FacturaImagenModal({ src, onClose }: Props) {
               </a>
             </p>
           ) : (
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+
             <img
               src={imageSrcForModal(src)}
               alt="Factura"

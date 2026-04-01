@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
-/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:…). */
+/** Firma del canvas: data URL completa o solo base64 (react-pdf requiere data:â€¦). */
 export function normalizeFirmaDataUrlForPdf(raw: string): string {
   const t = raw.trim();
   if (!t) return t;
@@ -120,14 +120,6 @@ function formatCOPpdf(n: number): string {
   return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function adjuntoUrlParaTexto(f: FacturaPdf): string {
-  const u = f.imagenUrl?.trim();
-  if (u && (u.startsWith("http://") || u.startsWith("https://"))) return u;
-  const id = f.driveFileId?.trim();
-  if (id) return `https://drive.google.com/file/d/${id}/view`;
-  return "";
-}
-
 export function LegalizacionPdf({
   coordinador,
   facturas,
@@ -138,7 +130,7 @@ export function LegalizacionPdf({
 }: LegalizacionPdfProps) {
   const total = facturas.reduce((acc, f) => acc + valorNum(f.valor), 0);
   const ejecutado = limiteZona > 0 ? Math.round((total / limiteZona) * 100) : 0;
-  const cc = coordinador.cedula?.trim() || "â€”";
+  const cc = coordinador.cedula?.trim() || "Ã¢â‚¬â€";
   const firmaCoordSrc = firmaCoordinador ? normalizeFirmaDataUrlForPdf(firmaCoordinador) : "";
   const firmaAdminSrc = firmaAdmin ? normalizeFirmaDataUrlForPdf(firmaAdmin) : "";
 
@@ -146,10 +138,10 @@ export function LegalizacionPdf({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.logoRow}>
-          <Text style={styles.logoBolt}>âš¡</Text>
+          <Text style={styles.logoBolt}>Ã¢Å¡Â¡</Text>
           <Text style={styles.logoText}>Bia</Text>
         </View>
-        <Text style={styles.mainTitle}>LEGALIZACIÃ“N DE CAJA MENOR GASTOS</Text>
+        <Text style={styles.mainTitle}>LEGALIZACIÃƒâ€œN DE CAJA MENOR GASTOS</Text>
 
         <View style={styles.twoCol}>
           <View style={styles.col}>
@@ -170,7 +162,7 @@ export function LegalizacionPdf({
               <Text style={styles.value}>BIA ENERGY SAS ESP</Text>
             </View>
             <View style={styles.labelRow}>
-              <Text style={styles.label}>Responsable de AutorizaciÃ³n:</Text>
+              <Text style={styles.label}>Responsable de AutorizaciÃƒÂ³n:</Text>
               <Text style={styles.value}>Hernan Manjarres</Text>
             </View>
             <View style={styles.labelRow}>
@@ -208,7 +200,7 @@ export function LegalizacionPdf({
             <Text style={[styles.td, styles.wConcepto]}>CONCEPTO</Text>
             <Text style={[styles.td, styles.wFactura]}>No. DE FACTURA</Text>
             <Text style={[styles.td, styles.wCentro]}>CENTRO DE COSTOS</Text>
-            <Text style={[styles.td, styles.wCat]}>CATEGORÃA</Text>
+            <Text style={[styles.td, styles.wCat]}>CATEGORÃƒÂA</Text>
             <Text style={[styles.td, styles.wFecha]}>FECHA</Text>
             <Text style={[styles.td, styles.wValor, styles.tdLast]}>VALOR</Text>
           </View>
@@ -217,8 +209,8 @@ export function LegalizacionPdf({
               <Text style={[styles.td, styles.wNo]}>{i + 1}</Text>
               <Text style={[styles.td, styles.wConcepto]}>{f.concepto}</Text>
               <Text style={[styles.td, styles.wFactura]}>{f.nit}</Text>
-              <Text style={[styles.td, styles.wCentro]}>{f.area || "â€”"}</Text>
-              <Text style={[styles.td, styles.wCat]}>{f.tipoFactura || "â€”"}</Text>
+              <Text style={[styles.td, styles.wCentro]}>{f.area || "Ã¢â‚¬â€"}</Text>
+              <Text style={[styles.td, styles.wCat]}>{f.tipoFactura || "Ã¢â‚¬â€"}</Text>
               <Text style={[styles.td, styles.wFecha]}>{f.fecha}</Text>
               <Text style={[styles.td, styles.wValor, styles.tdLast]}>
                 {formatCOPpdf(valorNum(f.valor))}
@@ -268,10 +260,10 @@ export function LegalizacionPdf({
             return (
               <View key={f.id || `f-${i}`} style={styles.facturaAdjunta} wrap={false}>
                 <Text style={styles.facturaAdjuntaTitulo}>
-                  Factura {i + 1}: {f.nit || "—"} Fecha: {f.fecha || "—"}
+                  Factura {i + 1}: {f.nit || "â€”"} Fecha: {f.fecha || "â€”"}
                 </Text>
                 <Text style={{ fontSize: 8, color: "#333", marginTop: 2 }}>
-                  Proveedor: {f.proveedor || "—"} Valor: {formatCOPpdf(valorNum(f.valor))}
+                  Proveedor: {f.proveedor || "â€”"} Valor: {formatCOPpdf(valorNum(f.valor))}
                 </Text>
                 {imgSrc ? (
                   /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto en PDF */
