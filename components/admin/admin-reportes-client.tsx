@@ -20,6 +20,7 @@ import { formatCOP, parseCOPString } from "@/lib/format";
 import {
   extractIdsFromReporteFacturasCell,
   facturaRowToFacturaPdfForLegalizacion,
+  parseFacturasJsonFromSheetCell,
   parseFacturasPdfFromReporteCell,
 } from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
@@ -129,22 +130,46 @@ export function AdminReportesClient() {
       const firmaCoord = String(activo.Firma_Coordinador || activo.FirmaCoordinador || "");
       const generadoTxt = new Date().toLocaleDateString("es-CO");
 
-      const rawCell = String(activo.Facturas_IDs || activo.FacturasIds || "");
-      const parsedCell = parseFacturasPdfFromReporteCell(rawCell);
+      const rawFacturas = String(activo.Facturas_IDs || activo.FacturasIds || "[]").trim();
+      console.log("[admin firma] Facturas_IDs raw:", activo.Facturas_IDs);
+
       let facturasPdf: FacturaPdf[] = [];
-      if (parsedCell?.length && typeof parsedCell[0] === "object") {
-        facturasPdf = parsedCell as FacturaPdf[];
-      } else {
-        const ids = extractIdsFromReporteFacturasCell(rawCell);
-        const facturasRes = await Promise.all(
-          ids.map((id) => fetch(`/api/facturas/${encodeURIComponent(id)}`).then((r) => r.json()))
-        );
-        const fetched = facturasRes.map((r) => r.data as FacturaRow | undefined).filter(Boolean) as FacturaRow[];
-        facturasPdf =
-          fetched.length > 0
-            ? fetched.map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: "—" }))
-            : facturasDelReporteLocal(activo);
+
+      try {
+        const parsedUnknown = parseFacturasJsonFromSheetCell(rawFacturas || "[]");
+        if (parsedUnknown === null || !Array.isArray(parsedUnknown) || parsedUnknown.length === 0) {
+          facturasPdf = facturasDelReporteLocal(activo);
+        } else if (typeof parsedUnknown[0] === "string") {
+          console.log("[admin firma] Solo IDs, cargando facturas...");
+          const responses = await Promise.all(
+            (parsedUnknown as string[]).map((id) =>
+              fetch(`/api/facturas/${encodeURIComponent(id)}`)
+                .then((r) => r.json())
+                .catch(() => null)
+            )
+          );
+          const rows = responses
+            .map((r) =>
+              r && typeof r === "object" && r !== null && "data" in r
+                ? (r as { data: FacturaRow }).data
+                : null
+            )
+            .filter(Boolean) as FacturaRow[];
+          facturasPdf = rows.map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: "—" }));
+          if (facturasPdf.length === 0) facturasPdf = facturasDelReporteLocal(activo);
+        } else if (typeof parsedUnknown[0] === "object" && parsedUnknown[0] !== null) {
+          facturasPdf = (parsedUnknown as FacturaRow[]).map((row) =>
+            facturaRowToFacturaPdfForLegalizacion(row, { area: "—" })
+          );
+        } else {
+          facturasPdf = facturasDelReporteLocal(activo);
+        }
+      } catch (e) {
+        console.error("[admin firma] Error parseando facturas:", e);
+        facturasPdf = facturasDelReporteLocal(activo);
       }
+
+      console.log("[admin firma] Facturas parseadas:", facturasPdf.length, facturasPdf);
 
       const facturasConImagenes = await resolveFacturaImages(facturasPdf);
 

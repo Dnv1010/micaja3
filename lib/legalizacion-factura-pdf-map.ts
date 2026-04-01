@@ -1,4 +1,4 @@
-﻿import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
+import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
 import { parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
@@ -15,8 +15,10 @@ export function facturaRowToFacturaPdfForLegalizacion(
   defaults: { area?: string }
 ): FacturaPdf {
   const valorCell = getCellCaseInsensitive(f, "Monto_Factura", "Valor");
-  const driveId = String(getCellCaseInsensitive(f, "DriveFileId") || "").trim();
-  const rawUrl = String(getCellCaseInsensitive(f, "Adjuntar_Factura", "URL", "ImagenURL") || "").trim();
+  const driveId = String(getCellCaseInsensitive(f, "DriveFileId", "driveFileId") || "").trim();
+  const rawUrl = String(
+    getCellCaseInsensitive(f, "Adjuntar_Factura", "URL", "ImagenURL", "imagenUrl") || ""
+  ).trim();
   const imagenUrl = esUrlValida(rawUrl) ? rawUrl : undefined;
   const concepto = String(getCellCaseInsensitive(f, "Observacion", "Concepto") || "").trim();
   const conceptoLimpio =
@@ -37,14 +39,28 @@ export function facturaRowToFacturaPdfForLegalizacion(
   };
 }
 
+/** Celda como string JSON (a veces doble-serializada en Sheet). */
+export function parseFacturasJsonFromSheetCell(raw: string): unknown {
+  const t = String(raw ?? "").trim();
+  if (!t) return [];
+  try {
+    let cur: unknown = JSON.parse(t);
+    if (typeof cur === "string") cur = JSON.parse(cur);
+    return cur;
+  } catch {
+    return null;
+  }
+}
+
 /** Celda del reporte: array de objetos FacturaPdf o legacy array de IDs (strings). */
 export function parseFacturasPdfFromReporteCell(raw: string): FacturaPdf[] | string[] | null {
   const t = raw?.trim();
   if (!t) return null;
   try {
-    const p = JSON.parse(t) as unknown;
+    const p = parseFacturasJsonFromSheetCell(t);
+    if (p == null) return null;
     if (!Array.isArray(p) || p.length === 0) return null;
-    const first = p[0];
+    const first = p[0] as unknown;
     if (typeof first === "string") {
       return p.map(String);
     }
