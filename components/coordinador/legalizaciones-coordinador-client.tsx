@@ -14,8 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseCOPString } from "@/lib/format";
 import { parseFacturasPdfFromReporteCell } from "@/lib/legalizacion-factura-pdf-map";
+import { findFallbackUserByResponsable } from "@/lib/users-fallback";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type LegRow = Record<string, unknown>;
@@ -91,16 +93,18 @@ export function LegalizacionesCoordinadorClient() {
       try {
         const facturasPdf = fromCell as FacturaPdf[];
         const sector = String(getCellCaseInsensitive(row, "Sector") || "");
-        const lim = sector === "Bogota" ? 1_000_000 : sector === "Costa Caribe" ? 3_000_000 : 1_000_000;
+        const lim = limiteAprobacionZona(sector);
+        const coordNombre = String(getCellCaseInsensitive(row, "Coordinador") || "");
+        const coordFb = findFallbackUserByResponsable(coordNombre);
         const estado = String(getCellCaseInsensitive(row, "Estado") || "").toLowerCase();
         const firmaAd = String(getCellCaseInsensitive(row, "Firma_Admin") || "").trim();
         const props = {
           coordinador: {
-            responsable: String(getCellCaseInsensitive(row, "Coordinador") || ""),
-            cargo: "",
-            cedula: "",
+            responsable: coordNombre,
+            cargo: coordFb?.cargo || "Field Ops Planner",
+            cedula: coordFb?.cedula || "",
             sector,
-            area: "",
+            area: coordFb?.area || "",
           },
           facturas: facturasPdf,
           firmaCoordinador: String(getCellCaseInsensitive(row, "Firma_Coordinador", "FirmaCoordinador") || ""),

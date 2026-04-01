@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
+import { findFallbackUserByResponsable } from "@/lib/users-fallback";
 import { formatCOP, parseCOPString } from "@/lib/format";
 import {
   extractIdsFromReporteFacturasCell,
@@ -127,6 +128,7 @@ export function AdminReportesClient() {
       const sectorRep = String(activo.Sector || adminSector);
       const limite = limiteAprobacionZona(sectorRep);
       const coordNombre = String(activo.Coordinador || "");
+      const coordFallback = findFallbackUserByResponsable(coordNombre);
       const firmaCoord = String(activo.Firma_Coordinador || activo.FirmaCoordinador || "");
       const generadoTxt = new Date().toLocaleDateString("es-CO");
 
@@ -182,10 +184,10 @@ export function AdminReportesClient() {
         <LegalizacionPdf
           coordinador={{
             responsable: coordNombre,
-            cargo: "",
-            cedula: "",
+            cargo: coordFallback?.cargo || "Field Ops Planner",
+            cedula: coordFallback?.cedula || "",
             sector: sectorRep,
-            area: "",
+            area: coordFallback?.area || "",
           }}
           facturas={facturasConImagenes}
           firmaCoordinador={firmaCoord}

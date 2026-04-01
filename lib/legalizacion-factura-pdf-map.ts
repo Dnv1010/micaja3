@@ -20,20 +20,47 @@ export function facturaRowToFacturaPdfForLegalizacion(
     getCellCaseInsensitive(f, "Adjuntar_Factura", "URL", "ImagenURL", "imagenUrl") || ""
   ).trim();
   const imagenUrl = esUrlValida(rawUrl) ? rawUrl : undefined;
-  const concepto = String(getCellCaseInsensitive(f, "Observacion", "Concepto") || "").trim();
+  const concepto = String(
+    getCellCaseInsensitive(
+      f,
+      "Tipo_servicio",
+      "ServicioDeclarado",
+      "Observacion",
+      "Concepto",
+      "tipo_servicio",
+      "servicioDeclarado"
+    ) || ""
+  ).trim();
   const conceptoLimpio =
     /^(cufe|cude)\s/i.test(concepto) || /^[a-f0-9]{30,}$/i.test(concepto.replace(/\s/g, ""))
       ? ""
       : concepto;
+
+  const ops = String(
+    getCellCaseInsensitive(f, "OPS", "TipoOperacion", "Tipo_Operacion", "ops") || ""
+  ).trim();
+  const areaCentro =
+    ops ||
+    String(
+      getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto", "Sector") ||
+        defaults.area ||
+        ""
+    );
+
+  const numFactura = String(
+    getCellCaseInsensitive(f, "Num_Factura", "NumFactura", "num_factura", "numFactura") || ""
+  ).trim();
+  const numFacturaLegacy = numFactura || String(getCellCaseInsensitive(f, "nit") || "").trim();
+
   return {
     id: String(getCellCaseInsensitive(f, "ID_Factura", "ID") || ""),
     fecha: String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || ""),
     proveedor: String(getCellCaseInsensitive(f, "Razon_Social", "Proveedor") || ""),
-    nit: String(getCellCaseInsensitive(f, "Nit_Factura", "NIT") || ""),
+    nit: numFacturaLegacy,
     concepto: conceptoLimpio,
     valor: parseMonto(valorCell),
     tipoFactura: String(getCellCaseInsensitive(f, "Tipo_Factura", "TipoFactura") || ""),
-    area: String(getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || defaults.area || ""),
+    area: areaCentro,
     imagenUrl,
     driveFileId: driveId || undefined,
   };

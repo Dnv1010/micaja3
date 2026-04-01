@@ -13,18 +13,57 @@ export type FallbackUser = {
 };
 
 export const FALLBACK_USERS: FallbackUser[] = [
-  { email: "dinovi.sanchez@bia.app", pin: "1234", responsable: "Dinovi Sanchez", rol: "coordinador", sector: "Bogota", area: "Bia Bogota", cargo: "Field Operations Planner", userActive: true },
+  {
+    email: "dinovi.sanchez@bia.app",
+    pin: "1234",
+    responsable: "Dinovi Sanchez",
+    rol: "coordinador",
+    sector: "Bogota",
+    area: "Bia Bogota",
+    cargo: "Field Ops Planner",
+    cedula: "1096215786",
+    userActive: true,
+  },
   { email: "edwin.cubides@bia.app", pin: "1234", responsable: "Edwin Cubides", rol: "user", sector: "Costa Caribe", area: "Bia Cartagena", cargo: "Tec. Electricista", userActive: true },
   { email: "javier.alvarez@bia.app", pin: "1234", responsable: "Javier Alvarez", rol: "user", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Tec. Electricista", userActive: true },
   { email: "duvan.cervera@bia.app", pin: "1234", responsable: "Duvan Cervera", rol: "user", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Tec. Electricista", userActive: true },
   { email: "david.goenaga@bia.app", pin: "1234", responsable: "David Goenaga", rol: "user", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Tec. Electricista", userActive: false },
   { email: "jose.arevalo@bia.app", pin: "1234", responsable: "Jose Arevalo", rol: "user", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Tec. Electricista", userActive: true },
   { email: "jonathan.rudas@bia.app", pin: "1234", responsable: "Jonathan Rudas", rol: "user", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Tec. Electricista", userActive: true },
-  { email: "hernan.manjarres@bia.app", pin: "1234", responsable: "Hernan Manjarres", rol: "admin", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Manager Field Ops", userActive: true },
+  {
+    email: "hernan.manjarres@bia.app",
+    pin: "1234",
+    responsable: "Hernan Manjarres",
+    rol: "admin",
+    sector: "Costa Caribe",
+    area: "Bia Barranquilla",
+    cargo: "Manager Field Ops",
+    cedula: "1082950437",
+    userActive: true,
+  },
   { email: "alejandro.cano@bia.app", pin: "1234", responsable: "Alejandro Cano", rol: "user", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Almacenista", userActive: true },
-  { email: "brayan.roncancio@bia.app", pin: "1234", responsable: "Alexander Roncancio", rol: "coordinador", sector: "Bogota", area: "Bia Bogota", cargo: "Operations Coordinator", userActive: false },
+  {
+    email: "brayan.roncancio@bia.app",
+    pin: "1234",
+    responsable: "Alexander Roncancio",
+    rol: "coordinador",
+    sector: "Bogota",
+    area: "Bia Bogota",
+    cargo: "Field Ops Planner",
+    userActive: false,
+  },
   { email: "daniel.florez@bia.app", pin: "1234", responsable: "Daniel Florez", rol: "admin", sector: "Bogota", area: "Bia Bogota", cargo: "Sr. Field Operations Manager", userActive: true },
-  { email: "ervison.plata@bia.app", pin: "1234", responsable: "Ervison Plata", rol: "coordinador", sector: "Costa Caribe", area: "Bia Barranquilla", cargo: "Field Operation Planner", userActive: true },
+  {
+    email: "ervison.plata@bia.app",
+    pin: "1234",
+    responsable: "Ervison Plata",
+    rol: "coordinador",
+    sector: "Costa Caribe",
+    area: "Bia Barranquilla",
+    cargo: "Field Ops Planner",
+    cedula: "1004371043",
+    userActive: true,
+  },
   { email: "carlos.salas@bia.app", pin: "1234", responsable: "Carlos Salas", rol: "user", sector: "Bogota", area: "Bia Bogota", cargo: "Tec. Electricista", userActive: true },
   { email: "edicson.lopez@bia.app", pin: "1234", responsable: "Edicson Lopez", rol: "user", sector: "Bogota", area: "Bia Bogota", cargo: "Tec. Electricista", userActive: true },
   { email: "harry.baquero@bia.app", pin: "1234", responsable: "Harry Baquero", rol: "user", sector: "Bogota", area: "Bia Bogota", cargo: "Tec. Electricista", userActive: true },
@@ -40,6 +79,13 @@ export const FALLBACK_USERS: FallbackUser[] = [
 export function findFallbackUser(email: string): FallbackUser | null {
   const normalized = email.toLowerCase().trim();
   return FALLBACK_USERS.find((u) => u.email.toLowerCase() === normalized) ?? null;
+}
+
+/** Coincide por nombre de responsable (p. ej. columna Coordinador del reporte). */
+export function findFallbackUserByResponsable(responsable: string): FallbackUser | null {
+  const t = responsable.trim().toLowerCase();
+  if (!t) return null;
+  return FALLBACK_USERS.find((u) => u.responsable.trim().toLowerCase() === t) ?? null;
 }
 
 /** Usuarios operativos de la zona (para coordinador; por ahora solo fallback). */

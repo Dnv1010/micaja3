@@ -70,10 +70,24 @@ function formatCOPpdf(n: number): string {
   return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
+/** OPS en PDF sin tildes problemáticas en algunos renderers. */
+function textoCentroCostosPdf(s: string): string {
+  const t = (s || "--").trim() || "--";
+  return t.replace(/ó/g, "o").replace(/Ó/g, "O").replace(/é/g, "e").replace(/É/g, "E");
+}
+
+function textoConceptoCelda(concepto: string): string {
+  const c = (concepto || "").trim();
+  if (!c || c.startsWith("data:")) return "--";
+  return c;
+}
+
 const styles = StyleSheet.create({
   page: { fontFamily: "Roboto", fontSize: 9, padding: 30, color: "#1a1a1a" },
   title: { fontSize: 14, fontWeight: 700, textAlign: "center", marginBottom: 12 },
-  logo: { fontSize: 16, fontWeight: 700, marginBottom: 8 },
+  logoContainer: { flexDirection: "row", alignItems: "center", marginBottom: 10, fontFamily: "Roboto" },
+  logoRayo: { fontSize: 20, fontWeight: 700, color: "#08DDBC", fontFamily: "Roboto" },
+  logoTexto: { fontSize: 20, fontWeight: 700, color: "#001035", marginLeft: 2, fontFamily: "Roboto" },
   infoGrid: { flexDirection: "row", marginBottom: 14, gap: 20 },
   infoCol: { flex: 1 },
   labelRow: { flexDirection: "row", marginBottom: 3 },
@@ -122,7 +136,10 @@ export function LegalizacionPdf({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.logo}>Bia</Text>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoRayo}>/</Text>
+          <Text style={styles.logoTexto}>Bia</Text>
+        </View>
         <Text style={styles.title}>LEGALIZACION DE CAJA MENOR GASTOS</Text>
 
         <View style={styles.infoGrid}>
@@ -189,9 +206,9 @@ export function LegalizacionPdf({
         {facturas.map((f, i) => (
           <View key={f.id || `r-${i}`} style={styles.tableRow}>
             <Text style={[styles.td, styles.wNo]}>{i + 1}</Text>
-            <Text style={[styles.td, styles.wConcepto]}>{f.concepto || "--"}</Text>
-            <Text style={[styles.td, styles.wFactura]}>{f.nit || "--"}</Text>
-            <Text style={[styles.td, styles.wCentro]}>{f.area || "--"}</Text>
+            <Text style={[styles.td, styles.wConcepto]}>{textoConceptoCelda(f.concepto)}</Text>
+            <Text style={[styles.td, styles.wFactura]}>{f.nit?.trim() ? f.nit : "--"}</Text>
+            <Text style={[styles.td, styles.wCentro]}>{textoCentroCostosPdf(f.area || "--")}</Text>
             <Text style={[styles.td, styles.wCategoria]}>{f.tipoFactura || "--"}</Text>
             <Text style={[styles.td, styles.wFecha]}>{f.fecha || "--"}</Text>
             <Text style={[styles.td, styles.wValor, styles.tdLast]}>{formatCOPpdf(valorNum(f.valor))}</Text>
