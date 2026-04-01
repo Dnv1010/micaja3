@@ -1,5 +1,4 @@
 ﻿"use client";
-
 import { useEffect, useState } from "react";
 
 type Props = {
@@ -25,112 +24,43 @@ function proxyUrl(src: string): string {
   return `/api/proxy-imagen?url=${encodeURIComponent(src)}`;
 }
 
-/** Drive / googleusercontent pasan por proxy (CORS); otras https se muestran directo. */
-function imageSrcForModal(src: string): string {
-  if (src.includes("drive.google.com") || src.includes("googleusercontent.com")) {
-    return proxyUrl(src);
-  }
-  return src;
-}
-
+/* eslint-disable @next/next/no-img-element */
 export function FacturaImagenModal({ src, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [imgFailed, setImgFailed] = useState(false);
+  const iframe = src ? isIframeForSrc(src) : false;
 
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setImgFailed(false);
-  }, [src]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const iframe = src ? isIframeForSrc(src) : false;
   if (!mounted || !src) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-      onClick={onClose}
-      role="presentation"
-    >
-      <div
-        className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-[#0A1B4D] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Imagen de factura"
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-[#0A1B4D] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-[#525A72]/20 px-4 py-3">
-          <span className="text-sm font-medium text-white">ðŸ“Ž Imagen de factura</span>
+          <span className="text-sm font-medium text-white">Imagen de factura</span>
           <div className="flex items-center gap-3">
-            <a
-              href={src}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-[#08DDBC] hover:underline"
-            >
-              Abrir en Drive â†—
-            </a>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-lg text-[#525A72] transition-colors hover:text-white"
-              aria-label="Cerrar"
-            >
-              âœ•
-            </button>
+            <a href={src} target="_blank" rel="noopener noreferrer" className="text-sm text-[#08DDBC] hover:underline">Abrir en Drive</a>
+            <button type="button" onClick={onClose} className="text-lg text-[#525A72] hover:text-white">x</button>
           </div>
         </div>
-
         <div className="flex min-h-[300px] items-center justify-center bg-white p-2">
           {iframe ? (
-            <iframe
-              src={iframeSrcForFactura(src)}
-              className="h-[500px] w-full border-0"
-              title="Factura PDF"
-            />
-          ) : imgFailed ? (
-            <p className="px-4 text-center text-sm text-neutral-600">
-              No se pudo cargar la imagen.{" "}
-              <a
-                href={src}
-                className="text-[#08DDBC] underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Abrir en Drive
-              </a>
-            </p>
+            <iframe src={iframeSrcForFactura(src)} className="h-[500px] w-full border-0" title="Factura PDF" />
           ) : (
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-
-            <img
-              src={imageSrcForModal(src)}
-              alt="Factura"
-              className="max-h-[500px] max-w-full object-contain"
-              onError={() => setImgFailed(true)}
-            />
+            <img src={proxyUrl(src)} alt="Factura" className="max-h-[500px] max-w-full object-contain" />
           )}
         </div>
-
-        <div className="flex items-center justify-between border-t border-[#525A72]/20 px-4 py-2">
-          <span className="text-xs text-[#525A72]">
-            Haz clic fuera del modal o presiona ESC para cerrar
-          </span>
-          <a href={src} download className="text-xs text-[#08DDBC] hover:underline">
-            â¬‡ Descargar
-          </a>
+        <div className="px-4 py-2 border-t border-[#525A72]/20 flex justify-between">
+          <span className="text-xs text-[#525A72]">ESC para cerrar</span>
+          <a href={src} download className="text-xs text-[#08DDBC] hover:underline">Descargar</a>
         </div>
       </div>
     </div>
   );
 }
+/* eslint-enable @next/next/no-img-element */
