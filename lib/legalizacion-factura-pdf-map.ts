@@ -1,4 +1,4 @@
-import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
+﻿import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
 import { parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
