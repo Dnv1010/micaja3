@@ -18,22 +18,27 @@ export function parseCOPString(s: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Montos en celdas de Sheet (formato colombiano u otros). */
+/** Montos en celdas de Sheet (formato colombiano, con o sin `$`). */
 export function parseMonto(val: unknown): number {
   if (val == null) return 0;
   const raw = String(val).trim();
   if (!raw) return 0;
-  const clean = raw.replace(/[^\d.,]/g, "");
+  const clean = raw.replace(/\$/g, "").replace(/\s/g, "").replace(/[^\d.,]/g, "");
+  if (!clean) return 0;
   if (clean.includes(".") && clean.includes(",")) {
     return parseFloat(clean.replace(/\./g, "").replace(",", ".")) || 0;
   }
   if (clean.includes(".")) {
     const parts = clean.split(".");
-    if (parts.length > 2 || (parts[parts.length - 1]?.length === 3 && parts.length > 1)) {
+    if (parts.length > 2 || parts[parts.length - 1]?.length === 3) {
       return parseInt(clean.replace(/\./g, ""), 10) || 0;
     }
+    return parseFloat(clean) || 0;
   }
-  return parseFloat(clean.replace(",", ".")) || 0;
+  if (clean.includes(",")) {
+    return parseFloat(clean.replace(",", ".")) || 0;
+  }
+  return parseInt(clean, 10) || 0;
 }
 
 export function formatDateDisplay(isoOrSheet: string): string {

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { balanceStatusTone } from "@/lib/balance-status";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString, parseMonto } from "@/lib/format";
+import { normalizeSector } from "@/lib/sector-normalize";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 export type ZonaUsuarioRow = { responsable: string; cargo: string };
@@ -33,11 +34,13 @@ export function CoordinatorZonaClient({
   const [envios, setEnvios] = useState<Row[]>([]);
   const [detalleUser, setDetalleUser] = useState<string | null>(null);
 
+  const sectorQuery = useMemo(() => normalizeSector(sector) ?? sector, [sector]);
+
   useEffect(() => {
     let mounted = true;
     async function load() {
       try {
-        const enc = encodeURIComponent(sector);
+        const enc = encodeURIComponent(sectorQuery);
         const [fRes, eRes, vRes] = await Promise.all([
           fetch(`/api/facturas?zonaSector=${enc}`),
           fetch(`/api/entregas?zonaSector=${enc}`),
@@ -65,7 +68,7 @@ export function CoordinatorZonaClient({
     return () => {
       mounted = false;
     };
-  }, [sector]);
+  }, [sectorQuery]);
 
   const porUsuario = useMemo(() => {
     const recibido = new Map<string, number>();

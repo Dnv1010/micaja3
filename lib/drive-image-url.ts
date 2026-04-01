@@ -25,6 +25,8 @@ export function facturaAttachmentSrcForPdf(driveFileId?: string, imagenUrl?: str
   const id = driveFileId?.trim();
   if (id) return `https://drive.google.com/uc?export=download&id=${id}`;
   const u = imagenUrl?.trim();
-  if (u) return normalizeDriveImageUrlForPdf(u);
+  if (u && (u.startsWith("https://") || u.startsWith("http://"))) {
+    return normalizeDriveImageUrlForPdf(u);
+  }
   return null;
 }

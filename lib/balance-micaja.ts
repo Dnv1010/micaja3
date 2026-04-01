@@ -1,7 +1,9 @@
 import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
 import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { parseMonto } from "@/lib/format";
+import { normalizeSector } from "@/lib/sector-normalize";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { responsablesEnZonaSet } from "@/lib/users-fallback";
 
 export type MicajaBalanceRow = {
   responsable: string;
@@ -22,10 +24,16 @@ function facturaGastadoAprobada(f: Record<string, string>): boolean {
 }
 
 /** Agrega montos por responsable desde Entregas y Facturas (hojas MiCaja). */
-export async function loadMicajaBalancesByResponsable(): Promise<Map<string, { recibido: number; gastado: number }>> {
+export async function loadMicajaBalancesByResponsable(opts?: {
+  /** Si se indica, solo entregas de responsables de la zona y facturas aprobadas de la zona (por responsable o columna Sector normalizada). */
+  sectorRaw?: string;
+}): Promise<Map<string, { recibido: number; gastado: number }>> {
   assertSheetsConfigured();
   const sheets = getSheetsClient();
   const sid = spreadsheetId();
+  const sectorRaw = opts?.sectorRaw?.trim();
+  const zonaSet = sectorRaw ? responsablesEnZonaSet(sectorRaw) : null;
+  const wantSec = sectorRaw ? normalizeSector(sectorRaw) : null;
 
   const [entRes, facRes] = await Promise.all([
     sheets.spreadsheets.values.get({
@@ -55,6 +63,7 @@ export async function loadMicajaBalancesByResponsable(): Promise<Map<string, { r
 
   for (const row of entregas) {
     const r = String(row.Responsable || "").trim();
+    if (zonaSet && !zonaSet.has(r.toLowerCase())) continue;
     const m = parseMonto(row.Monto_Entregado || row.Monto);
     bump(r, "recibido", m);
   }
@@ -62,6 +71,10 @@ export async function loadMicajaBalancesByResponsable(): Promise<Map<string, { r
   for (const row of facturas) {
     if (!facturaGastadoAprobada(row)) continue;
     const r = String(row.Responsable || "").trim();
+    const rowSec = normalizeSector(getCellCaseInsensitive(row, "Sector") || "");
+    if (zonaSet && !zonaSet.has(r.toLowerCase())) {
+      if (wantSec === null || rowSec !== wantSec) continue;
+    }
     const m = parseMonto(row.Monto_Factura || row.Valor);
     bump(r, "gastado", m);
   }

@@ -5,6 +5,7 @@ import { getSheetsClient, assertSheetsConfigured, SPREADSHEET_IDS, SHEET_NAMES }
 import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { parseSheetDate, todayISO } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { sectorsEquivalent } from "@/lib/sector-normalize";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 import { uniqueSheetKey } from "@/lib/ids";
 
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
     let zonaSet: Set<string> | null = null;
     if (zonaSector && rol !== "user") {
       if (rol === "admin") zonaSet = responsablesEnZonaSet(zonaSector);
-      else if (rol === "coordinador" && String(session.user.sector || "") === zonaSector)
+      else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector))
         zonaSet = responsablesEnZonaSet(zonaSector);
       else return NextResponse.json({ data: [] });
     }

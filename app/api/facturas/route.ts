@@ -10,7 +10,9 @@ import {
 } from "@/lib/micaja-facturas-sheet";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { rowsToObjects } from "@/lib/sheets-helpers";
+import { normalizeSector } from "@/lib/sector-normalize";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { sectorsEquivalent } from "@/lib/sector-normalize";
 import type { FacturaRow } from "@/types/models";
 
 function facturaEstadoCell(f: FacturaRow): string {
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest) {
     if (zonaSector) {
       if (rol === "admin") {
         zonaSet = responsablesEnZonaSet(zonaSector);
-      } else if (rol === "coordinador" && String(session.user.sector || "") === zonaSector) {
+      } else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector)) {
         zonaSet = responsablesEnZonaSet(zonaSector);
       } else {
         return NextResponse.json({ data: [] });
@@ -58,13 +60,19 @@ export async function GET(req: NextRequest) {
 
     const factRows = await loadMicajaFacturasSheetRows();
     const facturas = rowsToObjects<FacturaRow>(factRows);
+    const filterSec = normalizeSector(zonaSector);
+
     const filtered = facturas.filter((f) => {
       const responsable = getCellCaseInsensitive(f, "Responsable");
       const estado = facturaEstadoCell(f);
       const fecha = facturaFechaCell(f);
       const fechaObj = parseSheetDate(fecha);
 
-      if (zonaSet && !zonaSet.has(responsable.toLowerCase())) return false;
+      if (zonaSet) {
+        const inSet = zonaSet.has(responsable.toLowerCase());
+        const rowSec = normalizeSector(getCellCaseInsensitive(f, "Sector") || "");
+        if (!inSet && (filterSec === null || rowSec !== filterSec)) return false;
+      }
       if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
       if (estadoQ && estado.toLowerCase() !== estadoQ) return false;
       if (desde && (!fechaObj || fechaObj < desde)) return false;
@@ -162,7 +170,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Responsable fuera de su zona" }, { status: 403 });
       }
     }
-    const sectorFinal = sector || String(session.user.sector || "");
+    const sectorFinal =
+      normalizeSector(sector || String(session.user.sector || "")) ??
+      (sector || String(session.user.sector || ""));
 
     const fila = buildMicajaFacturasLegacyRowAS({
       id,

@@ -364,7 +364,19 @@ function detectServicio(text: string): string | null {
 }
 
 // ─── CIUDAD ───────────────────────────────────────────────────────────────────
+function normalizarCiudad(raw: string): string {
+  const v = raw.toLowerCase();
+  if (v.includes("bogot")) return "Bogotá";
+  if (v.includes("barranquilla")) return "Barranquilla";
+  if (v.includes("cartagena")) return "Cartagena";
+  if (v.includes("santa marta")) return "Santa Marta";
+  if (v.includes("funza")) return "Funza";
+  if (v.includes("galapa")) return "Galapa";
+  return raw.trim();
+}
+
 function extractCiudad(text: string): string | null {
+  const upper = text.toUpperCase();
   const ciudades: [string, string][] = [
     ["SANTA MARTA", "Santa Marta"],
     ["BARRANQUILLA", "Barranquilla"],
@@ -381,7 +393,13 @@ function extractCiudad(text: string): string | null {
     ["MALAMBO", "Malambo"],
   ];
   for (const [key, label] of ciudades) {
-    if (text.includes(key)) return label;
+    if (upper.includes(key)) return label;
   }
+  for (const part of text.split(/[\n,]/)) {
+    const n = normalizarCiudad(part);
+    if (n !== part.trim() && n.length > 1) return n;
+  }
+  const fromFull = normalizarCiudad(text);
+  if (fromFull !== text.trim()) return fromFull;
   return null;
 }

@@ -276,7 +276,9 @@ export function LegalizacionPdf({
                   /* eslint-disable-next-line jsx-a11y/alt-text -- adjunto factura */
                   <Image style={styles.attachImg} src={attachSrc} />
                 ) : (
-                  <Text style={{ fontSize: 9, color: "#999", marginTop: 4 }}>Sin imagen adjunta</Text>
+                  <Text style={{ fontSize: 9, color: "#888", fontStyle: "italic", marginTop: 4 }}>
+                    Imagen no disponible (factura migrada de AppSheet)
+                  </Text>
                 )}
                 <View style={styles.separador} />
               </View>

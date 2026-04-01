@@ -1,4 +1,4 @@
-﻿export const TIPOS_FACTURA_FIJOS = [
+export const TIPOS_FACTURA_FIJOS = [
   "POS",
   "Electrónica",
   "Talonario",
@@ -32,6 +32,13 @@ export const CIUDADES_FACTURA = [
   "Funza",
   "Galapa",
 ] as const;
+
+/** Acepta variantes OCR / Sheet (ej. "Barranquilla, Atlántico"). */
+export function ciudadFacturaValidaPermisiva(ciudad: string): boolean {
+  const v = ciudad.toLowerCase().trim();
+  if (!v) return false;
+  return CIUDADES_FACTURA.some((c) => v.includes(c.toLowerCase()) || c.toLowerCase().includes(v));
+}
 export const SECTORES_FACTURA = ["Bogota", "Costa Caribe"] as const;
 export const TIPOS_OPERACION = ["OPS - Activaciones", "OPS - Retención"] as const;
 export type TipoFacturaFijo = (typeof TIPOS_FACTURA_FIJOS)[number];

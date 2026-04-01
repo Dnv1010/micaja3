@@ -1,3 +1,5 @@
+import { normalizeSector } from "@/lib/sector-normalize";
+
 export type FallbackUser = {
   email: string;
   pin: string;
@@ -42,9 +44,13 @@ export function findFallbackUser(email: string): FallbackUser | null {
 
 /** Usuarios operativos de la zona (para coordinador; por ahora solo fallback). */
 export function fallbackActiveZoneUsers(sector: string): FallbackUser[] {
-  return FALLBACK_USERS.filter(
-    (u) => u.sector === sector && u.rol === "user" && u.userActive
-  );
+  const target = normalizeSector(sector);
+  return FALLBACK_USERS.filter((u) => {
+    const uCanon = normalizeSector(u.sector);
+    const zoneOk =
+      (target !== null && uCanon === target) || (target === null && u.sector === sector.trim());
+    return zoneOk && u.rol === "user" && u.userActive;
+  });
 }
 
 export function responsablesEnZonaSet(sector: string): Set<string> {

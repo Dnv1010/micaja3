@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { CoordinatorZonaClient } from "@/components/coordinador/coordinator-zona-client";
 import { etiquetaZona } from "@/lib/coordinador-zona";
+import { normalizeSector } from "@/lib/sector-normalize";
 import { fallbackActiveZoneUsers } from "@/lib/users-fallback";
 
 export default async function DashboardHomePage() {
@@ -12,7 +13,8 @@ export default async function DashboardHomePage() {
   if (rol === "user") redirect("/mi-cuenta");
   if (rol === "admin") redirect("/admin");
   if (rol === "coordinador") {
-    const sector = String(session.user.sector || "");
+    const sectorRaw = String(session.user.sector || "");
+    const sector = normalizeSector(sectorRaw) ?? sectorRaw;
     const zoneUsers = fallbackActiveZoneUsers(sector).map((u) => ({
       responsable: u.responsable,
       cargo: u.cargo,

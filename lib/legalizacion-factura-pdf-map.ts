@@ -1,7 +1,12 @@
-﻿import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
+import type { FacturaPdf } from "@/components/pdf/legalizacion-pdf";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaLike = Record<string, unknown>;
+
+function esUrlValida(url: string): boolean {
+  const u = url.trim();
+  return u.startsWith("http://") || u.startsWith("https://") || u.startsWith("data:");
+}
 
 /** Mapeo desde fila de Sheet / API hacia el payload del PDF (coordinador o admin). */
 export function facturaRowToFacturaPdfForLegalizacion(
@@ -10,6 +15,8 @@ export function facturaRowToFacturaPdfForLegalizacion(
 ): FacturaPdf {
   const valorRaw = String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0").replace(/[^\d]/g, "");
   const driveId = String(getCellCaseInsensitive(f, "DriveFileId") || "").trim();
+  const rawUrl = String(getCellCaseInsensitive(f, "Adjuntar_Factura", "URL", "ImagenURL") || "").trim();
+  const imagenUrl = esUrlValida(rawUrl) ? rawUrl : undefined;
   return {
     id: String(getCellCaseInsensitive(f, "ID_Factura", "ID") || ""),
     fecha: String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || ""),
@@ -18,10 +25,8 @@ export function facturaRowToFacturaPdfForLegalizacion(
     concepto: String(getCellCaseInsensitive(f, "Observacion", "Concepto") || ""),
     valor: Number(valorRaw) || 0,
     tipoFactura: String(getCellCaseInsensitive(f, "Tipo_Factura", "TipoFactura") || ""),
-    area: String(
-      getCellCaseInsensitive(f, "Area", "Sector", "Centro de Costo") || defaults.area || ""
-    ),
-    imagenUrl: String(getCellCaseInsensitive(f, "Adjuntar_Factura", "URL", "ImagenURL") || "").trim() || undefined,
+    area: String(getCellCaseInsensitive(f, "Area", "Centro de Costo", "InfoCentroCosto") || defaults.area || ""),
+    imagenUrl,
     driveFileId: driveId || undefined,
   };
 }
