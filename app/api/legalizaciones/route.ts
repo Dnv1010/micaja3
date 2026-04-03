@@ -6,7 +6,8 @@ import { applyFacturaEstadoById } from "@/lib/factura-estado-server";
 import { quoteSheetTitleForRange, rowsToObjects, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
-import { parseCOPString } from "@/lib/format";
+import { formatCOP, parseCOPString } from "@/lib/format";
+import { appPublicBaseUrl, enviarWhatsApp, telefonosAdmins } from "@/lib/whatsapp";
 import { generarResumenLegalizacionGemini } from "@/lib/gemini-resumen-legalizacion";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
@@ -191,6 +192,13 @@ export async function POST(req: NextRequest) {
       if (!r.ok) {
         console.error("legalizaciones POST: no se pudo marcar Completada", fid, r);
       }
+    }
+
+    const base = appPublicBaseUrl();
+    const admins = telefonosAdmins();
+    const msgAdmin = `*BIA Energy - MiCaja*\n\nTienes un nuevo reporte pendiente de firma.\n\nCoordinador: ${coordinadorNombre}\nZona: ${sector}\nTotal: ${formatCOP(totalNum)}\nPeríodo: ${periodoDe} al ${periodoHasta}\n\nFirma en: ${base}/admin/reportes`;
+    for (const telefono of admins) {
+      void enviarWhatsApp(telefono, msgAdmin).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, id, pdfUrl });

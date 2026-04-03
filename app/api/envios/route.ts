@@ -6,6 +6,8 @@ import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-help
 import { parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
+import { formatCOP } from "@/lib/format";
+import { appPublicBaseUrl, enviarWhatsApp, telefonoDeUsuario } from "@/lib/whatsapp";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 
 function micajaSpreadsheetId(): string {
@@ -127,6 +129,15 @@ export async function POST(req: NextRequest) {
       valueInputOption: "RAW",
       requestBody: { values: [filaEntrega] },
     });
+
+    const telefonoTecnico = telefonoDeUsuario(responsable);
+    if (telefonoTecnico) {
+      const coord = String(session.user.responsable || session.user.name || "").trim();
+      const montoCOP = Number(montoNum) || 0;
+      const base = appPublicBaseUrl();
+      const msg = `*BIA Energy - MiCaja*\n\nHola ${responsable}, tu coordinador ${coord} te ha enviado *${formatCOP(montoCOP)}* el ${fecha}.\n\nRevisa tu saldo en: ${base}`;
+      void enviarWhatsApp(telefonoTecnico, msg).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true, id });
   } catch (e) {

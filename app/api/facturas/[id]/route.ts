@@ -17,6 +17,7 @@ import { SHEET_NAMES } from "@/lib/google-sheets";
 import { parseFechaFacturaDDMMYYYY, sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { findFacturaDuplicadaPorNitNumResponsable } from "@/lib/factura-duplicada-micaja";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { appPublicBaseUrl, enviarWhatsApp, telefonoDeUsuario } from "@/lib/whatsapp";
 import type { FacturaRow } from "@/types/models";
 
 function facturaIdCell(f: FacturaRow): string {
@@ -289,6 +290,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     const patch = mapEstadoPatchToSheet(headers, estadoIn, estadoIn === "Rechazada" ? motivo : "");
     await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
+    if (estadoIn === "Rechazada") {
+      const responsableFactura = getCellCaseInsensitive(found, "Responsable");
+      const telefono = telefonoDeUsuario(responsableFactura);
+      if (telefono) {
+        const proveedorFactura = getCellCaseInsensitive(found, "Razon_Social", "Proveedor");
+        const base = appPublicBaseUrl();
+        const msgRechazo = `*BIA Energy - MiCaja*\n\nTu factura de *${proveedorFactura || "—"}* fue rechazada.\n\nMotivo: ${motivo}\n\nPuedes corregirla y volver a subirla en: ${base}/facturas`;
+        void enviarWhatsApp(telefono, msgRechazo).catch(() => {});
+      }
+    }
     return NextResponse.json({ ok: true });
   }
 

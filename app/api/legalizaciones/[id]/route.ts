@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
+import { formatCOP, parseCOPString } from "@/lib/format";
 import {
   deleteSheetRow,
   getSheetId,
   quoteSheetTitleForRange,
   sheetValuesToRecords,
 } from "@/lib/sheets-helpers";
+import { appPublicBaseUrl, enviarWhatsApp, telefonosCoordinadoresZona } from "@/lib/whatsapp";
 
 const TAB = SHEET_NAMES.LEGALIZACIONES;
 const RANGE = `${quoteSheetTitleForRange(TAB)}!A:N`;
@@ -70,6 +72,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await updateCol("Firma_Admin", firmaAdmin);
     await updateCol("PDF_URL", pdfUrl);
     await updateCol("Estado", "Firmado");
+
+    const dataRow = rows[rowIndex] ?? [];
+    const cell = (name: string) => {
+      const colIndex = headers.findIndex((h) => h === name);
+      return colIndex >= 0 ? String(dataRow[colIndex] ?? "").trim() : "";
+    };
+    const sectorReporte = cell("Sector");
+    const totalRaw = cell("Total");
+    const totalReporte = parseCOPString(totalRaw) || Number(totalRaw.replace(/[^\d]/g, "")) || 0;
+    const base = appPublicBaseUrl();
+    const msgCoord = `*BIA Energy - MiCaja*\n\nTu reporte ha sido *firmado y aprobado* por el administrador.\n\nTotal aprobado: ${formatCOP(totalReporte)}\nYa puedes descargarlo en PDF.\n\nDescarga en: ${base}/reporte`;
+    for (const telefono of telefonosCoordinadoresZona(sectorReporte)) {
+      void enviarWhatsApp(telefono, msgCoord).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e) {
