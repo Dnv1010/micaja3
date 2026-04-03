@@ -10,6 +10,7 @@ import {
 } from "@/lib/micaja-facturas-sheet";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { rowsToObjects } from "@/lib/sheets-helpers";
+import { findFacturaDuplicadaPorNitNumResponsable, estadoFacturaDuplicadaMensaje } from "@/lib/factura-duplicada-micaja";
 import { normalizeSector } from "@/lib/sector-normalize";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
@@ -156,9 +157,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: vErr }, { status: 400 });
     }
 
-    await loadMicajaFacturasSheetRows();
-
-    const id = String(Date.now());
     const responsable = String(body.responsable || session.user.responsable || "").trim();
     if (!responsable) {
       return NextResponse.json({ error: "Falta responsable" }, { status: 400 });
@@ -170,6 +168,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Responsable fuera de su zona" }, { status: 403 });
       }
     }
+
+    if (nit && numFactura) {
+      const dupRows = await loadMicajaFacturasSheetRows();
+      const facturas = rowsToObjects<FacturaRow>(dupRows);
+      const duplicada = findFacturaDuplicadaPorNitNumResponsable(facturas, {
+        nit,
+        numFactura,
+        responsable,
+      });
+      if (duplicada) {
+        const estadoDup = estadoFacturaDuplicadaMensaje(duplicada);
+        return NextResponse.json(
+          {
+            error: `Esta factura ya fue registrada anteriormente (Estado: ${estadoDup}). No se puede registrar de nuevo.`,
+            duplicada: true,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    const id = String(Date.now());
     const sectorFinal =
       normalizeSector(sector || String(session.user.sector || "")) ??
       (sector || String(session.user.sector || ""));

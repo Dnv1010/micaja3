@@ -155,6 +155,7 @@ export default function NuevaFacturaPage() {
   const [sectorForm, setSectorForm] = useState("");
   const [aNombreBia, setANombreBia] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [duplicada, setDuplicada] = useState(false);
   const [responsableTarget, setResponsableTarget] = useState("");
 
   const sessionSector = String(user?.sector || "");
@@ -181,6 +182,11 @@ export default function NuevaFacturaPage() {
     if (!def) return;
     setResponsableTarget((prev) => (prev ? prev : def));
   }, [user?.responsable, user?.name]);
+
+  useEffect(() => {
+    setDuplicada(false);
+    setSaveError("");
+  }, [nit, numFactura]);
 
   const maxFechaInput = useMemo(() => toInputDate(getTodayDDMMYYYY()), []);
 
@@ -342,6 +348,7 @@ export default function NuevaFacturaPage() {
       return;
     }
     setSaveError("");
+    setDuplicada(false);
     setUploadState("saving");
     try {
       const body = {
@@ -369,7 +376,13 @@ export default function NuevaFacturaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const j = await res.json().catch(() => ({}));
+      const j = (await res.json().catch(() => ({}))) as { error?: string; duplicada?: boolean };
+      if (res.status === 409 && j.duplicada) {
+        setDuplicada(true);
+        setSaveError(typeof j.error === "string" ? j.error : "Esta factura ya está registrada.");
+        setUploadState("ready");
+        return;
+      }
       if (!res.ok) {
         throw new Error(j.error || "No se pudo guardar en la hoja. Revisa los datos e intenta de nuevo.");
       }
@@ -742,14 +755,34 @@ export default function NuevaFacturaPage() {
         </CardContent>
       </Card>
 
-      {saveError ? <p className="text-sm text-red-400">{saveError}</p> : null}
+      {duplicada ? (
+        <div className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+          <span className="text-lg text-yellow-400" aria-hidden>
+            ⚠
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-yellow-400">Factura duplicada</p>
+            <p className="mt-1 text-xs text-yellow-300">{saveError}</p>
+          </div>
+        </div>
+      ) : saveError ? (
+        <p className="text-sm text-red-400">{saveError}</p>
+      ) : null}
 
       <Button
         onClick={() => void saveFactura()}
-        disabled={uploadState === "saving" || !imagenUrl.trim()}
-        className="w-full bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
+        disabled={uploadState === "saving" || !imagenUrl.trim() || duplicada}
+        className={
+          duplicada
+            ? "w-full cursor-not-allowed bg-[#525A72]/30 text-[#525A72] hover:bg-[#525A72]/30"
+            : "w-full bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"
+        }
       >
-        {uploadState === "saving" ? "Guardando en hoja..." : "Guardar factura"}
+        {uploadState === "saving"
+          ? "Guardando en hoja..."
+          : duplicada
+            ? "Factura ya registrada"
+            : "Guardar factura"}
       </Button>
     </div>
   );

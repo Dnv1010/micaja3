@@ -15,11 +15,43 @@ import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { deleteSheetRow, getSheetId, rowsToObjects } from "@/lib/sheets-helpers";
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { parseFechaFacturaDDMMYYYY, sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
+import { findFacturaDuplicadaPorNitNumResponsable } from "@/lib/factura-duplicada-micaja";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 import type { FacturaRow } from "@/types/models";
 
 function facturaIdCell(f: FacturaRow): string {
   return getCellCaseInsensitive(f, "ID_Factura", "ID");
+}
+
+function jsonDuplicadaEdicion(): NextResponse {
+  return NextResponse.json(
+    {
+      error: "Ya existe otra factura con ese NIT y número de factura para este responsable.",
+      duplicada: true,
+    },
+    { status: 409 }
+  );
+}
+
+/** Si hay duplicado (otra fila con mismo NIT + número + responsable), respuesta 409. */
+function duplicateEditIfAny(
+  rows: string[][],
+  currentId: string,
+  nit: string,
+  numFactura: string,
+  responsable: string
+): NextResponse | null {
+  const n = nit.trim();
+  const num = numFactura.trim();
+  if (!n || !num) return null;
+  const list = rowsToObjects<FacturaRow>(rows);
+  const dup = findFacturaDuplicadaPorNitNumResponsable(list, {
+    nit: n,
+    numFactura: num,
+    responsable,
+    excludeFacturaId: currentId,
+  });
+  return dup ? jsonDuplicadaEdicion() : null;
 }
 
 function facturaEstadoRow(f: FacturaRow): string {
@@ -161,6 +193,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!Object.keys(legacyPatch).length) {
       return NextResponse.json({ error: "Sin campos reconocidos" }, { status: 400 });
     }
+    const nitEff =
+      body.Nit_Factura !== undefined && body.Nit_Factura !== null
+        ? String(body.Nit_Factura).trim()
+        : String(getCellCaseInsensitive(found, "Nit_Factura", "NIT") || "").trim();
+    const numEff =
+      body.Num_Factura !== undefined && body.Num_Factura !== null
+        ? String(body.Num_Factura).trim()
+        : String(getCellCaseInsensitive(found, "Num_Factura", "NumFactura") || "").trim();
+    const respEff = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
+    const dupPutLegacy = duplicateEditIfAny(rows, id, nitEff, numEff, respEff);
+    if (dupPutLegacy) return dupPutLegacy;
     await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, legacyPatch);
     return NextResponse.json({ ok: true });
   }
@@ -209,6 +252,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     imagenUrl,
     driveFileId: driveFileId || undefined,
   });
+
+  const respRow = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
+  const dupPutNueva = duplicateEditIfAny(rows, id, merged.nit, numFactura, respRow);
+  if (dupPutNueva) return dupPutNueva;
 
   await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
   return NextResponse.json({ ok: true });
@@ -267,6 +314,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!Object.keys(legacyPatch).length) {
       return NextResponse.json({ error: "Sin campos reconocidos" }, { status: 400 });
     }
+    const nitEff =
+      body.Nit_Factura !== undefined && body.Nit_Factura !== null
+        ? String(body.Nit_Factura).trim()
+        : String(getCellCaseInsensitive(found, "Nit_Factura", "NIT") || "").trim();
+    const numEff =
+      body.Num_Factura !== undefined && body.Num_Factura !== null
+        ? String(body.Num_Factura).trim()
+        : String(getCellCaseInsensitive(found, "Num_Factura", "NumFactura") || "").trim();
+    const respEff = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
+    const dupPatchLegacy = duplicateEditIfAny(rows, id, nitEff, numEff, respEff);
+    if (dupPatchLegacy) return dupPatchLegacy;
     await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, legacyPatch);
     return NextResponse.json({ ok: true });
   }
@@ -315,6 +373,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     imagenUrl,
     driveFileId: driveFileId || undefined,
   });
+
+  const respRowPatch = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
+  const dupPatchNueva = duplicateEditIfAny(rows, id, merged.nit, numFactura, respRowPatch);
+  if (dupPatchNueva) return dupPatchNueva;
 
   await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
   return NextResponse.json({ ok: true });
