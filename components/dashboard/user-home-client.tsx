@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { balanceStatusTone } from "@/lib/balance-status";
+import { metricasCajaMenorUsuario } from "@/lib/caja-menor-dashboard";
 import { formatCOP, formatDateDDMMYYYY, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import type { Session } from "next-auth";
@@ -52,24 +52,17 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
     };
   }, [responsable]);
 
-  const resumen = useMemo(() => {
-    const recibido = entregas.reduce(
-      (acc, e) => acc + parseMonto(getCellCaseInsensitive(e, "Monto_Entregado", "Monto")),
-      0
-    );
-    const gastado = facturas
-      .filter((f) => {
-        const v = String(getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || "").toLowerCase();
-        return v === "aprobada";
-      })
-      .reduce((acc, f) => acc + parseMonto(getCellCaseInsensitive(f, "Monto_Factura", "Valor")), 0);
-    const balance = recibido - gastado;
-    return { recibido, gastado, balance };
-  }, [entregas, facturas]);
+  const sector = String(user.sector || "");
+  const caja = useMemo(
+    () => metricasCajaMenorUsuario(facturas, entregas, responsable, sector),
+    [facturas, entregas, responsable, sector]
+  );
 
   const ultimasEntregas = useMemo(() => [...entregas].slice(-3).reverse(), [entregas]);
   const ultimasFacturas = useMemo(() => [...facturas].slice(-3).reverse(), [facturas]);
-  const tone = balanceStatusTone(resumen.balance);
+  const pctBar = Math.min(caja.pctEjecutado, 100);
+  const barColor =
+    caja.pctEjecutado >= 90 ? "#ef4444" : caja.pctEjecutado >= 70 ? "#f59e0b" : "#08DDBC";
 
   return (
     <div className="space-y-4">
@@ -86,19 +79,68 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
-          <CardHeader><CardTitle className="text-sm">💰 Recibido</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.recibido)}</p><p className="text-xs text-bia-gray-light">Total enviado</p></CardContent>
-        </Card>
-        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
-          <CardHeader><CardTitle className="text-sm">🧾 Gastado</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.gastado)}</p><p className="text-xs text-bia-gray-light">Fact. aprobadas</p></CardContent>
-        </Card>
-        <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
-          <CardHeader><CardTitle className="text-sm">📊 Balance</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{formatCOP(resumen.balance)}</p><p className={`text-xs ${tone.cls}`}>{tone.label}</p></CardContent>
-        </Card>
+      <div className="rounded-2xl border border-[#525A72]/20 bg-[#0A1B4D] p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-semibold text-white">Mi Caja Menor</h3>
+          <span className="text-xs text-[#8892A4]">Límite: {formatCOP(caja.limiteZona)}</span>
+        </div>
+        <p className="mb-4 text-sm text-[#8892A4]">
+          En caja: {formatCOP(caja.totalAprobado)} legalizado de {formatCOP(caja.limiteZona)} —{" "}
+          <span className="font-medium text-white">{caja.pctEjecutado}%</span> ejecutado
+        </p>
+
+        <div className="mb-4">
+          <div className="mb-1 flex justify-between text-xs">
+            <span className="text-[#8892A4]">Ejecutado</span>
+            <span className="font-medium text-white">{caja.pctEjecutado}%</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-[#001035]">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${pctBar}%`, backgroundColor: barColor }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-[#001035] p-3">
+            <p className="mb-1 text-xs text-[#8892A4]">💰 Recibido</p>
+            <p className="text-lg font-bold text-white">{formatCOP(caja.totalRecibido)}</p>
+          </div>
+          <div className="rounded-xl bg-[#001035] p-3">
+            <p className="mb-1 text-xs text-[#8892A4]">✅ Aprobado</p>
+            <p className="text-lg font-bold text-[#08DDBC]">{formatCOP(caja.totalAprobado)}</p>
+          </div>
+          <div className="rounded-xl bg-[#001035] p-3">
+            <p className="mb-1 text-xs text-[#8892A4]">⏳ Por legalizar</p>
+            <p className="text-lg font-bold text-yellow-400">{formatCOP(caja.totalPendiente)}</p>
+            <p className="text-xs text-[#525A72]">{caja.countPendiente} facturas</p>
+          </div>
+          <div className="rounded-xl bg-[#001035] p-3">
+            <p className="mb-1 text-xs text-[#8892A4]">🏦 Disponible</p>
+            <p
+              className={`text-lg font-bold ${caja.disponible >= 0 ? "text-white" : "text-red-400"}`}
+            >
+              {formatCOP(Math.abs(caja.disponible))}
+            </p>
+            <p className="text-xs text-[#525A72]">
+              {caja.disponible >= 0 ? "para gastar" : "excedido"}
+            </p>
+          </div>
+        </div>
+
+        {caja.pctEjecutado >= 90 ? (
+          <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <p className="text-xs text-red-400">
+              ⚠ Estás al {caja.pctEjecutado}% de tu límite de caja menor
+            </p>
+          </div>
+        ) : null}
+        {caja.pctEjecutado < 90 && caja.pctEjecutado >= 70 ? (
+          <div className="mt-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
+            <p className="text-xs text-yellow-400">📊 Has usado el {caja.pctEjecutado}% de tu límite</p>
+          </div>
+        ) : null}
       </div>
 
       <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">

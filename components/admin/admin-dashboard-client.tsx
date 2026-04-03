@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { etiquetaZona } from "@/lib/coordinador-zona";
+import { sumasFacturasZona } from "@/lib/caja-menor-dashboard";
+import { etiquetaZona, limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseCOPString, parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { FALLBACK_USERS } from "@/lib/users-fallback";
 
 type FacturaRow = Record<string, unknown>;
 type ReporteRow = Record<string, string>;
@@ -57,6 +59,20 @@ export function AdminDashboardClient() {
     void load();
   }, [load]);
 
+  const zonasResumen = useMemo(() => {
+    const zonas: ("Bogota" | "Costa Caribe")[] = ["Bogota", "Costa Caribe"];
+    return zonas.map((zona) => {
+      const limite = limiteAprobacionZona(zona);
+      const usuarios = FALLBACK_USERS.filter(
+        (u) => u.sector === zona && u.rol === "user" && u.userActive
+      );
+      const { totalAprobado, totalPendiente } = sumasFacturasZona(facturas, zona);
+      const cap = limite * Math.max(usuarios.length, 1);
+      const pctZona = cap > 0 ? Math.round((totalAprobado / cap) * 100) : 0;
+      return { zona, limite, usuariosCount: usuarios.length, totalAprobado, totalPendiente, pctZona };
+    });
+  }, [facturas]);
+
   const stats = useMemo(() => {
     let totalMes = 0;
     let aprobadasMes = 0;
@@ -94,6 +110,56 @@ export function AdminDashboardClient() {
       <div>
         <h1 className="text-2xl font-bold text-white">Panel administrador</h1>
         <p className="text-sm text-bia-gray-light">Resumen MiCaja · todas las zonas</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {loading
+          ? [0, 1].map((i) => (
+              <div
+                key={i}
+                className="h-48 animate-pulse rounded-2xl border border-[#525A72]/20 bg-[#0A1B4D]"
+              />
+            ))
+          : zonasResumen.map(
+              ({ zona, limite, usuariosCount, totalAprobado, totalPendiente, pctZona }) => {
+                const pctBar = Math.min(pctZona, 100);
+                return (
+                  <div
+                    key={zona}
+                    className="rounded-2xl border border-[#525A72]/20 bg-[#0A1B4D] p-5"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="font-semibold text-white">
+                        Zona {zona === "Bogota" ? "Bogotá" : "Costa Caribe"}
+                      </h3>
+                      <span className="text-xs text-[#8892A4]">
+                        {usuariosCount} técnicos · Límite {formatCOP(limite)}/c.u.
+                      </span>
+                    </div>
+                    <div className="mb-4 h-3 overflow-hidden rounded-full bg-[#001035]">
+                      <div
+                        className="h-full rounded-full bg-[#08DDBC]"
+                        style={{ width: `${pctBar}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="rounded-xl bg-[#001035] p-3 text-center">
+                        <p className="font-bold text-[#08DDBC]">{formatCOP(totalAprobado)}</p>
+                        <p className="text-xs text-[#525A72]">Total aprobado</p>
+                      </div>
+                      <div className="rounded-xl bg-[#001035] p-3 text-center">
+                        <p className="font-bold text-yellow-400">{formatCOP(totalPendiente)}</p>
+                        <p className="text-xs text-[#525A72]">Por legalizar</p>
+                      </div>
+                      <div className="rounded-xl bg-[#001035] p-3 text-center">
+                        <p className="font-bold text-white">{pctZona}%</p>
+                        <p className="text-xs text-[#525A72]">Ejecutado</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+            )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
