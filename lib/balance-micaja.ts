@@ -1,4 +1,4 @@
-import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
+﻿import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
 import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { parseMonto } from "@/lib/format";
 import { normalizeSector } from "@/lib/sector-normalize";
@@ -25,7 +25,7 @@ function facturaGastadoAprobada(f: Record<string, string>): boolean {
   )
     .toLowerCase()
     .trim();
-  return v === "aprobada";
+  return v === "aprobada" || v === "completada";
 }
 
 /** Agrega montos por responsable desde Entregas y Facturas (hojas MiCaja). */

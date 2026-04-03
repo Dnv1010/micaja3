@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
@@ -9,7 +9,7 @@ import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 type FacturaRow = Record<string, unknown>;
 type EntregaRow = Record<string, unknown>;
 
-/** Prioridad Verificado → Legalizado → Estado (como en negocio). */
+/** Prioridad Verificado â†’ Legalizado â†’ Estado (como en negocio). */
 function estadoFacturaZona(f: FacturaRow): string {
   return String(
     getCellCaseInsensitive(f, "Verificado", "Legalizado", "Estado") || ""
@@ -137,13 +137,13 @@ export function CoordinadorDashboardClient({
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-white">Zona {zonaLabel}</h1>
-        <p className="text-sm text-[#8892A4]">Límite de caja menor: {formatCOP(limite)}</p>
+        <p className="text-sm text-[#8892A4]">LÃ­mite de caja menor: {formatCOP(limite)}</p>
       </div>
 
       <div className="rounded-2xl border border-[#525A72]/20 bg-[#0A1B4D] p-6">
         <div className="mb-5">
           <div className="mb-1 flex justify-between text-sm">
-            <span className="text-[#8892A4]">Entregado a técnicos</span>
+            <span className="text-[#8892A4]">Entregado a tÃ©cnicos</span>
             <span className="font-semibold text-white">
               {formatCOP(totalEntregado)}{" "}
               <span className="text-[#08DDBC]">({pctEntregado}%)</span>
@@ -167,29 +167,29 @@ export function CoordinadorDashboardClient({
 
         <div className="mb-5 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">🔧 En terreno</p>
+            <p className="mb-1 text-xs text-[#8892A4]">ðŸ”§ En terreno</p>
             <p className="text-xl font-bold text-white">{formatCOP(enTerreno)}</p>
             <p className="mt-1 text-xs text-[#525A72]">Entregado y disponible para gastar</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">📋 Por reportar</p>
+            <p className="mb-1 text-xs text-[#8892A4]">ðŸ“‹ Por reportar</p>
             <p className="text-xl font-bold text-[#08DDBC]">{formatCOP(porReportar)}</p>
             <p className="mt-1 text-xs text-[#525A72]">Aprobadas pendientes de legalizar</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">🏦 En caja menor</p>
+            <p className="mb-1 text-xs text-[#8892A4]">ðŸ¦ En caja menor</p>
             <p className="text-xl font-bold text-white">{formatCOP(enCajaMenor)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">Sin entregar del límite</p>
+            <p className="mt-1 text-xs text-[#525A72]">Sin entregar del lÃ­mite</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">✅ Ya legalizado</p>
+            <p className="mb-1 text-xs text-[#8892A4]">âœ… Ya legalizado</p>
             <p className="text-xl font-bold text-[#525A72]">{formatCOP(totalCompletado)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">Histórico pagado</p>
+            <p className="mt-1 text-xs text-[#525A72]">HistÃ³rico pagado</p>
           </div>
         </div>
 
         <p className="mb-2 text-xs text-[#8892A4]">
-          Uso del límite (aprobadas + pendientes):{" "}
+          Uso del lÃ­mite (aprobadas + pendientes):{" "}
           <span className="font-semibold text-white">{pctUsado}%</span>
         </p>
       </div>
@@ -197,7 +197,7 @@ export function CoordinadorDashboardClient({
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-white">{tecnicosZona.length}</p>
-          <p className="mt-1 text-xs text-[#8892A4]">Técnicos activos</p>
+          <p className="mt-1 text-xs text-[#8892A4]">TÃ©cnicos activos</p>
         </div>
         <div className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-yellow-400">
