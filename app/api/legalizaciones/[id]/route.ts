@@ -10,7 +10,7 @@ import {
 } from "@/lib/sheets-helpers";
 
 const TAB = SHEET_NAMES.LEGALIZACIONES;
-const RANGE = `${quoteSheetTitleForRange(TAB)}!A:M`;
+const RANGE = `${quoteSheetTitleForRange(TAB)}!A:N`;
 
 function spreadsheetId(): string {
   const id = SPREADSHEET_IDS.MICAJA.trim();

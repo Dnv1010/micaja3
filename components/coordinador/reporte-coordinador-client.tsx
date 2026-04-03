@@ -50,6 +50,8 @@ export function ReporteCoordinadorClient() {
   const [repLoading, setRepLoading] = useState(true);
   const [reportes, setReportes] = useState<ReporteRow[]>([]);
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
+  const [resumenIA, setResumenIA] = useState("");
+  const [cargandoResumen, setCargandoResumen] = useState(false);
 
   const cargarReportes = useCallback(async () => {
     setRepLoading(true);
@@ -108,6 +110,49 @@ export function ReporteCoordinadorClient() {
       ),
     [selectedRows]
   );
+
+  const userEmail = data?.user?.email ?? "";
+  const userCoord = String(data?.user?.responsable || data?.user?.name || "");
+  const userSectorStr = String(data?.user?.sector || "");
+
+  useEffect(() => {
+    if (!userEmail || selectedRows.length === 0) {
+      setResumenIA("");
+      setCargandoResumen(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setCargandoResumen(true);
+        try {
+          const res = await fetch("/api/ia/resumen-reporte", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              facturas: selectedRows.map((f) => ({
+                proveedor: getCellCaseInsensitive(f, "Razon_Social", "Proveedor"),
+                concepto: getCellCaseInsensitive(f, "Tipo_servicio", "Observacion", "Concepto"),
+                valor: getCellCaseInsensitive(f, "Monto_Factura", "Valor"),
+                fecha: getCellCaseInsensitive(f, "Fecha_Factura", "Fecha"),
+                tipoFactura: getCellCaseInsensitive(f, "Tipo_Factura", "TipoFactura"),
+              })),
+              coordinador: userCoord,
+              sector: userSectorStr,
+              total: totalSeleccionado,
+              limite,
+            }),
+          });
+          const json = (await res.json().catch(() => ({}))) as { resumen?: string };
+          setResumenIA(json.resumen || "");
+        } catch {
+          setResumenIA("");
+        } finally {
+          setCargandoResumen(false);
+        }
+      })();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [selectedRows, totalSeleccionado, limite, userEmail, userCoord, userSectorStr]);
 
   const superaLimite = totalSeleccionado > limite;
   const pctBarra = limite > 0 ? Math.min(100, (totalSeleccionado / limite) * 100) : 0;
@@ -338,6 +383,26 @@ export function ReporteCoordinadorClient() {
                 {superaLimite ? (
                   <p className="text-red-400">Supera el límite de la zona. Reduzca la selección.</p>
                 ) : null}
+
+                <div className="mb-4 rounded-xl border border-[#4728EF]/20 bg-[#4728EF]/5 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4728EF]/20 text-xs">
+                      ✨
+                    </div>
+                    <span className="text-xs font-semibold text-[#DEDEF9]">Análisis automático</span>
+                    {cargandoResumen ? (
+                      <span className="animate-pulse text-xs text-[#525A72]">Analizando...</span>
+                    ) : null}
+                  </div>
+                  {resumenIA ? (
+                    <p className="text-sm leading-relaxed text-[#DEDEF9]">{resumenIA}</p>
+                  ) : !cargandoResumen && selectedRows.length > 0 ? (
+                    <p className="text-xs italic text-[#525A72]">No se pudo generar el análisis.</p>
+                  ) : !cargandoResumen ? (
+                    <p className="text-xs italic text-[#525A72]">Selecciona facturas para ver el análisis.</p>
+                  ) : null}
+                </div>
+
                 <Button
                   type="button"
                   className="mt-4 w-full bg-bia-aqua text-bia-blue font-semibold hover:bg-bia-blue-mid"

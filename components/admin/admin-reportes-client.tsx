@@ -105,6 +105,8 @@ export function AdminReportesClient() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
+  const [resumenIA, setResumenIA] = useState("");
+  const [cargandoResumenIA, setCargandoResumenIA] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -403,6 +405,8 @@ export function AdminReportesClient() {
             setActivo(null);
             setImagenModal(null);
             setFacturasReporte([]);
+            setResumenIA("");
+            setCargandoResumenIA(false);
           }
         }}
       >
@@ -505,6 +509,17 @@ export function AdminReportesClient() {
                   </div>
                 </div>
               ) : null}
+
+              {(resumenIA || cargandoResumenIA) && (
+                <div className="my-4 rounded-xl border border-[#4728EF]/20 bg-[#4728EF]/5 p-4">
+                  <p className="mb-2 text-xs font-semibold text-[#DEDEF9]">✨ Análisis IA</p>
+                  {cargandoResumenIA ? (
+                    <p className="animate-pulse text-sm text-[#525A72]">Generando resumen...</p>
+                  ) : (
+                    <p className="text-sm leading-relaxed text-[#DEDEF9]">{resumenIA}</p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-4">
                 <p className="mb-2 text-sm text-[#8892A4]">Firma del coordinador:</p>

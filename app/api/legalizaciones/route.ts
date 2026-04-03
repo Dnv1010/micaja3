@@ -5,12 +5,15 @@ import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS }
 import { applyFacturaEstadoById } from "@/lib/factura-estado-server";
 import { quoteSheetTitleForRange, rowsToObjects, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { limiteAprobacionZona } from "@/lib/coordinador-zona";
+import { parseCOPString } from "@/lib/format";
+import { generarResumenLegalizacionGemini } from "@/lib/gemini-resumen-legalizacion";
 import { responsablesEnZonaSet } from "@/lib/users-fallback";
 import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
 import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
 import type { FacturaRow } from "@/types/models";
 
-const RANGE = `${quoteSheetTitleForRange(SHEET_NAMES.LEGALIZACIONES)}!A:M`;
+const RANGE = `${quoteSheetTitleForRange(SHEET_NAMES.LEGALIZACIONES)}!A:N`;
 
 function spreadsheetId(): string {
   const id = SPREADSHEET_IDS.MICAJA.trim();
@@ -128,6 +131,34 @@ export async function POST(req: NextRequest) {
       fromClient.length === facturasIds.length &&
       facturasIds.every((fid, i) => String(fromClient[i]?.id ?? "") === fid);
     const facturasJson = JSON.stringify(clientOk ? fromClient : serverFacturasPdf);
+    const facturasPdfParaIa = (clientOk ? fromClient : serverFacturasPdf) as Array<{
+      proveedor?: string;
+      concepto?: string;
+      valor?: string | number;
+      fecha?: string;
+      tipoFactura?: string;
+    }>;
+
+    const totalNum = parseCOPString(totalStr) || Number(totalStr) || 0;
+    const limiteZona = limiteAprobacionZona(sector);
+    let resumenIA = "";
+    try {
+      resumenIA = await generarResumenLegalizacionGemini({
+        facturas: facturasPdfParaIa.map((f) => ({
+          proveedor: f.proveedor,
+          concepto: f.concepto,
+          valor: f.valor,
+          fecha: f.fecha,
+          tipoFactura: f.tipoFactura,
+        })),
+        coordinador: coordinadorNombre,
+        sector,
+        total: totalNum,
+        limite: limiteZona,
+      });
+    } catch (e) {
+      console.error("legalizaciones POST resumen IA:", e);
+    }
 
     const id = `REP-${Date.now()}`;
     const fila = [
@@ -144,6 +175,7 @@ export async function POST(req: NextRequest) {
       "",
       pdfUrl,
       new Date().toISOString(),
+      resumenIA,
     ];
 
     assertSheetsConfigured();
