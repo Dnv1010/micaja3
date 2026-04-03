@@ -17,7 +17,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseCOPString } from "@/lib/format";
 import { parseFacturasPdfFromReporteCell } from "@/lib/legalizacion-factura-pdf-map";
-import { findFallbackUserByResponsable } from "@/lib/users-fallback";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type LegRow = Record<string, unknown>;
@@ -95,16 +94,32 @@ export function LegalizacionesCoordinadorClient() {
         const sector = String(getCellCaseInsensitive(row, "Sector") || "");
         const lim = limiteAprobacionZona(sector);
         const coordNombre = String(getCellCaseInsensitive(row, "Coordinador") || "");
-        const coordFb = findFallbackUserByResponsable(coordNombre);
+        let cargo = "Field Ops Planner";
+        let cedula = "";
+        let area = "";
+        try {
+          const uRes = await fetch(
+            `/api/usuarios?responsable=${encodeURIComponent(coordNombre.trim())}`
+          );
+          const uJson = (await uRes.json().catch(() => ({}))) as { data?: Record<string, unknown>[] };
+          const uRow = Array.isArray(uJson.data) ? uJson.data[0] : undefined;
+          if (uRow) {
+            cargo = String(getCellCaseInsensitive(uRow, "Cargo") || cargo);
+            cedula = String(getCellCaseInsensitive(uRow, "Cedula", "Cédula", "Documento") || "");
+            area = String(getCellCaseInsensitive(uRow, "Area", "Área") || "");
+          }
+        } catch {
+          /* defaults arriba */
+        }
         const estado = String(getCellCaseInsensitive(row, "Estado") || "").toLowerCase();
         const firmaAd = String(getCellCaseInsensitive(row, "Firma_Admin") || "").trim();
         const props = {
           coordinador: {
             responsable: coordNombre,
-            cargo: coordFb?.cargo || "Field Ops Planner",
-            cedula: coordFb?.cedula || "",
+            cargo,
+            cedula,
             sector,
-            area: coordFb?.area || "",
+            area,
           },
           facturas: facturasPdf,
           firmaCoordinador: String(getCellCaseInsensitive(row, "Firma_Coordinador", "FirmaCoordinador") || ""),

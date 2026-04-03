@@ -13,7 +13,6 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BiaAlert } from "@/components/ui/bia-alert";
 import { BiaConfirm } from "@/components/ui/bia-confirm";
-import { balanceStatusTone } from "@/lib/balance-status";
 import { etiquetaZona } from "@/lib/coordinador-zona";
 import { SIN_FILTRO } from "@/lib/filter-select";
 import { formatCOP } from "@/lib/format";
@@ -126,7 +125,10 @@ export function AdminUsuariosClient() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [bRes, uRes] = await Promise.all([fetch("/api/balance"), fetch("/api/usuarios")]);
+      const [bRes, uRes] = await Promise.all([
+        fetch("/api/balance"),
+        fetch("/api/usuarios?todos=true"),
+      ]);
       const bJson = await bRes.json().catch(() => ({ data: [] }));
       const uJson = await uRes.json().catch(() => ({ data: [] }));
       setBalances(Array.isArray(bJson.data) ? bJson.data : []);
@@ -437,9 +439,11 @@ export function AdminUsuariosClient() {
               ) : filtrados.length ? (
                 filtrados.map((row) => {
                   const b = balanceForResponsable(bMap, row.responsable);
-                  const tone = balanceStatusTone(b.balance);
+                  const bal = b.balance;
                   const sheetActive = activeFromSheet.get(row.email);
                   const cuentaActiva = sheetActive !== undefined ? sheetActive : true;
+                  const balanceSubCls =
+                    bal > 0 ? "text-[#08DDBC]" : bal < 0 ? "text-red-400" : "text-[#525A72]";
                   return (
                     <TableRow key={row.email}>
                       <TableCell className="font-medium">{row.responsable || "—"}</TableCell>
@@ -449,8 +453,16 @@ export function AdminUsuariosClient() {
                       <TableCell className="tabular-nums text-sm">{formatCOP(b.totalRecibido)}</TableCell>
                       <TableCell className="tabular-nums text-sm">{formatCOP(b.totalGastado)}</TableCell>
                       <TableCell className="tabular-nums text-sm">
-                        <span className={tone.cls}>{formatCOP(b.balance)}</span>
-                        <span className="ml-2 text-xs text-bia-gray">{tone.label}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`font-medium ${balanceSubCls}`}>{formatCOP(bal)}</span>
+                          <span className={`text-xs font-medium ${balanceSubCls}`}>
+                            {bal > 0
+                              ? `Saldo a favor empresa: ${formatCOP(bal)}`
+                              : bal < 0
+                                ? `Por reembolsar: ${formatCOP(Math.abs(bal))}`
+                                : "Al día"}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-1">

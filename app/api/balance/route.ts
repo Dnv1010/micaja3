@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const map = await loadMicajaBalancesByResponsable();
     if (!responsableQ) {
       const usuarios = await getUsuariosFromSheet();
-      for (const u of usuarios.filter((x) => x.userActive)) {
+      for (const u of usuarios) {
         if (!map.has(u.responsable)) map.set(u.responsable, { recibido: 0, gastado: 0 });
       }
     }

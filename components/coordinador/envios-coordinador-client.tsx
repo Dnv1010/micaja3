@@ -12,8 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SIN_FILTRO } from "@/lib/filter-select";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
-import { findFallbackUserByResponsable } from "@/lib/users-fallback";
-import type { FallbackUser } from "@/lib/users-fallback";
 
 type EnvioRow = Record<string, unknown>;
 
@@ -36,13 +34,13 @@ function drivePreviewEmbedUrl(url: string): string | null {
   return m?.[1] ? `https://drive.google.com/file/d/${m[1]}/preview` : null;
 }
 
+type ZoneUserEnvio = { responsable: string; telefono: string; email: string };
+
 export function EnviosCoordinadorClient({
   sector,
-  zoneUsers,
   uploadResponsableFallback,
 }: {
   sector: string;
-  zoneUsers: FallbackUser[];
   uploadResponsableFallback: string;
 }) {
   const { data: sessionData } = useSession();
@@ -72,6 +70,39 @@ export function EnviosCoordinadorClient({
   const [lista, setLista] = useState<EnvioRow[]>([]);
 
   const [imagenModal, setImagenModal] = useState<string | null>(null);
+  const [zoneUsers, setZoneUsers] = useState<ZoneUserEnvio[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const enc = encodeURIComponent(sector || sessionSector || "Bogota");
+    fetch(`/api/usuarios?sector=${enc}&rol=user`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.data) ? d.data : [];
+        const list: ZoneUserEnvio[] = [];
+        for (const row of rows) {
+          const rec = row as Record<string, unknown>;
+          const responsable = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
+          if (!responsable) continue;
+          const email = String(getCellCaseInsensitive(rec, "Correos", "Correo", "Email") || "").trim();
+          if (!email) continue;
+          list.push({
+            responsable,
+            email,
+            telefono: String(getCellCaseInsensitive(rec, "Telefono", "Teléfono") || "").trim(),
+          });
+        }
+        list.sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
+        setZoneUsers(list);
+      })
+      .catch(() => {
+        if (!cancelled) setZoneUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sector, sessionSector]);
 
   function liberarPreviewObjectUrl() {
     if (previewObjectUrlRef.current) {
@@ -117,8 +148,7 @@ export function EnviosCoordinadorClient({
   function onUsuarioChange(v: string) {
     setResponsable(v);
     const fromList = zoneUsers.find((u) => u.responsable === v);
-    const fromFallback = findFallbackUserByResponsable(v);
-    const t = fromList?.telefono || fromFallback?.telefono;
+    const t = fromList?.telefono;
     if (t) setTelefono(t);
   }
 
@@ -256,7 +286,7 @@ export function EnviosCoordinadorClient({
                 </SelectTrigger>
                 <SelectContent>
                   {zoneUsers.map((u) => (
-                    <SelectItem key={u.email} value={u.responsable}>
+                    <SelectItem key={u.email || u.responsable} value={u.responsable}>
                       {u.responsable}
                     </SelectItem>
                   ))}
@@ -374,7 +404,7 @@ export function EnviosCoordinadorClient({
                 <SelectContent>
                   <SelectItem value={SIN_FILTRO}>Todos</SelectItem>
                   {zoneUsers.map((u) => (
-                    <SelectItem key={u.email} value={u.responsable}>
+                    <SelectItem key={u.email || u.responsable} value={u.responsable}>
                       {u.responsable}
                     </SelectItem>
                   ))}

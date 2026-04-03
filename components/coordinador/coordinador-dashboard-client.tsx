@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseMonto } from "@/lib/format";
-import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { normalizeSector } from "@/lib/sector-normalize";
-import { fallbackActiveZoneUsers } from "@/lib/users-fallback";
+import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaRow = Record<string, unknown>;
 type EntregaRow = Record<string, unknown>;
@@ -46,14 +45,35 @@ export function CoordinadorDashboardClient({
   const sectorQuery = useMemo(() => normalizeSector(sector) ?? sector.trim(), [sector]);
   const limite = limiteAprobacionZona(sectorQuery);
 
-  const tecnicosZona = useMemo(
-    () => fallbackActiveZoneUsers(sector),
-    [sector]
-  );
+  const [tecnicosZona, setTecnicosZona] = useState<{ responsable: string }[]>([]);
 
   const [facturas, setFacturas] = useState<FacturaRow[]>([]);
   const [entregas, setEntregas] = useState<EntregaRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const enc = encodeURIComponent(sectorQuery);
+    fetch(`/api/usuarios?sector=${enc}&rol=user`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!mounted) return;
+        const rows = Array.isArray(d.data) ? d.data : [];
+        const list: { responsable: string }[] = [];
+        for (const row of rows) {
+          const rec = row as Record<string, unknown>;
+          const name = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
+          if (name) list.push({ responsable: name });
+        }
+        setTecnicosZona(list);
+      })
+      .catch(() => {
+        if (mounted) setTecnicosZona([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [sectorQuery]);
 
   useEffect(() => {
     let mounted = true;

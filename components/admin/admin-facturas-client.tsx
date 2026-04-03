@@ -27,7 +27,6 @@ import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { formatCOP, parseCOPString, parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { SIN_FILTRO } from "@/lib/filter-select";
-import { FALLBACK_USERS } from "@/lib/users-fallback";
 import { BiaConfirm } from "@/components/ui/bia-confirm";
 
 type FacturaRow = Record<string, unknown>;
@@ -53,6 +52,9 @@ export function AdminFacturasClient() {
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [imagenModal, setImagenModal] = useState<string | null>(null);
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
+  const [usuariosOpciones, setUsuariosOpciones] = useState<{ responsable: string; email: string }[]>(
+    []
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,10 +73,30 @@ export function AdminFacturasClient() {
     void load();
   }, [load]);
 
-  const usuariosOpciones = useMemo(
-    () => FALLBACK_USERS.filter((u) => u.rol === "user").sort((a, b) => a.responsable.localeCompare(b.responsable)),
-    []
-  );
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/usuarios?rol=user")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.data) ? d.data : [];
+        const list: { responsable: string; email: string }[] = [];
+        for (const row of rows) {
+          const rec = row as Record<string, unknown>;
+          const name = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
+          const email = String(getCellCaseInsensitive(rec, "Correos", "Correo", "Email") || "").trim();
+          if (name && email) list.push({ responsable: name, email });
+        }
+        list.sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
+        setUsuariosOpciones(list);
+      })
+      .catch(() => {
+        if (!cancelled) setUsuariosOpciones([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtradas = useMemo(() => {
     const desdeD = desde ? parseSheetDate(desde) : null;

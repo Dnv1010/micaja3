@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
-import { fallbackActiveZoneUsers } from "@/lib/users-fallback";
 
 type FacturaItem = Record<string, unknown>;
 
@@ -43,7 +42,34 @@ const COLS = 13;
 export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const { data } = useSession();
   const sector = String(data?.user?.sector || "");
-  const zoneUsers = useMemo(() => fallbackActiveZoneUsers(sector), [sector]);
+  const [zoneUsers, setZoneUsers] = useState<{ responsable: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = admin
+      ? "/api/usuarios?rol=user"
+      : `/api/usuarios?sector=${encodeURIComponent(sector)}&rol=user`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.data) ? d.data : [];
+        const list: { responsable: string }[] = [];
+        for (const row of rows) {
+          const rec = row as Record<string, unknown>;
+          const name = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
+          if (name) list.push({ responsable: name });
+        }
+        list.sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
+        setZoneUsers(list);
+      })
+      .catch(() => {
+        if (!cancelled) setZoneUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [admin, sector]);
 
   const [usuario, setUsuario] = useState<string>(SIN_FILTRO);
   const [desde, setDesde] = useState("");

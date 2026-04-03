@@ -8,7 +8,6 @@ import { sumasFacturasZona } from "@/lib/caja-menor-dashboard";
 import { etiquetaZona, limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseCOPString, parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
-import { FALLBACK_USERS } from "@/lib/users-fallback";
 
 type FacturaRow = Record<string, unknown>;
 type ReporteRow = Record<string, string>;
@@ -36,6 +35,7 @@ export function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [facturas, setFacturas] = useState<FacturaRow[]>([]);
   const [reportes, setReportes] = useState<ReporteRow[]>([]);
+  const [tecnicosPorSector, setTecnicosPorSector] = useState<{ sector: string }[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,19 +59,41 @@ export function AdminDashboardClient() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/usuarios?rol=user")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.data) ? d.data : [];
+        const list: { sector: string }[] = [];
+        for (const row of rows) {
+          const rec = row as Record<string, unknown>;
+          list.push({
+            sector: String(getCellCaseInsensitive(rec, "Sector", "Zona") || "Bogota").trim(),
+          });
+        }
+        setTecnicosPorSector(list);
+      })
+      .catch(() => {
+        if (!cancelled) setTecnicosPorSector([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const zonasResumen = useMemo(() => {
     const zonas: ("Bogota" | "Costa Caribe")[] = ["Bogota", "Costa Caribe"];
     return zonas.map((zona) => {
       const limite = limiteAprobacionZona(zona);
-      const usuarios = FALLBACK_USERS.filter(
-        (u) => u.sector === zona && u.rol === "user" && u.userActive
-      );
+      const usuariosCount = tecnicosPorSector.filter((u) => u.sector === zona).length;
       const { totalAprobado, totalPendiente } = sumasFacturasZona(facturas, zona);
-      const cap = limite * Math.max(usuarios.length, 1);
+      const cap = limite * Math.max(usuariosCount, 1);
       const pctZona = cap > 0 ? Math.round((totalAprobado / cap) * 100) : 0;
-      return { zona, limite, usuariosCount: usuarios.length, totalAprobado, totalPendiente, pctZona };
+      return { zona, limite, usuariosCount, totalAprobado, totalPendiente, pctZona };
     });
-  }, [facturas]);
+  }, [facturas, tecnicosPorSector]);
 
   const stats = useMemo(() => {
     let totalMes = 0;

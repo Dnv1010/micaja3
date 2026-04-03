@@ -20,7 +20,7 @@ import {
   TIPOS_FACTURA_FIJOS,
   TIPOS_OPERACION,
 } from "@/lib/factura-field-options";
-import { FALLBACK_USERS } from "@/lib/users-fallback";
+import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { isFechaFacturaFutura, parseFechaFacturaDDMMYYYY } from "@/lib/nueva-factura-validation";
 
@@ -157,14 +157,47 @@ export default function NuevaFacturaPage() {
   const [saveError, setSaveError] = useState("");
   const [duplicada, setDuplicada] = useState(false);
   const [responsableTarget, setResponsableTarget] = useState("");
+  const [usuariosZona, setUsuariosZona] = useState<
+    { responsable: string; cargo: string; email: string }[]
+  >([]);
 
   const sessionSector = String(user?.sector || "");
   const rol = String(user?.rol || "user").toLowerCase();
 
-  const usuariosZona = useMemo(
-    () => FALLBACK_USERS.filter((u) => u.sector === sessionSector && u.userActive),
-    [sessionSector]
-  );
+  useEffect(() => {
+    if (rol !== "coordinador" && rol !== "admin") return;
+    const url =
+      rol === "admin"
+        ? "/api/usuarios?rol=user"
+        : `/api/usuarios?sector=${encodeURIComponent(sessionSector)}&rol=user`;
+    let cancelled = false;
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.data) ? d.data : [];
+        const list: { responsable: string; cargo: string; email: string }[] = [];
+        for (const row of rows) {
+          const rec = row as Record<string, unknown>;
+          const responsable = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
+          const email = String(getCellCaseInsensitive(rec, "Correos", "Correo", "Email") || "").trim();
+          if (!responsable || !email) continue;
+          list.push({
+            responsable,
+            email,
+            cargo: String(getCellCaseInsensitive(rec, "Cargo") || "").trim(),
+          });
+        }
+        list.sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
+        setUsuariosZona(list);
+      })
+      .catch(() => {
+        if (!cancelled) setUsuariosZona([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rol, sessionSector]);
 
   useEffect(() => {
     const s = String(user?.sector || "");

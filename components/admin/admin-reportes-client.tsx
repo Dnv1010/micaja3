@@ -19,7 +19,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BiaAlert } from "@/components/ui/bia-alert";
 import { BiaConfirm } from "@/components/ui/bia-confirm";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
-import { findFallbackUserByResponsable } from "@/lib/users-fallback";
 import { formatCOP, parseCOPString } from "@/lib/format";
 import {
   extractIdsFromReporteFacturasCell,
@@ -174,7 +173,23 @@ export function AdminReportesClient() {
       const sectorRep = String(activo.Sector || adminSector);
       const limite = limiteAprobacionZona(sectorRep);
       const coordNombre = String(activo.Coordinador || "");
-      const coordFallback = findFallbackUserByResponsable(coordNombre);
+      let coordCargo = "Field Ops Planner";
+      let coordCedula = "";
+      let coordArea = "";
+      try {
+        const uRes = await fetch(
+          `/api/usuarios?responsable=${encodeURIComponent(coordNombre.trim())}`
+        );
+        const uJson = (await uRes.json().catch(() => ({}))) as { data?: Record<string, unknown>[] };
+        const uRow = Array.isArray(uJson.data) ? uJson.data[0] : undefined;
+        if (uRow) {
+          coordCargo = String(getCellCaseInsensitive(uRow, "Cargo") || coordCargo);
+          coordCedula = String(getCellCaseInsensitive(uRow, "Cedula", "Cédula", "Documento") || "");
+          coordArea = String(getCellCaseInsensitive(uRow, "Area", "Área") || "");
+        }
+      } catch {
+        /* defaults */
+      }
       const firmaCoord = String(activo.Firma_Coordinador || activo.FirmaCoordinador || "");
       const generadoTxt = new Date().toLocaleDateString("es-CO");
 
@@ -230,10 +245,10 @@ export function AdminReportesClient() {
         <LegalizacionPdf
           coordinador={{
             responsable: coordNombre,
-            cargo: coordFallback?.cargo || "Field Ops Planner",
-            cedula: coordFallback?.cedula || "",
+            cargo: coordCargo,
+            cedula: coordCedula,
             sector: sectorRep,
-            area: coordFallback?.area || "",
+            area: coordArea,
           }}
           facturas={facturasConImagenes}
           firmaCoordinador={firmaCoord}

@@ -18,6 +18,7 @@ function spreadsheetId(): string {
   return id;
 }
 
+/** Solo "aprobada" suma al gastado del balance; "completada" ya fue pagada y no cuenta. */
 function facturaGastadoAprobada(f: Record<string, string>): boolean {
   const v = String(getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || "").toLowerCase();
   return v === "aprobada";

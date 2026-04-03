@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { balanceStatusTone } from "@/lib/balance-status";
 import { etiquetaZona } from "@/lib/coordinador-zona";
 import { formatCOP } from "@/lib/format";
-import type { FallbackUser } from "@/lib/users-fallback";
+import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type BalanceApi = {
   responsable: string;
@@ -23,7 +23,9 @@ function balanceMapFromApi(rows: BalanceApi[]): Map<string, BalanceApi> {
   return m;
 }
 
-function balanceForUser(m: Map<string, BalanceApi>, u: FallbackUser): BalanceApi {
+type ZonaUsuario = { responsable: string; cargo: string; email: string };
+
+function balanceForUser(m: Map<string, BalanceApi>, u: ZonaUsuario): BalanceApi {
   return (
     m.get(u.responsable.trim().toLowerCase()) || {
       responsable: u.responsable,
@@ -34,15 +36,60 @@ function balanceForUser(m: Map<string, BalanceApi>, u: FallbackUser): BalanceApi
   );
 }
 
+function rowToZonaUsuario(rec: Record<string, unknown>): ZonaUsuario | null {
+  const responsable = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
+  const email = String(getCellCaseInsensitive(rec, "Correos", "Correo", "Email") || "").trim();
+  if (!responsable || !email) return null;
+  return {
+    responsable,
+    email,
+    cargo: String(getCellCaseInsensitive(rec, "Cargo") || "").trim(),
+  };
+}
+
 export function UsuariosZonaClient({
   sectorLabel,
-  zoneUsers,
+  sectorFilter,
 }: {
   sectorLabel: string;
-  zoneUsers: FallbackUser[];
+  /** null = admin: todas las zonas (incl. inactivos vía todos=true) */
+  sectorFilter: string | null;
 }) {
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [zoneUsers, setZoneUsers] = useState<ZonaUsuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState<BalanceApi[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingUsers(true);
+    const q =
+      sectorFilter === null
+        ? "todos=true"
+        : `sector=${encodeURIComponent(sectorFilter)}`;
+    fetch(`/api/usuarios?${q}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d.data) ? d.data : [];
+        const list: ZonaUsuario[] = [];
+        for (const row of rows) {
+          const u = rowToZonaUsuario(row as Record<string, unknown>);
+          if (u) list.push(u);
+        }
+        list.sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
+        setZoneUsers(list);
+      })
+      .catch(() => {
+        if (!cancelled) setZoneUsers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingUsers(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sectorFilter]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,9 +110,8 @@ export function UsuariosZonaClient({
 
   const bMap = useMemo(() => balanceMapFromApi(balances), [balances]);
 
-  const sorted = useMemo(() => {
-    return [...zoneUsers].sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
-  }, [zoneUsers]);
+  const sorted = zoneUsers;
+  const tableLoading = loadingUsers || loading;
 
   return (
     <div className="space-y-6">
@@ -93,7 +139,7 @@ export function UsuariosZonaClient({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {tableLoading ? (
                 <TableRow>
                   <TableCell colSpan={6}>
                     <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
@@ -104,7 +150,7 @@ export function UsuariosZonaClient({
                   const b = balanceForUser(bMap, u);
                   const tone = balanceStatusTone(b.balance);
                   const balCls =
-                    b.balance > 0 ? "text-emerald-400" : b.balance < 0 ? "text-red-400" : "text-bia-gray-light";
+                    b.balance > 0 ? "text-[#08DDBC]" : b.balance < 0 ? "text-red-400" : "text-bia-gray-light";
                   return (
                     <TableRow key={u.email}>
                       <TableCell className="font-medium">{u.responsable}</TableCell>
@@ -123,7 +169,7 @@ export function UsuariosZonaClient({
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-bia-gray">
-                    No hay usuarios en esta zona (lista base).
+                    No hay usuarios en esta zona.
                   </TableCell>
                 </TableRow>
               )}

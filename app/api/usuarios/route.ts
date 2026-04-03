@@ -11,13 +11,65 @@ import {
   deleteUsuarioMicajaByEmail,
   patchUsuarioMicaja,
 } from "@/lib/usuarios-micaja-crud";
-import { invalidarCacheUsuarios } from "@/lib/usuarios-sheet";
+import {
+  getUsuariosFromSheet,
+  invalidarCacheUsuarios,
+  sheetSectorToCanon,
+  usuarioSheetToApiRow,
+} from "@/lib/usuarios-sheet";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const usuarios = await loadUsuariosMerged();
-  return NextResponse.json({ data: usuarios });
+  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const sectorQ = searchParams.get("sector") || "";
+  const rolQ = searchParams.get("rol") || "";
+  const todosQ = searchParams.get("todos") === "true";
+  const responsableQ = searchParams.get("responsable")?.trim() || "";
+
+  try {
+    const usuarios = await getUsuariosFromSheet();
+    const rolSesion = String(session.user.rol || "").toLowerCase();
+
+    let filtrados = usuarios;
+
+    if (rolSesion === "coordinador") {
+      const sectorCoord = sheetSectorToCanon(String(session.user.sector || ""));
+      filtrados = filtrados.filter((u) => u.sector === sectorCoord);
+    } else if (rolSesion === "user") {
+      const sectorUser = sheetSectorToCanon(String(session.user.sector || ""));
+      filtrados = filtrados.filter((u) => u.sector === sectorUser);
+    } else if (rolSesion !== "admin") {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    if (sectorQ) {
+      const sectorNorm = sheetSectorToCanon(sectorQ);
+      filtrados = filtrados.filter((u) => u.sector === sectorNorm);
+    }
+
+    if (rolQ) {
+      filtrados = filtrados.filter((u) => u.rol.toLowerCase() === rolQ.toLowerCase());
+    }
+
+    if (responsableQ) {
+      const t = responsableQ.toLowerCase();
+      filtrados = filtrados.filter((u) => u.responsable.trim().toLowerCase() === t);
+    }
+
+    if (rolSesion === "admin" && todosQ) {
+      /* incluir inactivos */
+    } else {
+      filtrados = filtrados.filter((u) => u.userActive);
+    }
+
+    const data = filtrados.map(usuarioSheetToApiRow);
+    return NextResponse.json({ data });
+  } catch (e) {
+    console.error("[api/usuarios]", e);
+    return NextResponse.json({ data: [] });
+  }
 }
 
 export async function POST(req: Request) {
