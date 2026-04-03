@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { evaluarAutoAprobacion } from "@/lib/auto-aprobacion";
-import { validateFacturaNegocio, type FacturaMutateFields } from "@/lib/factura-mutate-validation";
-import { parseCOPString, parseSheetDate } from "@/lib/format";
+import { crearFacturaMicaja, type FacturaCreateBody } from "@/lib/facturas-create-micaja";
+import { parseSheetDate } from "@/lib/format";
 import {
-  appendFacturaRowLegacyAS,
-  buildMicajaFacturasLegacyRowAS,
   loadMicajaFacturasSheetRows,
 } from "@/lib/micaja-facturas-sheet";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { rowsToObjects } from "@/lib/sheets-helpers";
-import { findFacturaDuplicadaPorNitNumResponsable, estadoFacturaDuplicadaMensaje } from "@/lib/factura-duplicada-micaja";
-import { normalizeSector } from "@/lib/sector-normalize";
-import { responsablesEnZonaSet } from "@/lib/users-fallback";
-import { sectorsEquivalent } from "@/lib/sector-normalize";
+import { normalizeSector, sectorsEquivalent } from "@/lib/sector-normalize";
+import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import type { FacturaRow } from "@/types/models";
 
 function facturaEstadoCell(f: FacturaRow): string {
@@ -52,9 +47,9 @@ export async function GET(req: NextRequest) {
     let zonaSet: Set<string> | null = null;
     if (zonaSector) {
       if (rol === "admin") {
-        zonaSet = responsablesEnZonaSet(zonaSector);
+        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       } else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector)) {
-        zonaSet = responsablesEnZonaSet(zonaSector);
+        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       } else {
         return NextResponse.json({ data: [] });
       }
@@ -94,165 +89,19 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const rolPost = String(session.user.rol || "user").toLowerCase();
-  if (rolPost !== "user" && rolPost !== "coordinador" && rolPost !== "admin") {
-    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
-  }
-
+  let body: FacturaCreateBody;
   try {
-    const body = (await req.json()) as {
-      fecha?: string;
-      proveedor?: string;
-      nit?: string;
-      numFactura?: string;
-      concepto?: string;
-      valor?: string;
-      tipoFactura?: string;
-      servicioDeclarado?: string;
-      tipoOperacion?: string;
-      aNombreBia?: boolean;
-      ciudad?: string;
-      responsable?: string;
-      area?: string;
-      sector?: string;
-      imagenUrl?: string;
-      driveFileId?: string;
-    };
-
-    const imagenUrl = String(body.imagenUrl || "").trim();
-    if (!imagenUrl) {
-      return NextResponse.json(
-        { error: "La factura debe incluir la imagen en Drive (imagenUrl)" },
-        { status: 400 }
-      );
-    }
-
-    const fecha = String(body.fecha || "").trim();
-    const proveedor = String(body.proveedor || "").trim();
-    const concepto = String(body.concepto || "").trim();
-    const tipoFactura = String(body.tipoFactura || "").trim();
-    const servicioDeclarado = String(body.servicioDeclarado || "").trim();
-    const tipoOperacion = String(body.tipoOperacion || "").trim();
-    const ciudad = String(body.ciudad || "").trim();
-    const sector = String(body.sector || "").trim();
-    const nit = String(body.nit || "").trim();
-    const numFactura = String(body.numFactura || "").trim();
-    const aNombreBia = Boolean(body.aNombreBia);
-    const valorNum = parseCOPString(String(body.valor || "0"));
-
-    const mutate: FacturaMutateFields = {
-      fecha,
-      proveedor,
-      concepto,
-      tipoFactura,
-      servicioDeclarado,
-      tipoOperacion,
-      ciudad,
-      sector,
-      nit,
-      valorRaw: String(body.valor || "0"),
-      aNombreBia,
-    };
-    const vErr = validateFacturaNegocio(mutate);
-    if (vErr) {
-      return NextResponse.json({ error: vErr }, { status: 400 });
-    }
-
-    const responsable = String(body.responsable || session.user.responsable || "").trim();
-    if (!responsable) {
-      return NextResponse.json({ error: "Falta responsable" }, { status: 400 });
-    }
-    if (rolPost === "coordinador") {
-      const setZ = responsablesEnZonaSet(String(session.user.sector || ""));
-      const mine = String(session.user.responsable || "").trim().toLowerCase();
-      if (responsable.toLowerCase() !== mine && !setZ.has(responsable.toLowerCase())) {
-        return NextResponse.json({ error: "Responsable fuera de su zona" }, { status: 403 });
-      }
-    }
-
-    const sheetRows = await loadMicajaFacturasSheetRows();
-    const facturasObjs = rowsToObjects<FacturaRow>(sheetRows);
-
-    if (nit && numFactura) {
-      const duplicada = findFacturaDuplicadaPorNitNumResponsable(facturasObjs, {
-        nit,
-        numFactura,
-        responsable,
-      });
-      if (duplicada) {
-        const estadoDup = estadoFacturaDuplicadaMensaje(duplicada);
-        return NextResponse.json(
-          {
-            error: `Esta factura ya fue registrada anteriormente (Estado: ${estadoDup}). No se puede registrar de nuevo.`,
-            duplicada: true,
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    const facturaParaEvaluar: Record<string, unknown> = {
-      Nit_Factura: nit,
-      Num_Factura: numFactura,
-      Adjuntar_Factura: imagenUrl,
-      ImagenURL: imagenUrl,
-      Nombre_bia: aNombreBia ? "TRUE" : "FALSE",
-      Tipo_servicio: servicioDeclarado,
-      Monto_Factura: String(Math.round(valorNum)),
-      Responsable: responsable,
-      Fecha_Factura: fecha,
-    };
-
-    const resultado = evaluarAutoAprobacion(facturaParaEvaluar, facturasObjs);
-    const estadoInicial = resultado.aprobar ? "Aprobada" : "Pendiente";
-    const observacionFinal = resultado.aprobar
-      ? `${concepto.trim() ? `${concepto.trim()} · ` : ""}[AUTO] ${resultado.motivo}`
-      : concepto;
-
-    console.log(`[auto-aprobacion] ${responsable}: ${resultado.motivo}`);
-
-    const id = String(Date.now());
-    const sectorFinal =
-      normalizeSector(sector || String(session.user.sector || "")) ??
-      (sector || String(session.user.sector || ""));
-
-    const fila = buildMicajaFacturasLegacyRowAS({
-      id,
-      numFactura,
-      fecha,
-      valor: String(Math.round(valorNum)),
-      responsable,
-      servicioDeclarado,
-      tipoFactura,
-      nit,
-      razonSocial: proveedor,
-      aNombreBia,
-      concepto,
-      imagenUrl,
-      ciudad,
-      sector: sectorFinal,
-      tipoOperacion,
-      estadoLegalizadoVerificado: estadoInicial,
-      observacion: observacionFinal,
-    });
-
-    console.log("[facturas POST] body recibido:", {
-      fecha,
-      proveedor,
-      nit,
-      valor: body.valor,
-      tipoFactura,
-      numFactura,
-      tipoOperacion,
-      estadoInicial,
-    });
-    console.log("[facturas POST] fila A:S:", fila);
-
-    await appendFacturaRowLegacyAS(fila);
-
-    return NextResponse.json({ ok: true, id, estadoInicial });
-  } catch (e) {
-    console.error("facturas POST:", e);
-    return NextResponse.json({ ok: false, error: "No se pudo guardar la factura" }, { status: 500 });
+    body = (await req.json()) as FacturaCreateBody;
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
+
+  const result = await crearFacturaMicaja(body, { kind: "session", session });
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error, duplicada: result.duplicada },
+      { status: result.status }
+    );
+  }
+  return NextResponse.json({ ok: true, id: result.id, estadoInicial: result.estadoInicial });
 }

@@ -9,7 +9,7 @@ import {
   quoteSheetTitleForRange,
   sheetValuesToRecords,
 } from "@/lib/sheets-helpers";
-import { appPublicBaseUrl, enviarWhatsApp, telefonosCoordinadoresZona } from "@/lib/whatsapp";
+import { appPublicBaseUrl, escHtml, notificarCoordinadoresZona } from "@/lib/notificaciones";
 
 const TAB = SHEET_NAMES.LEGALIZACIONES;
 const RANGE = `${quoteSheetTitleForRange(TAB)}!A:N`;
@@ -82,10 +82,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const totalRaw = cell("Total");
     const totalReporte = parseCOPString(totalRaw) || Number(totalRaw.replace(/[^\d]/g, "")) || 0;
     const base = appPublicBaseUrl();
-    const msgCoord = `*BIA Energy - MiCaja*\n\nTu reporte ha sido *firmado y aprobado* por el administrador.\n\nTotal aprobado: ${formatCOP(totalReporte)}\nYa puedes descargarlo en PDF.\n\nDescarga en: ${base}/reporte`;
-    for (const telefono of telefonosCoordinadoresZona(sectorReporte)) {
-      void enviarWhatsApp(telefono, msgCoord).catch(() => {});
-    }
+    const msgCoord = [
+      `✅ <b>BIA Energy - MiCaja</b>`,
+      ``,
+      `Tu reporte fue <b>firmado y aprobado</b> por el administrador.`,
+      ``,
+      `<b>Total aprobado:</b> ${escHtml(formatCOP(totalReporte))}`,
+      ``,
+      `Descarga PDF: ${escHtml(`${base}/reporte`)}`,
+    ].join("\n");
+    void notificarCoordinadoresZona(sectorReporte, msgCoord).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (e) {

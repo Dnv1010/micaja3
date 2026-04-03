@@ -3,7 +3,7 @@ import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-help
 import { parseMonto } from "@/lib/format";
 import { normalizeSector } from "@/lib/sector-normalize";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
-import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 
 export type MicajaBalanceRow = {
   responsable: string;
@@ -32,7 +32,7 @@ export async function loadMicajaBalancesByResponsable(opts?: {
   const sheets = getSheetsClient();
   const sid = spreadsheetId();
   const sectorRaw = opts?.sectorRaw?.trim();
-  const zonaSet = sectorRaw ? responsablesEnZonaSet(sectorRaw) : null;
+  const zonaSet = sectorRaw ? await responsablesEnZonaSheetSet(sectorRaw) : null;
   const wantSec = sectorRaw ? normalizeSector(sectorRaw) : null;
 
   const [entRes, facRes] = await Promise.all([

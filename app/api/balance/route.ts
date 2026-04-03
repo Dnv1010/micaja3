@@ -6,8 +6,8 @@ import {
   mapToBalanceRows,
   type MicajaBalanceRow,
 } from "@/lib/balance-micaja";
-import { FALLBACK_USERS } from "@/lib/users-fallback";
-import { normalizeSector } from "@/lib/sector-normalize";
+import { sectorsEquivalent } from "@/lib/sector-normalize";
+import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 
 /**
  * GET /api/balance — admin: todos; coordinador: solo su zona.
@@ -25,13 +25,8 @@ export async function GET(req: NextRequest) {
       if (!sector) return NextResponse.json({ error: "Sin zona asignada" }, { status: 400 });
 
       const map = await loadMicajaBalancesByResponsable({ sectorRaw: sector });
-      const target = normalizeSector(sector);
-      const enZona = FALLBACK_USERS.filter((u) => {
-        const uCanon = normalizeSector(u.sector);
-        const zoneOk =
-          (target !== null && uCanon === target) || (target === null && u.sector === sector.trim());
-        return zoneOk;
-      });
+      const usuarios = await getUsuariosFromSheet();
+      const enZona = usuarios.filter((u) => u.userActive && sectorsEquivalent(u.sector, sector));
       const nombres = new Set(enZona.map((u) => u.responsable.trim().toLowerCase()));
       for (const u of enZona) {
         if (!map.has(u.responsable)) map.set(u.responsable, { recibido: 0, gastado: 0 });
@@ -51,7 +46,8 @@ export async function GET(req: NextRequest) {
 
     const map = await loadMicajaBalancesByResponsable();
     if (!responsableQ) {
-      for (const u of FALLBACK_USERS) {
+      const usuarios = await getUsuariosFromSheet();
+      for (const u of usuarios.filter((x) => x.userActive)) {
         if (!map.has(u.responsable)) map.set(u.responsable, { recibido: 0, gastado: 0 });
       }
     }

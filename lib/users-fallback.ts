@@ -1,3 +1,4 @@
+import { normalizeEmailForAuth } from "@/lib/email-normalize";
 import { normalizeSector } from "@/lib/sector-normalize";
 
 export type FallbackUser = {
@@ -231,8 +232,8 @@ export const FALLBACK_USERS: FallbackUser[] = [
 ];
 
 export function findFallbackUser(email: string): FallbackUser | null {
-  const normalized = email.toLowerCase().trim();
-  return FALLBACK_USERS.find((u) => u.email.toLowerCase() === normalized) ?? null;
+  const normalized = normalizeEmailForAuth(email);
+  return FALLBACK_USERS.find((u) => normalizeEmailForAuth(u.email) === normalized) ?? null;
 }
 
 /** Coincide por nombre de responsable (p. ej. columna Coordinador del reporte). */

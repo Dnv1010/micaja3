@@ -1,6 +1,7 @@
 import { getSheetsClient, assertSheetsConfigured, SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
 import { getSheetDataBySpreadsheetId, quoteSheetTitleForRange } from "@/lib/sheets-helpers";
 import { normalizeEmailForAuth } from "@/lib/email-normalize";
+import { invalidarCacheUsuarios } from "@/lib/usuarios-sheet";
 
 function tabName(): string {
   return process.env.USUARIOS_SHEET_NAME?.trim() || SHEET_NAMES.USUARIOS;
@@ -55,6 +56,7 @@ export type UsuarioMicajaInput = {
   cargo: string;
   cedula: string;
   pin?: string;
+  telegramChatId?: string;
 };
 
 /** Solo libro MiCaja — evita duplicar en Petty Cash. */
@@ -80,6 +82,7 @@ export async function appendUsuarioMicaja(input: UsuarioMicajaInput): Promise<vo
   setCol(["Cargo"], input.cargo.trim());
   setCol(["Cedula", "Cédula"], input.cedula.trim());
   setCol(["PIN", "Pin"], (input.pin || "1234").trim());
+  setCol(["TelegramChatId", "Telegram"], (input.telegramChatId || "").trim());
 
   await getSheetsClient().spreadsheets.values.append({
     spreadsheetId: sid,
@@ -101,6 +104,7 @@ export type UsuarioMicajaPatch = {
   cargo?: string;
   cedula?: string;
   pin?: string;
+  telegramChatId?: string;
 };
 
 export async function patchUsuarioMicaja(patch: UsuarioMicajaPatch): Promise<number> {
@@ -146,6 +150,7 @@ export async function patchUsuarioMicaja(patch: UsuarioMicajaPatch): Promise<num
     setIf(["Cargo"], patch.cargo);
     setIf(["Cedula", "Cédula"], patch.cedula);
     setIf(["PIN", "Pin"], patch.pin);
+    setIf(["TelegramChatId", "Telegram"], patch.telegramChatId);
 
     for (const u of updates) {
       const letter = a1ColumnLetter(u.col);
@@ -204,4 +209,11 @@ export async function deleteUsuarioMicajaByEmail(email: string): Promise<boolean
   }
 
   return false;
+}
+
+/** Asocia el chat de Telegram al usuario (columna TelegramChatId) e invalida caché de usuarios. */
+export async function patchUsuarioTelegramChatId(email: string, chatId: string): Promise<boolean> {
+  const n = await patchUsuarioMicaja({ email, telegramChatId: chatId.trim() });
+  if (n > 0) invalidarCacheUsuarios();
+  return n > 0;
 }

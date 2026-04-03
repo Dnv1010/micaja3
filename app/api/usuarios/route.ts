@@ -11,6 +11,7 @@ import {
   deleteUsuarioMicajaByEmail,
   patchUsuarioMicaja,
 } from "@/lib/usuarios-micaja-crud";
+import { invalidarCacheUsuarios } from "@/lib/usuarios-sheet";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -55,6 +56,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Ya existe un usuario con ese correo" }, { status: 409 });
     }
 
+    const telegramChatId = String(body.telegramChatId || "").trim();
+
     await appendUsuarioMicaja({
       responsable,
       email,
@@ -66,6 +69,7 @@ export async function POST(req: Request) {
       cargo,
       cedula,
       pin,
+      telegramChatId: telegramChatId || undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
@@ -103,6 +107,7 @@ export async function PATCH(req: Request) {
       if (updated === 0) {
         return NextResponse.json({ error: "Usuario no encontrado en hojas Usuarios" }, { status: 404 });
       }
+      invalidarCacheUsuarios();
       return NextResponse.json({ ok: true, updated });
     }
 
@@ -117,11 +122,13 @@ export async function PATCH(req: Request) {
     if (body.cargo != null) patch.cargo = String(body.cargo).trim();
     if (body.cedula != null) patch.cedula = String(body.cedula).trim();
     if (body.pin != null) patch.pin = String(body.pin).trim();
+    if (body.telegramChatId != null) patch.telegramChatId = String(body.telegramChatId).trim();
 
     const n = await patchUsuarioMicaja(patch);
     if (n === 0) {
       return NextResponse.json({ error: "Usuario no encontrado en MiCaja (Usuarios)" }, { status: 404 });
     }
+    invalidarCacheUsuarios();
     return NextResponse.json({ ok: true, updated: n });
   } catch (e) {
     console.error("usuarios PATCH:", e);
@@ -146,6 +153,7 @@ export async function DELETE(req: NextRequest) {
     if (!ok) {
       return NextResponse.json({ error: "Usuario no encontrado en MiCaja" }, { status: 404 });
     }
+    invalidarCacheUsuarios();
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("usuarios DELETE:", e);

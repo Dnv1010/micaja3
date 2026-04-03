@@ -1,5 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { isBiaAppEmail, normalizeEmailForAuth } from "@/lib/email-normalize";
+import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { findFallbackUser } from "@/lib/users-fallback";
 
 export const authOptions: NextAuthOptions = {
@@ -12,25 +14,47 @@ export const authOptions: NextAuthOptions = {
         pin: { label: "PIN", type: "password" },
       },
       async authorize(credentials) {
-        const email = (credentials?.email ?? "").toLowerCase().trim();
+        const emailNorm = normalizeEmailForAuth(credentials?.email ?? "");
         const pin = (credentials?.pin ?? "").trim();
-        if (!email || !pin) return null;
-        if (!email.endsWith("@bia.app")) return null;
+        if (!emailNorm || !pin) return null;
+        if (!isBiaAppEmail(emailNorm)) return null;
 
-        const user = findFallbackUser(email);
-        if (!user || !user.userActive) return null;
-        if (user.pin !== pin) return null;
+        try {
+          const usuarios = await getUsuariosFromSheet();
+          const user = usuarios.find((u) => u.email === emailNorm);
+          if (user) {
+            if (!user.userActive) return null;
+            if (user.pin !== pin) return null;
+            return {
+              id: emailNorm,
+              email: emailNorm,
+              name: user.responsable,
+              rol: user.rol,
+              sector: user.sector,
+              area: user.area,
+              cargo: user.cargo,
+              responsable: user.responsable,
+              cedula: user.cedula ?? "",
+              telefono: user.telefono ?? "",
+            };
+          }
+        } catch {
+          /* fallback */
+        }
 
+        const fb = findFallbackUser(emailNorm);
+        if (!fb || !fb.userActive || fb.pin !== pin) return null;
         return {
-          id: email,
-          email,
-          name: user.responsable,
-          rol: user.rol,
-          sector: user.sector,
-          area: user.area,
-          cargo: user.cargo,
-          responsable: user.responsable,
-          cedula: user.cedula ?? "",
+          id: emailNorm,
+          email: emailNorm,
+          name: fb.responsable,
+          rol: fb.rol,
+          sector: fb.sector,
+          area: fb.area,
+          cargo: fb.cargo,
+          responsable: fb.responsable,
+          cedula: fb.cedula ?? "",
+          telefono: fb.telefono ?? "",
         };
       },
     }),
@@ -47,6 +71,7 @@ export const authOptions: NextAuthOptions = {
         token.cargo = (user as { cargo?: string }).cargo;
         token.responsable = (user as { responsable?: string }).responsable;
         token.cedula = (user as { cedula?: string }).cedula;
+        token.telefono = (user as { telefono?: string }).telefono;
       }
       return token;
     },
@@ -58,6 +83,7 @@ export const authOptions: NextAuthOptions = {
         session.user.cargo = token.cargo as string;
         session.user.responsable = token.responsable as string;
         session.user.cedula = token.cedula as string;
+        session.user.telefono = token.telefono as string;
       }
       return session;
     },

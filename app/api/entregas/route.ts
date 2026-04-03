@@ -6,7 +6,7 @@ import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-help
 import { parseSheetDate, todayISO } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
-import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import { uniqueSheetKey } from "@/lib/ids";
 
 function micajaSpreadsheetId(): string {
@@ -66,9 +66,9 @@ export async function GET(req: NextRequest) {
 
     let zonaSet: Set<string> | null = null;
     if (zonaSector && rol !== "user") {
-      if (rol === "admin") zonaSet = responsablesEnZonaSet(zonaSector);
+      if (rol === "admin") zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector))
-        zonaSet = responsablesEnZonaSet(zonaSector);
+        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       else return NextResponse.json({ data: [] });
     }
 

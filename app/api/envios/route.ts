@@ -7,8 +7,8 @@ import { parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
 import { formatCOP } from "@/lib/format";
-import { appPublicBaseUrl, enviarWhatsApp, telefonoDeUsuario } from "@/lib/whatsapp";
-import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { appPublicBaseUrl, escHtml, notificarUsuario } from "@/lib/notificaciones";
+import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 
 function micajaSpreadsheetId(): string {
   const id = SPREADSHEET_IDS.MICAJA.trim();
@@ -32,9 +32,9 @@ export async function GET(req: NextRequest) {
 
     let zonaSet: Set<string> | null = null;
     if (sectorQ) {
-      if (rol === "admin") zonaSet = responsablesEnZonaSet(sectorQ);
+      if (rol === "admin") zonaSet = await responsablesEnZonaSheetSet(sectorQ);
       else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), sectorQ))
-        zonaSet = responsablesEnZonaSet(sectorQ);
+        zonaSet = await responsablesEnZonaSheetSet(sectorQ);
       else return NextResponse.json({ data: [] });
     }
 
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (rol === "coordinador") {
-      const set = responsablesEnZonaSet(String(session.user.sector || ""));
+      const set = await responsablesEnZonaSheetSet(String(session.user.sector || ""));
       if (!set.has(responsable.toLowerCase())) {
         return NextResponse.json({ error: "Usuario fuera de su zona" }, { status: 403 });
       }
@@ -130,14 +130,17 @@ export async function POST(req: NextRequest) {
       requestBody: { values: [filaEntrega] },
     });
 
-    const telefonoTecnico = telefonoDeUsuario(responsable);
-    if (telefonoTecnico) {
-      const coord = String(session.user.responsable || session.user.name || "").trim();
-      const montoCOP = Number(montoNum) || 0;
-      const base = appPublicBaseUrl();
-      const msg = `*BIA Energy - MiCaja*\n\nHola ${responsable}, tu coordinador ${coord} te ha enviado *${formatCOP(montoCOP)}* el ${fecha}.\n\nRevisa tu saldo en: ${base}`;
-      void enviarWhatsApp(telefonoTecnico, msg).catch(() => {});
-    }
+    const coord = String(session.user.responsable || session.user.name || "").trim();
+    const montoCOP = Number(montoNum) || 0;
+    const base = appPublicBaseUrl();
+    const msg = [
+      `💸 <b>BIA Energy - MiCaja</b>`,
+      ``,
+      `Hola ${escHtml(responsable)}, tu coordinador <b>${escHtml(coord)}</b> te envió <b>${escHtml(formatCOP(montoCOP))}</b> el ${escHtml(fecha)}.`,
+      ``,
+      `Revisa tu saldo: ${escHtml(base)}`,
+    ].join("\n");
+    void notificarUsuario(responsable, msg).catch(() => {});
 
     return NextResponse.json({ ok: true, id });
   } catch (e) {

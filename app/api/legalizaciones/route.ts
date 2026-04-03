@@ -7,9 +7,9 @@ import { quoteSheetTitleForRange, rowsToObjects, sheetValuesToRecords } from "@/
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseCOPString } from "@/lib/format";
-import { appPublicBaseUrl, enviarWhatsApp, telefonosAdmins } from "@/lib/whatsapp";
+import { appPublicBaseUrl, escHtml, notificarAdmins } from "@/lib/notificaciones";
 import { generarResumenLegalizacionGemini } from "@/lib/gemini-resumen-legalizacion";
-import { responsablesEnZonaSet } from "@/lib/users-fallback";
+import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
 import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
 import type { FacturaRow } from "@/types/models";
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     const sector = String(session.user.sector || "").trim();
     const coordinadorNombre = String(session.user.responsable || session.user.name || "").trim();
     const userArea = String((session.user as { area?: string }).area || "").trim();
-    const zonaSet = rol === "coordinador" ? responsablesEnZonaSet(sector) : null;
+    const zonaSet = rol === "coordinador" ? await responsablesEnZonaSheetSet(sector) : null;
     const mine = coordinadorNombre.toLowerCase();
 
     const factRows = await loadMicajaFacturasSheetRows();
@@ -195,11 +195,19 @@ export async function POST(req: NextRequest) {
     }
 
     const base = appPublicBaseUrl();
-    const admins = telefonosAdmins();
-    const msgAdmin = `*BIA Energy - MiCaja*\n\nTienes un nuevo reporte pendiente de firma.\n\nCoordinador: ${coordinadorNombre}\nZona: ${sector}\nTotal: ${formatCOP(totalNum)}\nPeríodo: ${periodoDe} al ${periodoHasta}\n\nFirma en: ${base}/admin/reportes`;
-    for (const telefono of admins) {
-      void enviarWhatsApp(telefono, msgAdmin).catch(() => {});
-    }
+    const msgAdmin = [
+      `📋 <b>BIA Energy - MiCaja</b>`,
+      ``,
+      `Nuevo reporte pendiente de firma.`,
+      ``,
+      `<b>Coordinador:</b> ${escHtml(coordinadorNombre)}`,
+      `<b>Zona:</b> ${escHtml(sector)}`,
+      `<b>Total:</b> ${escHtml(formatCOP(totalNum))}`,
+      `<b>Período:</b> ${escHtml(periodoDe)} al ${escHtml(periodoHasta)}`,
+      ``,
+      `Firmar en: ${escHtml(`${base}/admin/reportes`)}`,
+    ].join("\n");
+    void notificarAdmins(msgAdmin).catch(() => {});
 
     return NextResponse.json({ ok: true, id, pdfUrl });
   } catch (e) {

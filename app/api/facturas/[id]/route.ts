@@ -16,8 +16,8 @@ import { deleteSheetRow, getSheetId, rowsToObjects } from "@/lib/sheets-helpers"
 import { SHEET_NAMES } from "@/lib/google-sheets";
 import { parseFechaFacturaDDMMYYYY, sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
 import { findFacturaDuplicadaPorNitNumResponsable } from "@/lib/factura-duplicada-micaja";
-import { responsablesEnZonaSet } from "@/lib/users-fallback";
-import { appPublicBaseUrl, enviarWhatsApp, telefonoDeUsuario } from "@/lib/whatsapp";
+import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
+import { appPublicBaseUrl, escHtml, notificarUsuario } from "@/lib/notificaciones";
 import type { FacturaRow } from "@/types/models";
 
 function facturaIdCell(f: FacturaRow): string {
@@ -69,13 +69,17 @@ async function getFacturaById(id: string): Promise<FacturaRow | null> {
   }
 }
 
-function puedeCoordinadorEditar(session: { user?: { rol?: string; sector?: string } }, row: FacturaRow): boolean {
+async function puedeCoordinadorEditar(
+  session: { user?: { rol?: string; sector?: string } },
+  row: FacturaRow
+): Promise<boolean> {
   const rol = String(session.user?.rol || "").toLowerCase();
   if (rol === "admin") return true;
   if (rol !== "coordinador") return false;
   const sector = String(session.user?.sector || "");
   const resp = getCellCaseInsensitive(row, "Responsable");
-  return responsablesEnZonaSet(sector).has(resp.toLowerCase());
+  const set = await responsablesEnZonaSheetSet(sector);
+  return set.has(resp.toLowerCase());
 }
 
 function estadoEdicionPermitido(row: FacturaRow): boolean {
@@ -84,10 +88,10 @@ function estadoEdicionPermitido(row: FacturaRow): boolean {
   return e === "pendiente" || e === "rechazada";
 }
 
-function puedeEditarContenido(
+async function puedeEditarContenido(
   session: { user?: { rol?: string; sector?: string; responsable?: string | null; name?: string | null } },
   row: FacturaRow
-): boolean {
+): Promise<boolean> {
   if (!estadoEdicionPermitido(row)) return false;
   const rol = String(session.user?.rol || "user").toLowerCase();
   if (rol === "admin") return true;
@@ -181,7 +185,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const found = await getFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
-  if (!puedeEditarContenido(session, found)) {
+  if (!(await puedeEditarContenido(session, found))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
@@ -281,7 +285,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (facturaEstadoRow(found).toLowerCase() === "completada") {
       return NextResponse.json({ error: "La factura ya fue incluida en un reporte (Completada)" }, { status: 400 });
     }
-    if (!puedeCoordinadorEditar(session, found)) {
+    if (!(await puedeCoordinadorEditar(session, found))) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
     const motivo = estadoIn === "Rechazada" ? String(body.motivoRechazo || "").trim() : "";
@@ -292,19 +296,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
     if (estadoIn === "Rechazada") {
       const responsableFactura = getCellCaseInsensitive(found, "Responsable");
-      const telefono = telefonoDeUsuario(responsableFactura);
-      if (telefono) {
-        const proveedorFactura = getCellCaseInsensitive(found, "Razon_Social", "Proveedor");
-        const base = appPublicBaseUrl();
-        const msgRechazo = `*BIA Energy - MiCaja*\n\nTu factura de *${proveedorFactura || "—"}* fue rechazada.\n\nMotivo: ${motivo}\n\nPuedes corregirla y volver a subirla en: ${base}/facturas`;
-        void enviarWhatsApp(telefono, msgRechazo).catch(() => {});
-      }
+      const proveedorFactura = getCellCaseInsensitive(found, "Razon_Social", "Proveedor");
+      const base = appPublicBaseUrl();
+      const msgRechazo = [
+        `⚠️ <b>BIA Energy - MiCaja</b>`,
+        ``,
+        `Tu factura de <b>${escHtml(proveedorFactura || "—")}</b> fue rechazada.`,
+        ``,
+        `<b>Motivo:</b> ${escHtml(motivo)}`,
+        ``,
+        `Corrígela en: ${escHtml(`${base}/facturas`)}`,
+      ].join("\n");
+      void notificarUsuario(responsableFactura, msgRechazo).catch(() => {});
     }
     return NextResponse.json({ ok: true });
   }
 
   if (typeof body.tipoOperacion === "string" && body.tipoOperacion.trim()) {
-    if (puedeCoordinadorEditar(session, found) || puedeEditarContenido(session, found)) {
+    if ((await puedeCoordinadorEditar(session, found)) || (await puedeEditarContenido(session, found))) {
       const opsPatch = mapFacturaUpdateBodyToSheetPatch(headers, {
         tipoOperacion: body.tipoOperacion.trim(),
       });
@@ -316,7 +325,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  if (!puedeEditarContenido(session, found)) {
+  if (!(await puedeEditarContenido(session, found))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
@@ -406,7 +415,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const found = await getFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
-  if (rol === "coordinador" && !puedeCoordinadorEditar(session, found)) {
+  if (rol === "coordinador" && !(await puedeCoordinadorEditar(session, found))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
