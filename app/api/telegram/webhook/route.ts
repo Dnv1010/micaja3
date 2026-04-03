@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { formatCOP } from "@/lib/format";
-import { runOcrSpace } from "@/lib/ocr-space";
+import { parseFacturaText } from "@/lib/factura-parser";
 import { appPublicBaseUrl, enviarTelegram, escHtml } from "@/lib/notificaciones";
 import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { patchUsuarioTelegramChatId } from "@/lib/usuarios-micaja-crud";
@@ -11,6 +11,21 @@ function serverBaseUrl(): string {
   const u = process.env.NEXTAUTH_URL?.trim().replace(/\/$/, "");
   if (u) return u;
   return appPublicBaseUrl();
+}
+
+function mimeFromTelegramPath(filePath: string): string {
+  const p = filePath.toLowerCase();
+  if (p.endsWith(".png")) return "image/png";
+  if (p.endsWith(".webp")) return "image/webp";
+  if (p.endsWith(".gif")) return "image/gif";
+  if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return "image/jpeg";
+  return "image/jpeg";
+}
+
+function mimeFromDownload(header: string | null, filePath: string): string {
+  const main = header?.split(";")[0]?.trim().toLowerCase() || "";
+  if (main.startsWith("image/")) return main;
+  return mimeFromTelegramPath(filePath);
 }
 
 export async function POST(req: NextRequest) {
@@ -107,37 +122,120 @@ export async function POST(req: NextRequest) {
   const esImagenDoc =
     documento?.mime_type?.startsWith("image/") && documento.file_id;
   if (foto?.length || esImagenDoc) {
-    await enviarTelegram(chatId, "📸 Recibí tu factura, procesando…");
+    await enviarTelegram(chatId, "📸 Recibí tu factura, analizando…");
+
+    const internalKey = process.env.INTERNAL_API_KEY?.trim() || "";
+    if (!internalKey) {
+      await enviarTelegram(chatId, "❌ Servidor sin INTERNAL_API_KEY — contacta al administrador.");
+      return NextResponse.json({ ok: true });
+    }
 
     try {
       const fileId = foto?.length ? foto[foto.length - 1].file_id : documento!.file_id!;
-      const fileRes = await fetch(`https://api.telegram.org/bot${TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`);
+      const fileRes = await fetch(
+        `https://api.telegram.org/bot${TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`
+      );
       const fileData = (await fileRes.json()) as { result?: { file_path?: string } };
       const filePath = fileData.result?.file_path;
-      if (!filePath) throw new Error("Sin file_path");
-      const fileUrl = `https://api.telegram.org/file/bot${TOKEN}/${filePath}`;
+      if (!filePath) throw new Error("No se pudo obtener la ruta del archivo");
 
-      const ocr = await runOcrSpace({ imageUrl: fileUrl });
-      if (ocr.isErrored || !ocr.fullText.trim()) {
+      const fileUrl = `https://api.telegram.org/file/bot${TOKEN}/${filePath}`;
+      const imgRes = await fetch(fileUrl);
+      if (!imgRes.ok) throw new Error("No se pudo descargar la imagen de Telegram");
+
+      const imgBuffer = await imgRes.arrayBuffer();
+      const base64 = Buffer.from(imgBuffer).toString("base64");
+      const mimeType = mimeFromDownload(imgRes.headers.get("content-type"), filePath);
+      const base64DataUrl = `data:${mimeType};base64,${base64}`;
+
+      let textoOCR = "";
+      try {
+        const ocrForm = new FormData();
+        ocrForm.append("base64Image", base64DataUrl);
+        ocrForm.append("apikey", process.env.OCR_SPACE_API_KEY || "helloworld");
+        ocrForm.append("language", "spa");
+        ocrForm.append("isOverlayRequired", "false");
+        ocrForm.append("OCREngine", "2");
+
+        const ocrRes = await fetch("https://api.ocr.space/parse/image", {
+          method: "POST",
+          body: ocrForm,
+        });
+        const ocrData = (await ocrRes.json()) as {
+          IsErrored?: boolean;
+          ParsedResults?: { ParsedText?: string }[];
+          ErrorMessage?: string | string[];
+        };
+        if (!ocrData.IsErrored && ocrData.ParsedResults?.[0]?.ParsedText) {
+          textoOCR = String(ocrData.ParsedResults[0].ParsedText);
+        }
+      } catch {
+        textoOCR = "";
+      }
+
+      if (!textoOCR.trim() || textoOCR.trim().length < 20) {
+        const geminiKey = process.env.GEMINI_API_KEY?.trim();
+        if (geminiKey) {
+          try {
+            const geminiRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [
+                        {
+                          inline_data: {
+                            mime_type: mimeType,
+                            data: base64,
+                          },
+                        },
+                        {
+                          text: "Extrae el texto completo de esta factura colombiana. Incluye: NIT, razón social, número de factura, fecha, valor total, y cualquier otro dato visible. Responde solo con el texto extraído, sin explicaciones.",
+                        },
+                      ],
+                    },
+                  ],
+                  generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+                }),
+              }
+            );
+            const geminiData = (await geminiRes.json()) as {
+              candidates?: { content?: { parts?: { text?: string }[] } }[];
+            };
+            textoOCR =
+              geminiData.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text?.trim() || "";
+          } catch {
+            textoOCR = "";
+          }
+        }
+      }
+
+      if (!textoOCR.trim() || textoOCR.trim().length < 10) {
+        const appUrl = escHtml(`${serverBaseUrl()}/facturas/nueva`);
         await enviarTelegram(
           chatId,
-          `❌ No se pudo leer el texto de la imagen${ocr.errorMessage ? `: ${escHtml(ocr.errorMessage)}` : ""}. Intenta otra foto o sube desde la app.`
+          [
+            "❌ No pude leer el texto de la factura.",
+            "",
+            "💡 <b>Consejos:</b>",
+            "· Imagen bien iluminada",
+            "· Sin sombras ni reflejos",
+            "· Foto enfocada",
+            "",
+            `O sube la factura en la app: ${appUrl}`,
+          ].join("\n")
         );
         return NextResponse.json({ ok: true });
       }
 
-      const datos = ocr.extracted;
-      const internalKey = process.env.INTERNAL_API_KEY?.trim() || "";
-      if (!internalKey) {
-        await enviarTelegram(chatId, "❌ Servidor sin INTERNAL_API_KEY — contacta al administrador.");
-        return NextResponse.json({ ok: true });
-      }
+      const datos = parseFacturaText(textoOCR);
 
-      const imgRes = await fetch(fileUrl);
-      const imgBuffer = await imgRes.arrayBuffer();
-      const ext = filePath.toLowerCase().endsWith(".png") ? "png" : "jpg";
-      const imgBlob = new Blob([imgBuffer], { type: ext === "png" ? "image/png" : "image/jpeg" });
-
+      const ext =
+        mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
+      const imgBlob = new Blob([imgBuffer], { type: mimeType });
       const formData = new FormData();
       formData.append("file", imgBlob, `telegram_${Date.now()}.${ext}`);
       formData.append("sector", usuario.sector);
@@ -145,16 +243,30 @@ export async function POST(req: NextRequest) {
       formData.append("fecha", new Date().toISOString().slice(0, 7));
 
       const base = serverBaseUrl();
-      const uploadRes = await fetch(`${base}/api/facturas/upload-internal`, {
-        method: "POST",
-        body: formData,
-        headers: { "x-internal-key": internalKey },
-      });
-      const uploadData = (await uploadRes.json()) as { url?: string; fileId?: string; error?: string };
-      if (!uploadRes.ok || !uploadData.url) {
+      let imagenUrl = "";
+      let driveFileId = "";
+      try {
+        const uploadRes = await fetch(`${base}/api/facturas/upload`, {
+          method: "POST",
+          body: formData,
+          headers: {
+            "x-telegram-internal": "true",
+            "x-internal-key": internalKey,
+          },
+        });
+        if (uploadRes.ok) {
+          const uploadData = (await uploadRes.json()) as { url?: string; fileId?: string };
+          imagenUrl = uploadData.url || "";
+          driveFileId = uploadData.fileId || "";
+        }
+      } catch {
+        /* continuar sin imagen en Drive */
+      }
+
+      if (!imagenUrl) {
         await enviarTelegram(
           chatId,
-          `❌ Error al subir imagen: ${escHtml(uploadData.error || "desconocido")}`
+          "❌ No se pudo subir la imagen a Drive. Intenta de nuevo más tarde o usa la app."
         );
         return NextResponse.json({ ok: true });
       }
@@ -178,11 +290,11 @@ export async function POST(req: NextRequest) {
         sector: usuario.sector,
         responsable: usuario.responsable,
         area: usuario.area,
-        imagenUrl: uploadData.url,
-        driveFileId: uploadData.fileId || "",
+        imagenUrl,
+        driveFileId,
       };
 
-      const saveRes = await fetch(`${base}/api/facturas-internal`, {
+      const saveRes = await fetch(`${base}/api/facturas`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -204,12 +316,13 @@ export async function POST(req: NextRequest) {
         `✅ <b>Factura registrada</b>`,
         ``,
         `🏪 Proveedor: ${escHtml(datos.razon_social || "No detectado")}`,
-        `🔢 NIT: ${escHtml(datos.nit_factura || "—")}`,
-        `📅 Fecha: ${escHtml(datos.fecha_factura || "—")}`,
+        `🔢 NIT: ${escHtml(datos.nit_factura || "No detectado")}`,
+        `🧾 N° Factura: ${escHtml(datos.num_factura || "No detectado")}`,
+        `📅 Fecha: ${escHtml(datos.fecha_factura || "No detectada")}`,
         `💰 Valor: ${escHtml(formatCOP(Math.max(0, Math.round(monto))))}`,
-        `🏷️ A nombre BIA: ${datos.nombre_bia ? "✅ Sí" : "❌ No"}`,
+        `🏷️ A nombre de BIA: ${datos.nombre_bia ? "✅ Sí" : "❌ No"}`,
         ``,
-        `<i>Si algo falla, edítala en la app.</i>`,
+        `<i>Si algo está incorrecto, edítala en la app.</i>`,
         `${escHtml(serverBaseUrl())}/facturas`,
       ].join("\n");
 
@@ -218,7 +331,7 @@ export async function POST(req: NextRequest) {
       console.error("[telegram webhook]", e);
       await enviarTelegram(
         chatId,
-        "❌ Error procesando la factura. Intenta de nuevo o súbela desde la app."
+        `❌ Error procesando la factura. Intenta de nuevo o súbela desde la app:\n${escHtml(serverBaseUrl())}/facturas/nueva`
       );
     }
 

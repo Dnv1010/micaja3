@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Readable } from "stream";
+import type { Session } from "next-auth";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { assertSheetsConfigured, getDriveClient } from "@/lib/google-sheets";
+import { verifyInternalApiKey } from "@/lib/internal-api";
 import { getDriveFacturasRootFolderId } from "@/lib/drive-env";
 import { findOrCreateChildFolder, resolveFacturaUploadFolder } from "@/lib/drive-folders";
 
@@ -47,14 +49,21 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const isInternal = req.headers.get("x-telegram-internal") === "true";
 
-  const rol = String(session.user.rol || "user").toLowerCase();
-  if (rol !== "user" && rol !== "coordinador" && rol !== "admin") {
-    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  let session: Session | null = null;
+  if (!isInternal) {
+    session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const rol = String(session.user.rol || "user").toLowerCase();
+    if (rol !== "user" && rol !== "coordinador" && rol !== "admin") {
+      return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+    }
+  } else if (!verifyInternalApiKey(req)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   console.log("[upload] ENV CHECK:", { hasEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL, hasKey: !!process.env.GOOGLE_PRIVATE_KEY, keyLength: process.env.GOOGLE_PRIVATE_KEY?.length, keyStart: process.env.GOOGLE_PRIVATE_KEY?.slice(0,27) });
@@ -96,20 +105,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'sector debe ser "Bogota" o "Costa Caribe"' }, { status: 400 });
     }
 
-    const sessionSector = String(session.user.sector || "").trim();
+    const sessionSector = String(session?.user?.sector || "").trim();
     if (isReportes) {
-      if (rol !== "admin") {
+      if (!session || String(session.user.rol || "").toLowerCase() !== "admin") {
         return NextResponse.json({ error: "Solo el administrador puede subir PDFs de reportes" }, { status: 403 });
       }
       sector = sessionSector && VALID_SECTORS.has(sessionSector) ? sessionSector : "Bogota";
-    } else if (rol === "user" || rol === "coordinador") {
-      if (sessionSector && sector !== sessionSector) {
-        return NextResponse.json({ error: "El sector no coincide con su cuenta" }, { status: 403 });
+    } else if (!isInternal && session) {
+      const rol = String(session.user.rol || "user").toLowerCase();
+      if (rol === "user" || rol === "coordinador") {
+        if (sessionSector && sector !== sessionSector) {
+          return NextResponse.json({ error: "El sector no coincide con su cuenta" }, { status: 403 });
+        }
       }
     }
 
     const responsable = String(
-      formData.get("responsable") || session.user.responsable || session.user.name || ""
+      formData.get("responsable") ||
+        session?.user?.responsable ||
+        session?.user?.name ||
+        ""
     ).trim();
     if (!responsable) {
       return NextResponse.json({ error: "Falta responsable" }, { status: 400 });
