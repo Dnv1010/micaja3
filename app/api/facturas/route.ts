@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { evaluarAutoAprobacion } from "@/lib/auto-aprobacion";
 import { validateFacturaNegocio, type FacturaMutateFields } from "@/lib/factura-mutate-validation";
 import { parseCOPString, parseSheetDate } from "@/lib/format";
 import {
@@ -169,10 +170,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const sheetRows = await loadMicajaFacturasSheetRows();
+    const facturasObjs = rowsToObjects<FacturaRow>(sheetRows);
+
     if (nit && numFactura) {
-      const dupRows = await loadMicajaFacturasSheetRows();
-      const facturas = rowsToObjects<FacturaRow>(dupRows);
-      const duplicada = findFacturaDuplicadaPorNitNumResponsable(facturas, {
+      const duplicada = findFacturaDuplicadaPorNitNumResponsable(facturasObjs, {
         nit,
         numFactura,
         responsable,
@@ -188,6 +190,26 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+
+    const facturaParaEvaluar: Record<string, unknown> = {
+      Nit_Factura: nit,
+      Num_Factura: numFactura,
+      Adjuntar_Factura: imagenUrl,
+      ImagenURL: imagenUrl,
+      Nombre_bia: aNombreBia ? "TRUE" : "FALSE",
+      Tipo_servicio: servicioDeclarado,
+      Monto_Factura: String(Math.round(valorNum)),
+      Responsable: responsable,
+      Fecha_Factura: fecha,
+    };
+
+    const resultado = evaluarAutoAprobacion(facturaParaEvaluar, facturasObjs);
+    const estadoInicial = resultado.aprobar ? "Aprobada" : "Pendiente";
+    const observacionFinal = resultado.aprobar
+      ? `${concepto.trim() ? `${concepto.trim()} · ` : ""}[AUTO] ${resultado.motivo}`
+      : concepto;
+
+    console.log(`[auto-aprobacion] ${responsable}: ${resultado.motivo}`);
 
     const id = String(Date.now());
     const sectorFinal =
@@ -210,6 +232,8 @@ export async function POST(req: NextRequest) {
       ciudad,
       sector: sectorFinal,
       tipoOperacion,
+      estadoLegalizadoVerificado: estadoInicial,
+      observacion: observacionFinal,
     });
 
     console.log("[facturas POST] body recibido:", {
@@ -220,12 +244,13 @@ export async function POST(req: NextRequest) {
       tipoFactura,
       numFactura,
       tipoOperacion,
+      estadoInicial,
     });
     console.log("[facturas POST] fila A:S:", fila);
 
     await appendFacturaRowLegacyAS(fila);
 
-    return NextResponse.json({ ok: true, id });
+    return NextResponse.json({ ok: true, id, estadoInicial });
   } catch (e) {
     console.error("facturas POST:", e);
     return NextResponse.json({ ok: false, error: "No se pudo guardar la factura" }, { status: 500 });

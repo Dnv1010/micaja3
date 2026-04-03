@@ -129,7 +129,13 @@ export function buildMicajaFacturasLegacyRowAS(params: {
   ciudad: string;
   sector: string;
   tipoOperacion: string;
+  /** Legalizado + Verificado (ej. Pendiente | Aprobada). Por defecto Pendiente. */
+  estadoLegalizadoVerificado?: string;
+  /** Si se define, sustituye `concepto` en la columna Observacion. */
+  observacion?: string;
 }): string[] {
+  const estado = params.estadoLegalizadoVerificado ?? "Pendiente";
+  const obs = params.observacion ?? params.concepto;
   return [
     params.id,
     params.numFactura,
@@ -142,11 +148,11 @@ export function buildMicajaFacturasLegacyRowAS(params: {
     "",
     params.razonSocial,
     params.aNombreBia ? "TRUE" : "FALSE",
-    params.concepto,
+    obs,
     params.imagenUrl,
     params.imagenUrl,
-    "Pendiente",
-    "Pendiente",
+    estado,
+    estado,
     params.ciudad,
     params.sector,
     params.tipoOperacion,

@@ -317,6 +317,9 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                   const est =
                     getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
                   const estLower = est.toLowerCase();
+                  const observacionCoord = getCellCaseInsensitive(f, "Observacion", "Concepto");
+                  const esAutoAprobada =
+                    String(observacionCoord || "").includes("[AUTO]") && estLower === "aprobada";
                   const fid = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
                   const puedeAprobarRechazar =
                     (rolSesion === "coordinador" || rolSesion === "admin") && estLower === "pendiente";
@@ -362,9 +365,16 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                       </TableCell>
                       <TableCell>{getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={estadoClass(est)}>
-                          {est}
-                        </Badge>
+                        <div className="flex flex-col items-start gap-1">
+                          {esAutoAprobada ? (
+                            <span className="rounded-full border border-[#08DDBC]/20 bg-[#08DDBC]/10 px-2 py-0.5 text-xs text-[#08DDBC]">
+                              ✓ Auto-aprobada
+                            </span>
+                          ) : null}
+                          <Badge variant="outline" className={estadoClass(est)}>
+                            {est}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         {imgSrc ? (

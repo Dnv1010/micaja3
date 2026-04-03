@@ -376,7 +376,11 @@ export default function NuevaFacturaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const j = (await res.json().catch(() => ({}))) as { error?: string; duplicada?: boolean };
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        duplicada?: boolean;
+        estadoInicial?: string;
+      };
       if (res.status === 409 && j.duplicada) {
         setDuplicada(true);
         setSaveError(typeof j.error === "string" ? j.error : "Esta factura ya está registrada.");
@@ -387,7 +391,9 @@ export default function NuevaFacturaPage() {
         throw new Error(j.error || "No se pudo guardar en la hoja. Revisa los datos e intenta de nuevo.");
       }
       setUploadState("done");
-      router.push("/facturas?saved=1");
+      const auto =
+        String(j.estadoInicial || "").toLowerCase() === "aprobada" ? "aprobada" : "pendiente";
+      router.push(`/facturas?saved=1&auto=${encodeURIComponent(auto)}`);
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : "Error al guardar");
       setUploadState("ready");

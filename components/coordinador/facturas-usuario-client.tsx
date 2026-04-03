@@ -56,10 +56,21 @@ export function FacturasUsuarioClient() {
     void loadFacturas();
   }, [loadFacturas]);
 
-  const saved = useMemo(() => {
-    if (typeof window === "undefined") return false;
+  const bannerGuardado = useMemo(() => {
+    if (typeof window === "undefined") return null;
     const qs = new URLSearchParams(window.location.search);
-    return qs.get("saved") === "1";
+    if (qs.get("saved") !== "1") return null;
+    const auto = qs.get("auto");
+    if (auto === "aprobada") {
+      return { clase: "bg-[#08DDBC]/15 text-[#08DDBC] border-[#08DDBC]/30", texto: "Factura guardada y aprobada automáticamente" };
+    }
+    if (auto === "pendiente") {
+      return {
+        clase: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+        texto: "Factura guardada. Pendiente de revisión por tu coordinador.",
+      };
+    }
+    return { clase: "bg-emerald-700 text-white", texto: "Factura guardada" };
   }, []);
 
   return (
@@ -76,7 +87,11 @@ export function FacturasUsuarioClient() {
       <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Facturas</CardTitle>
-          {saved ? <Badge className="bg-emerald-700 text-white">✅ Factura guardada</Badge> : null}
+          {bannerGuardado ? (
+            <Badge variant="outline" className={`${bannerGuardado.clase} shrink-0`}>
+              {bannerGuardado.texto}
+            </Badge>
+          ) : null}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -111,6 +126,9 @@ export function FacturasUsuarioClient() {
                     const estado =
                       getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
                     const estadoLower = estado.toLowerCase();
+                    const observacion = getCellCaseInsensitive(f, "Observacion", "Concepto");
+                    const esAutoAprobada =
+                      String(observacion || "").includes("[AUTO]") && estadoLower === "aprobada";
                     const motivo = getCellCaseInsensitive(f, "MotivoRechazo");
                     const fid = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "");
                     const aBia = sheetANombreBiaTrue(
@@ -149,9 +167,16 @@ export function FacturasUsuarioClient() {
                         </TableCell>
                         <TableCell>{getCellCaseInsensitive(f, "TipoFactura", "Tipo_Factura") || "—"}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={estadoClass(estado)} title={motivo || undefined}>
-                            {estado}
-                          </Badge>
+                          <div className="flex flex-col items-start gap-1">
+                            {esAutoAprobada ? (
+                              <span className="rounded-full border border-[#08DDBC]/20 bg-[#08DDBC]/10 px-2 py-0.5 text-xs text-[#08DDBC]">
+                                ✓ Auto-aprobada
+                              </span>
+                            ) : null}
+                            <Badge variant="outline" className={estadoClass(estado)} title={motivo || undefined}>
+                              {estado}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           {imgSrc ? (
