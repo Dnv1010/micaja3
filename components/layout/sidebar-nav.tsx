@@ -5,30 +5,43 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import type { Session } from "next-auth";
-import { FileText, LayoutDashboard, Send, Users, Package, FileBarChart2, Scale, LogOut, Zap } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  Send,
+  BarChart3,
+  ClipboardList,
+  Home,
+  Package,
+  Scale,
+  LogOut,
+  Zap,
+} from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
 
 function navByRole(rol: string): NavItem[] {
   if (rol === "admin") {
     return [
-      { href: "/admin", label: "📊 Dashboard", icon: LayoutDashboard },
-      { href: "/admin/reportes", label: "✍️ Reportes", icon: FileBarChart2 },
-      { href: "/admin/facturas", label: "🧾 Facturas", icon: FileText },
-      { href: "/admin/usuarios", label: "👥 Usuarios", icon: Users },
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/reportes", label: "Reportes", icon: ClipboardList },
+      { href: "/admin/facturas", label: "Facturas", icon: FileText },
+      { href: "/admin/usuarios", label: "Usuarios", icon: Users },
     ];
   }
   if (rol === "coordinador") {
     return [
-      { href: "/", label: "Mi Zona", icon: LayoutDashboard },
+      { href: "/", label: "Mi Zona", icon: Users },
       { href: "/envios", label: "Envíos", icon: Send },
       { href: "/facturas", label: "Facturas", icon: FileText },
-      { href: "/reporte", label: "Reporte", icon: FileBarChart2 },
+      { href: "/reporte", label: "Reporte", icon: BarChart3 },
+      { href: "/usuarios-zona", label: "Usuarios", icon: Users },
       { href: "/legalizaciones", label: "Legalizaciones", icon: Scale },
     ];
   }
   return [
-    { href: "/mi-cuenta", label: "Mi Cuenta", icon: LayoutDashboard },
+    { href: "/mi-cuenta", label: "Mi Cuenta", icon: Home },
     { href: "/facturas", label: "Facturas", icon: FileText },
     { href: "/entregas", label: "Entregas", icon: Package },
   ];

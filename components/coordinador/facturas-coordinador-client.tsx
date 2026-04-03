@@ -20,6 +20,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FacturaEditDialog } from "@/components/coordinador/factura-edit-dialog";
 import { FacturaImagenModal } from "@/components/factura-imagen-modal";
+import { BiaAlert } from "@/components/ui/bia-alert";
+import { BiaConfirm } from "@/components/ui/bia-confirm";
+import { SIN_FILTRO } from "@/lib/filter-select";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
@@ -42,10 +45,10 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const sector = String(data?.user?.sector || "");
   const zoneUsers = useMemo(() => fallbackActiveZoneUsers(sector), [sector]);
 
-  const [usuario, setUsuario] = useState<string>("__todos__");
+  const [usuario, setUsuario] = useState<string>(SIN_FILTRO);
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
-  const [estado, setEstado] = useState<string>("__todas__");
+  const [estado, setEstado] = useState<string>(SIN_FILTRO);
   const [loading, setLoading] = useState(false);
   const [facturas, setFacturas] = useState<FacturaItem[]>([]);
   const [editar, setEditar] = useState<FacturaItem | null>(null);
@@ -54,16 +57,18 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [rechazando, setRechazando] = useState(false);
   const [imagenModal, setImagenModal] = useState<string | null>(null);
+  const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
+  const [biaAlert, setBiaAlert] = useState<{ type: "error" | "success"; message: string } | null>(null);
 
   async function filtrar() {
     setLoading(true);
     try {
       const q = new URLSearchParams();
       if (!admin) q.set("zonaSector", sector);
-      if (usuario && usuario !== "__todos__") q.set("responsable", usuario);
+      if (usuario && usuario !== SIN_FILTRO) q.set("responsable", usuario);
       if (desde) q.set("desde", desde);
       if (hasta) q.set("hasta", hasta);
-      if (estado && estado !== "__todas__") q.set("estado", estado);
+      if (estado && estado !== SIN_FILTRO) q.set("estado", estado);
       const res = await fetch(`/api/facturas?${q}`);
       const json = await res.json().catch(() => ({ data: [] }));
       setFacturas(Array.isArray(json.data) ? json.data : []);
@@ -87,7 +92,10 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
       }
       await filtrar();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Error al aprobar");
+      setBiaAlert({
+        type: "error",
+        message: e instanceof Error ? e.message : "Error al aprobar",
+      });
     }
   }
 
@@ -116,23 +124,29 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
       setMotivoRechazo("");
       await filtrar();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Error al rechazar");
+      setBiaAlert({
+        type: "error",
+        message: e instanceof Error ? e.message : "Error al rechazar",
+      });
     } finally {
       setRechazando(false);
     }
   }
 
   async function handleEliminar(facturaId: string) {
-    if (typeof window !== "undefined" && !window.confirm("¿Eliminar esta factura?")) return;
     try {
       const res = await fetch(`/api/facturas/${encodeURIComponent(facturaId)}`, { method: "DELETE" });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Error al eliminar");
+        throw new Error((j as { error?: string }).error || "Error al eliminar");
       }
+      setBiaAlert({ type: "success", message: "Factura eliminada" });
       await filtrar();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Error al eliminar");
+      setBiaAlert({
+        type: "error",
+        message: e instanceof Error ? e.message : "Error al eliminar",
+      });
     }
   }
 
@@ -151,6 +165,18 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
 
   return (
     <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
+      {confirmEliminarId ? (
+        <BiaConfirm
+          mensaje="¿Eliminar esta factura? Esta acción no se puede deshacer."
+          confirmLabel="Eliminar"
+          onCancelar={() => setConfirmEliminarId(null)}
+          onConfirmar={() => {
+            const id = confirmEliminarId;
+            setConfirmEliminarId(null);
+            if (id) void handleEliminar(id);
+          }}
+        />
+      ) : null}
       <Dialog
         open={!!modalRechazo}
         onOpenChange={(open) => {
@@ -209,15 +235,18 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
         <CardTitle>Facturas de la zona</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {biaAlert ? (
+          <BiaAlert type={biaAlert.type} message={biaAlert.message} />
+        ) : null}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1">
             <Label>Usuario</Label>
-            <Select value={usuario} onValueChange={(v) => setUsuario(v || "__todos__")}>
+            <Select value={usuario || SIN_FILTRO} onValueChange={(v) => setUsuario(v || SIN_FILTRO)}>
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__todos__">Todos</SelectItem>
+                <SelectItem value={SIN_FILTRO}>Todos</SelectItem>
                 {zoneUsers.map((u) => (
                   <SelectItem key={u.responsable} value={u.responsable}>
                     {u.responsable}
@@ -236,12 +265,12 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
           </div>
           <div className="space-y-1">
             <Label>Estado</Label>
-            <Select value={estado} onValueChange={(v) => setEstado(v || "__todas__")}>
+            <Select value={estado || SIN_FILTRO} onValueChange={(v) => setEstado(v || SIN_FILTRO)}>
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__todas__">Todas</SelectItem>
+                <SelectItem value={SIN_FILTRO}>Todas</SelectItem>
                 <SelectItem value="pendiente">Pendiente</SelectItem>
                 <SelectItem value="aprobada">Aprobada</SelectItem>
                 <SelectItem value="rechazada">Rechazada</SelectItem>
@@ -393,7 +422,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                               size="sm"
                               variant="outline"
                               className="h-7 border-red-800 px-2 text-xs text-red-300 hover:bg-red-950"
-                              onClick={() => void handleEliminar(fid)}
+                              onClick={() => setConfirmEliminarId(fid)}
                             >
                               🗑️ Eliminar
                             </Button>

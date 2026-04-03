@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { BiaConfirm } from "@/components/ui/bia-confirm";
 import { etiquetaZona, limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
@@ -48,6 +49,7 @@ export function ReporteCoordinadorClient() {
 
   const [repLoading, setRepLoading] = useState(true);
   const [reportes, setReportes] = useState<ReporteRow[]>([]);
+  const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
 
   const cargarReportes = useCallback(async () => {
     setRepLoading(true);
@@ -165,8 +167,8 @@ export function ReporteCoordinadorClient() {
     }
   }
 
-  async function eliminarReporte(id: string) {
-    if (!id || !window.confirm("¿Eliminar este reporte?")) return;
+  async function eliminarReporteConfirmado(id: string) {
+    if (!id) return;
     try {
       const res = await fetch(`/api/legalizaciones/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (res.ok) await cargarReportes();
@@ -185,6 +187,18 @@ export function ReporteCoordinadorClient() {
 
   return (
     <div className="space-y-6">
+      {confirmEliminarId ? (
+        <BiaConfirm
+          mensaje="¿Eliminar este reporte?"
+          confirmLabel="Eliminar"
+          onCancelar={() => setConfirmEliminarId(null)}
+          onConfirmar={() => {
+            const id = confirmEliminarId;
+            setConfirmEliminarId(null);
+            void eliminarReporteConfirmado(id);
+          }}
+        />
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
@@ -410,7 +424,7 @@ export function ReporteCoordinadorClient() {
                               variant="outline"
                               size="sm"
                               className="border-red-500/30 text-red-400"
-                              onClick={() => void eliminarReporte(id)}
+                              onClick={() => setConfirmEliminarId(id)}
                             >
                               🗑️ Eliminar
                             </Button>

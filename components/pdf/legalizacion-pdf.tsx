@@ -25,10 +25,6 @@ Font.register({
   ],
 });
 
-/** Rayo BIA turquesa (#08DDBC), viewBox 14×20 — react-pdf usa Image con data URL. */
-const RAYO_SRC =
-  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNCAyMCI+PHBvbHlnb24gcG9pbnRzPSI4LDAgMiwxMSA3LDExIDUsMjAgMTMsOCA4LDgiIGZpbGw9IiMwOEREQkMiLz48L3N2Zz4=";
-
 export type FacturaPdf = {
   id: string;
   fecha: string;
@@ -95,13 +91,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontFamily: "Roboto",
   },
-  logoRayoImg: { width: 14, height: 20, marginRight: 3 },
+  logoRayoText: {
+    fontSize: 20,
+    fontWeight: 900,
+    color: "#08DDBC",
+    fontFamily: "Roboto",
+  },
   logoBiaText: {
     fontSize: 22,
     fontWeight: 700,
     color: "#001035",
     fontFamily: "Roboto",
     letterSpacing: 0.5,
+    marginLeft: 2,
   },
   infoGrid: { flexDirection: "row", marginBottom: 14, gap: 20 },
   infoCol: { flex: 1 },
@@ -153,8 +155,7 @@ export function LegalizacionPdf({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.logoBrandRow}>
-          {/* eslint-disable-next-line jsx-a11y/alt-text -- logo marca en PDF */}
-          <Image src={RAYO_SRC} style={styles.logoRayoImg} />
+          <Text style={styles.logoRayoText}>{String.fromCodePoint(0x26a1)}</Text>
           <Text style={styles.logoBiaText}>Bia</Text>
         </View>
         <Text style={styles.title}>LEGALIZACION DE CAJA MENOR GASTOS</Text>

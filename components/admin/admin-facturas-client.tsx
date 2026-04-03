@@ -26,7 +26,9 @@ import { etiquetaZona } from "@/lib/coordinador-zona";
 import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { formatCOP, parseCOPString, parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { SIN_FILTRO } from "@/lib/filter-select";
 import { FALLBACK_USERS } from "@/lib/users-fallback";
+import { BiaConfirm } from "@/components/ui/bia-confirm";
 
 type FacturaRow = Record<string, unknown>;
 
@@ -50,6 +52,7 @@ export function AdminFacturasClient() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [imagenModal, setImagenModal] = useState<string | null>(null);
+  const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,7 +132,6 @@ export function AdminFacturasClient() {
   }
 
   async function eliminar(id: string) {
-    if (!window.confirm("¿Eliminar esta factura?")) return;
     const res = await fetch(`/api/facturas/${encodeURIComponent(id)}`, { method: "DELETE" });
     if (res.ok) await load();
   }
@@ -137,6 +139,18 @@ export function AdminFacturasClient() {
   return (
     <div className="space-y-4">
       <FacturaImagenModal src={imagenModal} onClose={() => setImagenModal(null)} />
+      {confirmEliminarId ? (
+        <BiaConfirm
+          mensaje="¿Eliminar esta factura?"
+          confirmLabel="Eliminar"
+          onConfirmar={() => {
+            const id = confirmEliminarId;
+            setConfirmEliminarId(null);
+            void eliminar(id);
+          }}
+          onCancelar={() => setConfirmEliminarId(null)}
+        />
+      ) : null}
 
       <div>
         <h1 className="text-2xl font-bold text-white">Todas las facturas</h1>
@@ -151,14 +165,17 @@ export function AdminFacturasClient() {
           <div className="min-w-[160px] space-y-1">
             <Label className="text-xs text-bia-gray-light">Zona</Label>
             <Select
-              value={filtroZona || "all"}
-              onValueChange={(v) => setFiltroZona(!v || v === "all" ? "" : v)}
+              value={filtroZona || SIN_FILTRO}
+              onValueChange={(v) => {
+                const s = v ?? SIN_FILTRO;
+                setFiltroZona(s === SIN_FILTRO ? "" : s);
+              }}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todas las zonas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas las zonas</SelectItem>
+                <SelectItem value={SIN_FILTRO}>Todas las zonas</SelectItem>
                 <SelectItem value="Bogota">Bogotá</SelectItem>
                 <SelectItem value="Costa Caribe">Costa Caribe</SelectItem>
               </SelectContent>
@@ -167,14 +184,17 @@ export function AdminFacturasClient() {
           <div className="min-w-[200px] space-y-1">
             <Label className="text-xs text-bia-gray-light">Usuario</Label>
             <Select
-              value={filtroResponsable || "all"}
-              onValueChange={(v) => setFiltroResponsable(!v || v === "all" ? "" : v)}
+              value={filtroResponsable || SIN_FILTRO}
+              onValueChange={(v) => {
+                const s = v ?? SIN_FILTRO;
+                setFiltroResponsable(s === SIN_FILTRO ? "" : s);
+              }}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todos los usuarios" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los usuarios</SelectItem>
+                <SelectItem value={SIN_FILTRO}>Todos los usuarios</SelectItem>
                 {usuariosOpciones.map((u) => (
                   <SelectItem key={u.email} value={u.responsable}>
                     {u.responsable}
@@ -186,14 +206,17 @@ export function AdminFacturasClient() {
           <div className="min-w-[160px] space-y-1">
             <Label className="text-xs text-bia-gray-light">Estado</Label>
             <Select
-              value={filtroEstado || "all"}
-              onValueChange={(v) => setFiltroEstado(!v || v === "all" ? "" : v)}
+              value={filtroEstado || SIN_FILTRO}
+              onValueChange={(v) => {
+                const s = v ?? SIN_FILTRO;
+                setFiltroEstado(s === SIN_FILTRO ? "" : s);
+              }}
             >
               <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                 <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value={SIN_FILTRO}>Todos los estados</SelectItem>
                 <SelectItem value="Pendiente">Pendiente</SelectItem>
                 <SelectItem value="Aprobada">Aprobada</SelectItem>
                 <SelectItem value="Rechazada">Rechazada</SelectItem>
@@ -310,7 +333,7 @@ export function AdminFacturasClient() {
                             size="sm"
                             variant="outline"
                             className="h-7 border-bia-gray/30 px-2 text-xs text-red-300"
-                            onClick={() => void eliminar(id)}
+                            onClick={() => setConfirmEliminarId(id)}
                           >
                             🗑️
                           </Button>

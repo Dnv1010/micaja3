@@ -16,6 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BiaAlert } from "@/components/ui/bia-alert";
+import { BiaConfirm } from "@/components/ui/bia-confirm";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { findFallbackUserByResponsable } from "@/lib/users-fallback";
 import { formatCOP, parseCOPString } from "@/lib/format";
@@ -101,6 +103,8 @@ export function AdminReportesClient() {
   const [firmaAdmin, setFirmaAdmin] = useState("");
   const [procesando, setProcesando] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -163,6 +167,7 @@ export function AdminReportesClient() {
     if (!activo || !firmaAdmin.trim()) return;
     setProcesando(true);
     setErrorMsg("");
+    setSuccessMsg("");
     try {
       const sectorRep = String(activo.Sector || adminSector);
       const limite = limiteAprobacionZona(sectorRep);
@@ -270,7 +275,7 @@ export function AdminReportesClient() {
       setActivo(null);
       setFirmaAdmin("");
       await cargar();
-      window.alert("✅ Reporte firmado y PDF generado correctamente");
+      setSuccessMsg("Reporte firmado y PDF generado correctamente");
     } catch (e: unknown) {
       setErrorMsg(e instanceof Error ? e.message : "Error al generar el PDF. Intenta de nuevo.");
     } finally {
@@ -278,8 +283,8 @@ export function AdminReportesClient() {
     }
   }
 
-  async function eliminarReporte(id: string) {
-    if (!id || !window.confirm("¿Eliminar este reporte?")) return;
+  async function eliminarReporteConfirmado(id: string) {
+    if (!id) return;
     try {
       const res = await fetch(`/api/legalizaciones/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (res.ok) await cargar();
@@ -290,6 +295,19 @@ export function AdminReportesClient() {
 
   return (
     <div className="space-y-4">
+      {confirmEliminarId ? (
+        <BiaConfirm
+          mensaje="¿Eliminar este reporte?"
+          confirmLabel="Eliminar"
+          onCancelar={() => setConfirmEliminarId(null)}
+          onConfirmar={() => {
+            const id = confirmEliminarId;
+            setConfirmEliminarId(null);
+            void eliminarReporteConfirmado(id);
+          }}
+        />
+      ) : null}
+      {successMsg ? <BiaAlert type="success" message={successMsg} /> : null}
       <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardHeader>
           <CardTitle>Reportes de legalización</CardTitle>
@@ -357,7 +375,7 @@ export function AdminReportesClient() {
                             size="sm"
                             variant="outline"
                             className="border-red-500/30 text-red-400"
-                            onClick={() => void eliminarReporte(id)}
+                            onClick={() => setConfirmEliminarId(id)}
                           >
                             🗑️
                           </Button>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SIN_FILTRO } from "@/lib/filter-select";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { findFallbackUserByResponsable } from "@/lib/users-fallback";
@@ -64,7 +65,7 @@ export function EnviosCoordinadorClient({
   const [sending, setSending] = useState(false);
   const [okMsg, setOkMsg] = useState("");
 
-  const [filtroUser, setFiltroUser] = useState("__todos__");
+  const [filtroUser, setFiltroUser] = useState(SIN_FILTRO);
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [loading, setLoading] = useState(true);
@@ -89,7 +90,7 @@ export function EnviosCoordinadorClient({
     setLoading(true);
     try {
       const q = new URLSearchParams({ sector });
-      if (filtroUser && filtroUser !== "__todos__") q.set("responsable", filtroUser);
+      if (filtroUser && filtroUser !== SIN_FILTRO) q.set("responsable", filtroUser);
       if (desde) q.set("desde", desde);
       if (hasta) q.set("hasta", hasta);
       const res = await fetch(`/api/envios?${q}`);
@@ -366,12 +367,12 @@ export function EnviosCoordinadorClient({
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="space-y-1">
               <Label>Usuario</Label>
-              <Select value={filtroUser} onValueChange={(v) => setFiltroUser(v || "__todos__")}>
+              <Select value={filtroUser} onValueChange={(v) => setFiltroUser(v || SIN_FILTRO)}>
                 <SelectTrigger className="bg-bia-blue border-bia-gray/40">
-                  <SelectValue />
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__todos__">Todos</SelectItem>
+                  <SelectItem value={SIN_FILTRO}>Todos</SelectItem>
                   {zoneUsers.map((u) => (
                     <SelectItem key={u.email} value={u.responsable}>
                       {u.responsable}
