@@ -47,8 +47,8 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   useEffect(() => {
     let cancelled = false;
     const url = admin
-      ? "/api/usuarios?rol=user"
-      : `/api/usuarios?sector=${encodeURIComponent(sector)}&rol=user`;
+      ? "/api/usuarios"
+      : `/api/usuarios?sector=${encodeURIComponent(sector)}`;
     fetch(url)
       .then((r) => r.json())
       .then((d) => {
@@ -57,6 +57,8 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
         const list: { responsable: string }[] = [];
         for (const row of rows) {
           const rec = row as Record<string, unknown>;
+          const rolU = String(getCellCaseInsensitive(rec, "Rol") || "user").toLowerCase();
+          if (rolU !== "user" && rolU !== "coordinador") continue;
           const name = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
           if (name) list.push({ responsable: name });
         }

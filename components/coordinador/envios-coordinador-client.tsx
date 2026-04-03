@@ -34,7 +34,13 @@ function drivePreviewEmbedUrl(url: string): string | null {
   return m?.[1] ? `https://drive.google.com/file/d/${m[1]}/preview` : null;
 }
 
-type ZoneUserEnvio = { responsable: string; telefono: string; email: string };
+type ZoneUserEnvio = {
+  responsable: string;
+  telefono: string;
+  email: string;
+  cargo: string;
+  esYo?: boolean;
+};
 
 export function EnviosCoordinadorClient({
   sector,
@@ -75,7 +81,7 @@ export function EnviosCoordinadorClient({
   useEffect(() => {
     let cancelled = false;
     const enc = encodeURIComponent(sector || sessionSector || "Bogota");
-    fetch(`/api/usuarios?sector=${enc}&rol=user`)
+    fetch(`/api/usuarios?sector=${enc}`)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -83,6 +89,8 @@ export function EnviosCoordinadorClient({
         const list: ZoneUserEnvio[] = [];
         for (const row of rows) {
           const rec = row as Record<string, unknown>;
+          const rolU = String(getCellCaseInsensitive(rec, "Rol") || "user").toLowerCase();
+          if (rolU !== "user" && rolU !== "coordinador") continue;
           const responsable = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
           if (!responsable) continue;
           const email = String(getCellCaseInsensitive(rec, "Correos", "Correo", "Email") || "").trim();
@@ -91,6 +99,7 @@ export function EnviosCoordinadorClient({
             responsable,
             email,
             telefono: String(getCellCaseInsensitive(rec, "Telefono", "Teléfono") || "").trim(),
+            cargo: String(getCellCaseInsensitive(rec, "Cargo") || "").trim(),
           });
         }
         list.sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
@@ -145,9 +154,28 @@ export function EnviosCoordinadorClient({
     [lista]
   );
 
+  const usuariosDestino = useMemo((): ZoneUserEnvio[] => {
+    const emailSesion = String(sessionData?.user?.email || "").trim();
+    const yo = sessionResponsable.trim();
+    if (!yo) return zoneUsers.map((u) => ({ ...u, esYo: false }));
+    const cargoYo = String(sessionData?.user?.cargo || "Coordinador").trim();
+    const telYo = String(sessionData?.user?.telefono || "").trim();
+    const self: ZoneUserEnvio = {
+      email: emailSesion || `yo-${yo.replace(/\s+/g, "_")}`,
+      responsable: yo,
+      telefono: telYo,
+      cargo: cargoYo || "Coordinador",
+      esYo: true,
+    };
+    const rest = zoneUsers
+      .filter((u) => u.responsable.trim().toLowerCase() !== yo.toLowerCase())
+      .map((u) => ({ ...u, esYo: false }));
+    return [self, ...rest];
+  }, [zoneUsers, sessionData?.user?.email, sessionData?.user?.cargo, sessionData?.user?.telefono, sessionResponsable]);
+
   function onUsuarioChange(v: string) {
     setResponsable(v);
-    const fromList = zoneUsers.find((u) => u.responsable === v);
+    const fromList = usuariosDestino.find((u) => u.responsable === v);
     const t = fromList?.telefono;
     if (t) setTelefono(t);
   }
@@ -285,9 +313,10 @@ export function EnviosCoordinadorClient({
                   <SelectValue placeholder="Seleccione usuario" />
                 </SelectTrigger>
                 <SelectContent>
-                  {zoneUsers.map((u) => (
+                  {usuariosDestino.map((u) => (
                     <SelectItem key={u.email || u.responsable} value={u.responsable}>
                       {u.responsable}
+                      {u.esYo ? " (yo)" : ""} — {u.cargo || "—"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -403,9 +432,10 @@ export function EnviosCoordinadorClient({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SIN_FILTRO}>Todos</SelectItem>
-                  {zoneUsers.map((u) => (
-                    <SelectItem key={u.email || u.responsable} value={u.responsable}>
+                  {usuariosDestino.map((u) => (
+                    <SelectItem key={`f-${u.email || u.responsable}`} value={u.responsable}>
                       {u.responsable}
+                      {u.esYo ? " (yo)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

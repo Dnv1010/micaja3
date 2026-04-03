@@ -223,13 +223,18 @@ export async function getUsuariosDeZona(sector: string): Promise<UsuarioSheet[]>
   return usuarios.filter((u) => u.sector === canon && u.userActive);
 }
 
-/** Técnicos (rol user) activos en zona — mismo criterio que el antiguo `responsablesEnZonaSet` / fallback. */
+/** Responsables activos en zona: técnicos y coordinadores (facturas, envíos, filtros API). */
 export async function responsablesEnZonaSheetSet(sector: string): Promise<Set<string>> {
   const usuarios = await getUsuariosFromSheet();
   const target = sheetSectorToCanon(sector);
   return new Set(
     usuarios
-      .filter((u) => u.userActive && u.rol === "user" && u.sector === target)
+      .filter(
+        (u) =>
+          u.userActive &&
+          (u.rol === "user" || u.rol === "coordinador") &&
+          u.sector === target
+      )
       .map((u) => u.responsable.trim().toLowerCase())
       .filter(Boolean)
   );

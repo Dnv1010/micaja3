@@ -255,5 +255,15 @@ export function fallbackActiveZoneUsers(sector: string): FallbackUser[] {
 }
 
 export function responsablesEnZonaSet(sector: string): Set<string> {
-  return new Set(fallbackActiveZoneUsers(sector).map((u) => u.responsable.toLowerCase()));
+  const sectorNorm = sector.toLowerCase();
+  return new Set(
+    FALLBACK_USERS.filter((u) => {
+      const s = u.sector.toLowerCase();
+      const match =
+        s === sectorNorm ||
+        (sectorNorm.includes("costa") && s.includes("costa")) ||
+        (sectorNorm.includes("bogota") && s.includes("bogota"));
+      return match && (u.rol === "user" || u.rol === "coordinador") && u.userActive;
+    }).map((u) => u.responsable.toLowerCase())
+  );
 }

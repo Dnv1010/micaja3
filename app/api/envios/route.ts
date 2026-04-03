@@ -98,6 +98,8 @@ export async function POST(req: NextRequest) {
 
     if (rol === "coordinador") {
       const set = await responsablesEnZonaSheetSet(String(session.user.sector || ""));
+      const yo = String(session.user.responsable || session.user.name || "").trim().toLowerCase();
+      if (yo) set.add(yo);
       if (!set.has(responsable.toLowerCase())) {
         return NextResponse.json({ error: "Usuario fuera de su zona" }, { status: 403 });
       }
