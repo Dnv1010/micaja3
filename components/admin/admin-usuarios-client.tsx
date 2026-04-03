@@ -457,7 +457,7 @@ export function AdminUsuariosClient() {
                           <span className={`font-medium ${balanceSubCls}`}>{formatCOP(bal)}</span>
                           <span className={`text-xs font-medium ${balanceSubCls}`}>
                             {bal > 0
-                              ? `Saldo a favor empresa: ${formatCOP(bal)}`
+                              ? `Tiene disponible: ${formatCOP(bal)}`
                               : bal < 0
                                 ? `Por reembolsar: ${formatCOP(Math.abs(bal))}`
                                 : "Al día"}

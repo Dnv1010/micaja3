@@ -18,9 +18,12 @@ function estadoFacturaZona(f: FacturaRow): string {
     .trim();
 }
 
-function esFacturaLegalizada(f: FacturaRow): boolean {
-  const e = estadoFacturaZona(f);
-  return e === "aprobada" || e === "completada";
+function esFacturaSoloAprobada(f: FacturaRow): boolean {
+  return estadoFacturaZona(f) === "aprobada";
+}
+
+function esFacturaCompletada(f: FacturaRow): boolean {
+  return estadoFacturaZona(f) === "completada";
 }
 
 function esFacturaPendienteActiva(f: FacturaRow): boolean {
@@ -105,25 +108,24 @@ export function CoordinadorDashboardClient({
 
   const totalEntregado = entregas.reduce((s, e) => s + montoEntrega(e), 0);
 
-  const totalLegalizado = facturas
-    .filter((f) => esFacturaLegalizada(f))
+  const totalAprobado = facturas
+    .filter((f) => esFacturaSoloAprobada(f))
+    .reduce((s, f) => s + montoFactura(f), 0);
+
+  const totalCompletado = facturas
+    .filter((f) => esFacturaCompletada(f))
     .reduce((s, f) => s + montoFactura(f), 0);
 
   const totalPendiente = facturas
     .filter((f) => esFacturaPendienteActiva(f))
     .reduce((s, f) => s + montoFactura(f), 0);
 
-  const porEntregar = Math.max(0, limite - totalEntregado);
+  const enTerreno = Math.max(0, totalEntregado - totalAprobado - totalPendiente);
+  const porReportar = totalAprobado;
+  const enCajaMenor = Math.max(0, limite - totalEntregado);
   const pctEntregado = limite > 0 ? Math.min(Math.round((totalEntregado / limite) * 100), 100) : 0;
-  const pctLegalizado =
-    totalEntregado > 0 ? Math.round((totalLegalizado / totalEntregado) * 100) : 0;
-  const pctPorLegalizar =
-    totalEntregado > 0 ? Math.round((totalPendiente / totalEntregado) * 100) : 0;
-
-  const pctLegalSobreLimite =
-    limite > 0 ? Math.round((totalLegalizado / limite) * 100) : 0;
-  const pctPendSobreLimite =
-    limite > 0 ? Math.round((totalPendiente / limite) * 100) : 0;
+  const pctUsado =
+    limite > 0 ? Math.min(Math.round(((totalAprobado + totalPendiente) / limite) * 100), 100) : 0;
 
   if (loading) {
     return (
@@ -165,62 +167,31 @@ export function CoordinadorDashboardClient({
 
         <div className="mb-5 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">💸 Entregado</p>
-            <p className="text-xl font-bold text-white">{formatCOP(totalEntregado)}</p>
-            <p className="mt-1 text-xs text-[#08DDBC]">{pctEntregado}% del límite</p>
+            <p className="mb-1 text-xs text-[#8892A4]">🔧 En terreno</p>
+            <p className="text-xl font-bold text-white">{formatCOP(enTerreno)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">Entregado y disponible para gastar</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">✅ Legalizado</p>
-            <p className="text-xl font-bold text-[#08DDBC]">{formatCOP(totalLegalizado)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">{pctLegalizado}% de lo entregado</p>
+            <p className="mb-1 text-xs text-[#8892A4]">📋 Por reportar</p>
+            <p className="text-xl font-bold text-[#08DDBC]">{formatCOP(porReportar)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">Aprobadas pendientes de legalizar</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">⏳ Por legalizar</p>
-            <p className="text-xl font-bold text-yellow-400">{formatCOP(totalPendiente)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">{pctPorLegalizar}% de lo entregado</p>
+            <p className="mb-1 text-xs text-[#8892A4]">🏦 En caja menor</p>
+            <p className="text-xl font-bold text-white">{formatCOP(enCajaMenor)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">Sin entregar del límite</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">🏦 Por entregar</p>
-            <p className="text-xl font-bold text-white">{formatCOP(porEntregar)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">{100 - pctEntregado}% disponible</p>
+            <p className="mb-1 text-xs text-[#8892A4]">✅ Ya legalizado</p>
+            <p className="text-xl font-bold text-[#525A72]">{formatCOP(totalCompletado)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">Histórico pagado</p>
           </div>
         </div>
 
-        <div>
-          <p className="mb-2 text-xs text-[#8892A4]">Desglose del límite</p>
-          <div className="flex h-6 overflow-hidden rounded-full bg-[#001035]">
-            <div
-              style={{ width: `${pctLegalSobreLimite}%` }}
-              className="flex h-full items-center justify-center bg-[#08DDBC]"
-            >
-              {pctLegalSobreLimite > 8 ? (
-                <span className="text-xs font-bold text-[#001035]">{pctLegalSobreLimite}%</span>
-              ) : null}
-            </div>
-            <div
-              style={{ width: `${pctPendSobreLimite}%` }}
-              className="flex h-full items-center justify-center bg-yellow-400"
-            >
-              {pctPendSobreLimite > 5 ? (
-                <span className="text-xs font-bold text-yellow-900">{pctPendSobreLimite}%</span>
-              ) : null}
-            </div>
-          </div>
-          <div className="mt-2 flex gap-4">
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-full bg-[#08DDBC]" />
-              <span className="text-xs text-[#8892A4]">Legalizado</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-full bg-yellow-400" />
-              <span className="text-xs text-[#8892A4]">Por legalizar</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-full border border-[#525A72]/30 bg-[#001035]" />
-              <span className="text-xs text-[#8892A4]">Por entregar</span>
-            </div>
-          </div>
-        </div>
+        <p className="mb-2 text-xs text-[#8892A4]">
+          Uso del límite (aprobadas + pendientes):{" "}
+          <span className="font-semibold text-white">{pctUsado}%</span>
+        </p>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -236,7 +207,7 @@ export function CoordinadorDashboardClient({
         </div>
         <div className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-[#08DDBC]">
-            {facturas.filter((f) => esFacturaLegalizada(f)).length}
+            {facturas.filter((f) => esFacturaSoloAprobada(f)).length}
           </p>
           <p className="mt-1 text-xs text-[#8892A4]">Fact. aprobadas</p>
         </div>

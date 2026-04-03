@@ -52,6 +52,8 @@ export function ReporteCoordinadorClient() {
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
   const [resumenIA, setResumenIA] = useState("");
   const [cargandoResumen, setCargandoResumen] = useState(false);
+  const [enviandoFx, setEnviandoFx] = useState<string | null>(null);
+  const [fxEnviado, setFxEnviado] = useState<Set<string>>(() => new Set());
 
   const cargarReportes = useCallback(async () => {
     setRepLoading(true);
@@ -219,6 +221,30 @@ export function ReporteCoordinadorClient() {
       if (res.ok) await cargarReportes();
     } catch {
       /* noop */
+    }
+  }
+
+  async function enviarFx(reporte: ReporteRow) {
+    const id = reporteId(reporte);
+    const pdfUrl = String(reporte.PDF_URL || "").trim();
+    setEnviandoFx(id);
+    try {
+      const res = await fetch("/api/legalizaciones/enviar-fx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reporteId: id, pdfUrl }),
+      });
+      if (res.ok) {
+        setFxEnviado((prev) => new Set(Array.from(prev).concat(id)));
+        window.alert("✅ Reporte enviado a FX correctamente");
+      } else {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        window.alert(`❌ ${j.error || "Error al enviar el reporte"}`);
+      }
+    } catch {
+      window.alert("❌ Error de red");
+    } finally {
+      setEnviandoFx(null);
     }
   }
 
@@ -469,16 +495,34 @@ export function ReporteCoordinadorClient() {
                         <TableCell>{formatCOP(parseCOPString(String(r.Total || r.TotalAprobado || "0")))}</TableCell>
                         <TableCell>{estadoReporteBadge(est)}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex flex-wrap justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-2">
                             {est.toLowerCase().includes("firmado") && pdfUrl ? (
-                              <a
-                                href={pdfUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-sm text-bia-aqua hover:underline"
-                              >
-                                ⬇ Descargar PDF firmado
-                              </a>
+                              <div className="flex flex-wrap justify-end gap-2">
+                                <a
+                                  href={pdfUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center rounded-lg border border-[#525A72]/30 bg-[#001035] px-3 py-1.5 text-xs text-white hover:bg-[#0A1B4D]"
+                                >
+                                  ⬇ Descargar PDF
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => void enviarFx(r)}
+                                  disabled={enviandoFx === id || fxEnviado.has(id)}
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                                    fxEnviado.has(id)
+                                      ? "cursor-default border border-[#08DDBC]/20 bg-[#08DDBC]/10 text-[#08DDBC]"
+                                      : "bg-[#4728EF] text-white hover:bg-[#3a20d4]"
+                                  }`}
+                                >
+                                  {enviandoFx === id
+                                    ? "Enviando..."
+                                    : fxEnviado.has(id)
+                                      ? "✓ Enviado a FX"
+                                      : "📧 Enviar a FX"}
+                                </button>
+                              </div>
                             ) : est.toLowerCase().includes("firmado") ? (
                               <span className="text-xs text-amber-200">PDF no disponible</span>
                             ) : (
