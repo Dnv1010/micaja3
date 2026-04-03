@@ -105,6 +105,8 @@ export async function POST(req: NextRequest) {
     const id = `ENV-${ts}`;
     const idEntrega = `ENT-${ts}`;
 
+    // Comprobante (URL Drive) va en hoja Envío (columna según encabezados). La API GET /api/entregas
+    // cruza por ID_Envio y expone el mismo URL en ComprobanteEnvio para el usuario.
     const filaEnvio: string[] = [id, fecha, montoNum, responsable, comprobante, telefono];
     const filaEntrega: string[] = [idEntrega, fecha, id, responsable, montoNum, "", "", ""];
 
