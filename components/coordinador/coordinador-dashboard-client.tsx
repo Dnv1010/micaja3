@@ -6,15 +6,26 @@ import { formatCOP, parseMonto } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { normalizeSector } from "@/lib/sector-normalize";
 import { fallbackActiveZoneUsers } from "@/lib/users-fallback";
-import type { FallbackUser } from "@/lib/users-fallback";
 
 type FacturaRow = Record<string, unknown>;
 type EntregaRow = Record<string, unknown>;
 
-function estadoFactura(f: FacturaRow): string {
+/** Prioridad Verificado → Legalizado → Estado (como en negocio). */
+function estadoFacturaZona(f: FacturaRow): string {
   return String(
-    getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente"
-  ).toLowerCase();
+    getCellCaseInsensitive(f, "Verificado", "Legalizado", "Estado") || ""
+  )
+    .toLowerCase()
+    .trim();
+}
+
+function esFacturaLegalizada(f: FacturaRow): boolean {
+  const e = estadoFacturaZona(f);
+  return e === "aprobada" || e === "completada";
+}
+
+function esFacturaPendienteActiva(f: FacturaRow): boolean {
+  return estadoFacturaZona(f) === "pendiente";
 }
 
 function montoFactura(f: FacturaRow): number {
@@ -23,10 +34,6 @@ function montoFactura(f: FacturaRow): number {
 
 function montoEntrega(e: EntregaRow): number {
   return parseMonto(String(getCellCaseInsensitive(e, "Monto_Entregado", "Monto") || "0"));
-}
-
-function responsableRow(r: FacturaRow | EntregaRow): string {
-  return String(getCellCaseInsensitive(r, "Responsable") || "").trim();
 }
 
 export function CoordinadorDashboardClient({
@@ -79,11 +86,11 @@ export function CoordinadorDashboardClient({
   const totalEntregado = entregas.reduce((s, e) => s + montoEntrega(e), 0);
 
   const totalLegalizado = facturas
-    .filter((f) => ["aprobada", "completada"].includes(estadoFactura(f)))
+    .filter((f) => esFacturaLegalizada(f))
     .reduce((s, f) => s + montoFactura(f), 0);
 
   const totalPendiente = facturas
-    .filter((f) => estadoFactura(f) === "pendiente")
+    .filter((f) => esFacturaPendienteActiva(f))
     .reduce((s, f) => s + montoFactura(f), 0);
 
   const porEntregar = Math.max(0, limite - totalEntregado);
@@ -92,31 +99,6 @@ export function CoordinadorDashboardClient({
     totalEntregado > 0 ? Math.round((totalLegalizado / totalEntregado) * 100) : 0;
   const pctPorLegalizar =
     totalEntregado > 0 ? Math.round((totalPendiente / totalEntregado) * 100) : 0;
-
-  function recibidoPor(nombre: string): number {
-    const n = nombre.toLowerCase();
-    return entregas
-      .filter((e) => responsableRow(e).toLowerCase() === n)
-      .reduce((s, e) => s + montoEntrega(e), 0);
-  }
-
-  function aprobadoPor(nombre: string): number {
-    const n = nombre.toLowerCase();
-    return facturas
-      .filter(
-        (f) =>
-          responsableRow(f).toLowerCase() === n &&
-          ["aprobada", "completada"].includes(estadoFactura(f))
-      )
-      .reduce((s, f) => s + montoFactura(f), 0);
-  }
-
-  function pendientePor(nombre: string): number {
-    const n = nombre.toLowerCase();
-    return facturas
-      .filter((f) => responsableRow(f).toLowerCase() === n && estadoFactura(f) === "pendiente")
-      .reduce((s, f) => s + montoFactura(f), 0);
-  }
 
   const pctLegalSobreLimite =
     limite > 0 ? Math.round((totalLegalizado / limite) * 100) : 0;
@@ -228,96 +210,15 @@ export function CoordinadorDashboardClient({
         </div>
         <div className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-yellow-400">
-            {facturas.filter((f) => estadoFactura(f) === "pendiente").length}
+            {facturas.filter((f) => esFacturaPendienteActiva(f)).length}
           </p>
           <p className="mt-1 text-xs text-[#8892A4]">Fact. pendientes</p>
         </div>
         <div className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-[#08DDBC]">
-            {
-              facturas.filter((f) => ["aprobada", "completada"].includes(estadoFactura(f)))
-                .length
-            }
+            {facturas.filter((f) => esFacturaLegalizada(f)).length}
           </p>
           <p className="mt-1 text-xs text-[#8892A4]">Fact. aprobadas</p>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-base font-semibold text-white">Caja menor por técnico</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {tecnicosZona.map((u: FallbackUser) => {
-            const recibido = recibidoPor(u.responsable);
-            const aprobado = aprobadoPor(u.responsable);
-            const pendiente = pendientePor(u.responsable);
-            const disponible = recibido - aprobado - pendiente;
-            const pct = recibido > 0 ? Math.min(Math.round((aprobado / recibido) * 100), 100) : 0;
-            const inicial = (u.responsable.trim().charAt(0) || "?").toUpperCase();
-
-            return (
-              <div
-                key={u.email}
-                className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#08DDBC]/20 text-sm font-bold text-[#08DDBC]">
-                      {inicial}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium leading-tight text-white">
-                        {u.responsable}
-                      </p>
-                      <p className="text-xs text-[#525A72]">{u.cargo}</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      pct >= 90
-                        ? "bg-red-500/10 text-red-400"
-                        : pct >= 70
-                          ? "bg-yellow-500/10 text-yellow-400"
-                          : "bg-[#08DDBC]/10 text-[#08DDBC]"
-                    }`}
-                  >
-                    {pct}%
-                  </span>
-                </div>
-
-                <div className="mb-3 h-2 overflow-hidden rounded-full bg-[#001035]">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${pct}%`,
-                      backgroundColor:
-                        pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : "#08DDBC",
-                    }}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-1 text-center">
-                  <div>
-                    <p className="text-sm font-bold text-[#08DDBC]">{formatCOP(aprobado)}</p>
-                    <p className="text-xs text-[#525A72]">Aprobado</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-yellow-400">{formatCOP(pendiente)}</p>
-                    <p className="text-xs text-[#525A72]">Pendiente</p>
-                  </div>
-                  <div>
-                    <p
-                      className={`text-sm font-bold ${disponible >= 0 ? "text-white" : "text-red-400"}`}
-                    >
-                      {formatCOP(Math.abs(disponible))}
-                    </p>
-                    <p className="text-xs text-[#525A72]">
-                      {disponible >= 0 ? "Disponible" : "Excedido"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>
