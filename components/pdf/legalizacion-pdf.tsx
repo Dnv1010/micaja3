@@ -25,6 +25,20 @@ Font.register({
   ],
 });
 
+/** Rayo turquesa BIA — mismo polígono del manual, fill `#08DDBC` (Aqua Green). */
+const RAYO_SVG_BASE64 =
+  "data:image/svg+xml;base64," +
+  "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMiAyMCI+PHBvbHlnb24gcG9pbnRzPSI3LDAgMSwxMSA2LDExIDUsMjAgMTIsOCA3LDgiIGZpbGw9IiMwOEREQkMiLz48L3N2Zz4=";
+
+/**
+ * Respaldo si el SVG no se dibuja: en `LegalizacionPdf` cambiar `src={RAYO_LOGO_SRC}` a `src={RAYO_PNG_BASE64}`.
+ * (react-pdf documenta JPG/PNG en data URI; el SVG suele funcionar en la mayoría de casos.)
+ */
+export const RAYO_PNG_BASE64 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAUCAYAAACkK5/bAAAACXBIWXMAAAsTAAALEwEAmpwYAAAApklEQVQoz5WSMQ6DMAxFHYTEzsDQkzAzc4fuUKkjF2HnJFygEqJ/SxMIiSoReZL9bT8nxph/MLMHgBvJC8kJwAXACmABsAI4F+4A9gT3QvKWVXFVbgDuJFckByRnID8AO4AdwA3ACeBR+ASwAzgR3AucSM4kf4ALgAfAHeAFcAN4ArgAOBI8Ac4AVgT3IucTM4kXwAXADeAA8AN4AbgCuAA4AjgSeIf6QHICcAN4A3gA/AFMA0qoJwAAAABJRU5ErkJggg==";
+
+const RAYO_LOGO_SRC = RAYO_SVG_BASE64;
+
 export type FacturaPdf = {
   id: string;
   fecha: string;
@@ -85,25 +99,25 @@ function textoConceptoCelda(concepto: string): string {
 const styles = StyleSheet.create({
   page: { fontFamily: "Roboto", fontSize: 9, padding: 30, color: "#1a1a1a" },
   title: { fontSize: 14, fontWeight: 700, textAlign: "center", marginBottom: 12 },
-  logoBrandRow: {
+  logoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-    fontFamily: "Roboto",
+    justifyContent: "space-between",
+    marginBottom: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#e0e0e0",
   },
-  logoRayoText: {
-    fontSize: 20,
-    fontWeight: 900,
-    color: "#08DDBC",
-    fontFamily: "Roboto",
-  },
-  logoBiaText: {
-    fontSize: 22,
+  logoTexto: {
+    fontSize: 24,
     fontWeight: 700,
     color: "#001035",
     fontFamily: "Roboto",
     letterSpacing: 0.5,
-    marginLeft: 2,
+  },
+  logoRayo: {
+    width: 16,
+    height: 26,
   },
   infoGrid: { flexDirection: "row", marginBottom: 14, gap: 20 },
   infoCol: { flex: 1 },
@@ -154,9 +168,10 @@ export function LegalizacionPdf({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.logoBrandRow}>
-          <Text style={styles.logoRayoText}>{String.fromCodePoint(0x26a1)}</Text>
-          <Text style={styles.logoBiaText}>Bia</Text>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoTexto}>Bia</Text>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- Image de @react-pdf/renderer (PDF, no HTML) */}
+          <Image style={styles.logoRayo} src={RAYO_LOGO_SRC} />
         </View>
         <Text style={styles.title}>LEGALIZACION DE CAJA MENOR GASTOS</Text>
 
