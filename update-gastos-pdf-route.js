@@ -1,4 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿const fs = require("fs");
+
+const route = `/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { GastosPdf } from "@/components/pdf/gastos-pdf";
@@ -28,3 +30,7 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+`;
+
+fs.writeFileSync("app/api/gastos-pdf/route.ts", route, "utf8");
+console.log("✅ Route actualizada");
