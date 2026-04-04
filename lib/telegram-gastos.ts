@@ -54,7 +54,7 @@ export async function procesarMensajeGastos(chatId: string, texto: string) {
     s.facturas.push({ ...s.facturaActual });
     s.facturaActual = null;
     s.paso = "mas_facturas";
-    const total = s.facturas.reduce((acc, f) => acc + Number(f.valor.replace(/[^0-9]/g, "")), 0);
+    const total = s.facturas.reduce((acc: number, f: any) => acc + Number(f.valor.replace(/[^0-9]/g, "")), 0);
     await enviarTelegram(chatId, "✅ Factura guardada. Total acumulado: <b>" + formatCOP(total) + "</b>\n\n¿Agregar otra factura?\n\n1️⃣ Sí\n2️⃣ No, generar reporte");
   } else if (s.paso === "mas_facturas") {
     if (texto === "1") {
