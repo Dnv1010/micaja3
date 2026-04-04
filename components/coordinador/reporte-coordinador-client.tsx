@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { pdf } from "@react-pdf/renderer";
 import { useSession } from "next-auth/react";
 import { FirmaCanvas } from "@/components/firma-canvas";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,15 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BiaConfirm } from "@/components/ui/bia-confirm";
+import { LegalizacionPdf, type FacturaPdf } from "@/components/pdf/legalizacion-pdf";
 import { etiquetaZona, limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
-import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
+import {
+  extractIdsFromReporteFacturasCell,
+  facturaRowToFacturaPdfForLegalizacion,
+  parseFacturasJsonFromSheetCell,
+  parseFacturasPdfFromReporteCell,
+} from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +34,96 @@ function facturaEstadoEffective(f: FacturaRow): string {
 
 function reporteId(r: ReporteRow): string {
   return String(r.ID_Reporte || r.ID || "").trim();
+}
+
+function urlParaProxyFactura(f: FacturaPdf): string | null {
+  const u = f.imagenUrl?.trim();
+  if (u?.startsWith("data:")) return null;
+  if (u && (u.startsWith("http://") || u.startsWith("https://"))) {
+    if (u.includes("drive.google.com") || u.includes("googleusercontent.com")) return u;
+    return null;
+  }
+  const id = f.driveFileId?.trim();
+  if (id) return `https://drive.google.com/uc?id=${id}`;
+  return null;
+}
+
+async function resolveFacturaImages(facturas: FacturaPdf[]): Promise<FacturaPdf[]> {
+  return Promise.all(
+    facturas.map(async (f) => {
+      const target = urlParaProxyFactura(f);
+      if (!target) return f;
+      try {
+        const res = await fetch(`/api/proxy-imagen-base64?url=${encodeURIComponent(target)}`);
+        if (!res.ok) return f;
+        const j = (await res.json()) as { dataUrl?: string };
+        if (!j.dataUrl) return f;
+        return { ...f, imagenUrl: j.dataUrl };
+      } catch {
+        return f;
+      }
+    })
+  );
+}
+
+async function fetchFacturasByIds(ids: string[]): Promise<FacturaPdf[]> {
+  const responses = await Promise.all(
+    ids.map((id) =>
+      fetch(`/api/facturas/${encodeURIComponent(id)}`)
+        .then((r) => r.json())
+        .catch(() => null)
+    )
+  );
+  const rows = responses
+    .map((r) =>
+      r && typeof r === "object" && r !== null && "data" in r
+        ? (r as { data: Record<string, unknown> }).data
+        : null
+    )
+    .filter(Boolean) as Record<string, unknown>[];
+  return rows.map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: "—" }));
+}
+
+/** Facturas del reporte: JSON embebido, IDs o fetch por ID (misma lógica que admin). */
+async function facturasPdfFromReporteRow(reporte: ReporteRow): Promise<FacturaPdf[]> {
+  const raw = String(reporte.Facturas_IDs || reporte.FacturasIds || "").trim();
+
+  const parsedCell = parseFacturasPdfFromReporteCell(raw);
+  if (parsedCell?.length) {
+    if (typeof parsedCell[0] === "string") {
+      return fetchFacturasByIds(parsedCell as string[]);
+    }
+    return parsedCell as FacturaPdf[];
+  }
+
+  const parsedUnknown = parseFacturasJsonFromSheetCell(raw || "[]");
+  if (parsedUnknown !== null && Array.isArray(parsedUnknown) && parsedUnknown.length > 0) {
+    if (typeof parsedUnknown[0] === "string") {
+      const loaded = await fetchFacturasByIds(parsedUnknown as string[]);
+      if (loaded.length) return loaded;
+    } else if (typeof parsedUnknown[0] === "object" && parsedUnknown[0] !== null) {
+      return (parsedUnknown as Record<string, unknown>[]).map((row) =>
+        facturaRowToFacturaPdfForLegalizacion(row, { area: "—" })
+      );
+    }
+  }
+
+  const ids = extractIdsFromReporteFacturasCell(raw);
+  if (ids.length) return fetchFacturasByIds(ids);
+  return [];
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const s = String(reader.result || "");
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }
 
 export function ReporteCoordinadorClient() {
@@ -228,23 +325,63 @@ export function ReporteCoordinadorClient() {
 
   async function enviarFx(reporte: ReporteRow) {
     const id = reporteId(reporte);
-    const pdfUrl = String(reporte.PDF_URL || "").trim();
+    if (!id) return;
+
+    const user = data?.user;
     setEnviandoFx(id);
     try {
+      const facturasDelReporte = await facturasPdfFromReporteRow(reporte);
+      const facturasConImagenes = await resolveFacturaImages(facturasDelReporte);
+
+      const sectorRep = String(reporte.Sector || sector || "");
+      const limiteZonaVal = limiteAprobacionZona(sectorRep);
+      const coordNombre = String(reporte.Coordinador || coordinador || "");
+
+      let pdfBase64 = "";
+      try {
+        const pdfDoc = (
+          <LegalizacionPdf
+            coordinador={{
+              responsable: coordNombre,
+              cargo: String(user?.cargo || "Field Ops Planner"),
+              cedula: String(user?.cedula || ""),
+              sector: sectorRep,
+              area: String(user?.area || ""),
+            }}
+            facturas={facturasConImagenes}
+            firmaCoordinador={String(reporte.Firma_Coordinador || reporte.FirmaCoordinador || "")}
+            firmaAdmin={String(reporte.Firma_Admin || reporte.FirmaAdmin || "")}
+            fechaGeneracion={String(reporte.Fecha || new Date().toLocaleDateString("es-CO"))}
+            limiteZona={limiteZonaVal}
+          />
+        );
+        const blob = await pdf(pdfDoc).toBlob();
+        pdfBase64 = await blobToBase64(blob);
+      } catch (pdfErr) {
+        console.error("[enviarFx] Error generando PDF:", pdfErr);
+      }
+
       const res = await fetch("/api/legalizaciones/enviar-fx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reporteId: id, pdfUrl }),
+        body: JSON.stringify({
+          reporteId: id,
+          pdfUrl: String(reporte.PDF_URL || "").trim(),
+          pdfBase64: pdfBase64 || undefined,
+        }),
       });
+
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+
       if (res.ok) {
         setFxEnviado((prev) => new Set(Array.from(prev).concat(id)));
         window.alert("✅ Reporte enviado a FX correctamente");
       } else {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
         window.alert(`❌ ${j.error || "Error al enviar el reporte"}`);
       }
-    } catch {
-      window.alert("❌ Error de red");
+    } catch (err) {
+      console.error("[enviarFx]", err);
+      window.alert("❌ Error inesperado al enviar el reporte");
     } finally {
       setEnviandoFx(null);
     }
@@ -498,16 +635,22 @@ export function ReporteCoordinadorClient() {
                         <TableCell>{estadoReporteBadge(est)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-2">
-                            {est.toLowerCase().includes("firmado") && pdfUrl ? (
+                            {est.toLowerCase().includes("firmado") ? (
                               <div className="flex flex-wrap justify-end gap-2">
-                                <a
-                                  href={pdfUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center rounded-lg border border-[#525A72]/30 bg-[#001035] px-3 py-1.5 text-xs text-white hover:bg-[#0A1B4D]"
-                                >
-                                  ⬇ Descargar PDF
-                                </a>
+                                {pdfUrl ? (
+                                  <a
+                                    href={pdfUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center rounded-lg border border-[#525A72]/30 bg-[#001035] px-3 py-1.5 text-xs text-white hover:bg-[#0A1B4D]"
+                                  >
+                                    ⬇ Descargar PDF
+                                  </a>
+                                ) : (
+                                  <span className="self-center text-xs text-[#8892A4]">
+                                    Sin enlace Drive; el PDF se genera al enviar
+                                  </span>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => void enviarFx(r)}
@@ -525,8 +668,6 @@ export function ReporteCoordinadorClient() {
                                       : "📧 Enviar a FX"}
                                 </button>
                               </div>
-                            ) : est.toLowerCase().includes("firmado") ? (
-                              <span className="text-xs text-amber-200">PDF no disponible</span>
                             ) : (
                               <span className="text-xs text-amber-300">⏳ Pendiente firma del admin</span>
                             )}
