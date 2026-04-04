@@ -155,7 +155,7 @@ export async function procesarMensajeGastos(chatId: string, texto: string): Prom
 }
 
 
-async function enviarReporteDirecto(chatId: string, s: any): Promise<void> {
+export async function enviarReporteDirecto(chatId: string, s: any): Promise<void> {
   const base = process.env.NEXTAUTH_URL || "https://micaja3-one.vercel.app";
   const internalKey = process.env.INTERNAL_API_KEY || "";
   const total = s.facturas.reduce((acc: number, f: any) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
