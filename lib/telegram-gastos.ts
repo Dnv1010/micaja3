@@ -19,7 +19,7 @@ export async function iniciarFlujGastos(chatId, usuario) {
   await enviarTelegram(chatId, "📋 <b>Legalización de Gastos Generales</b>\n\nEscribe la <b>ciudad</b> del gasto:");
 }
 
-export async function procesarMensajeGastos(chatId, texto, _usuario) {
+export async function procesarMensajeGastos(chatId, texto) {
   const s = sesiones.get(chatId);
   if (!s) return false;
 

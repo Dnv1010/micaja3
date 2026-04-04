@@ -240,6 +240,7 @@ export function ReporteCoordinadorClient() {
     }, 1000);
 
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRows.length, totalSeleccionado, limite]);
 
   const superaLimite = totalSeleccionado > limite;
