@@ -98,8 +98,6 @@ export async function POST(req: NextRequest) {
   // Procesar sesion de gastos activa
   const sesionActiva = getSesionGastos(chatId);
   if (sesionActiva && texto && !texto.startsWith("/")) {
-    const usuarios0 = await getUsuariosFromSheet();
-    // u0 no usado
     await procesarMensajeGastos(chatId, texto);
     return NextResponse.json({ ok: true });
   }
