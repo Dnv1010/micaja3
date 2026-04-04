@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
   // Respuesta al menu
   
   // Procesar sesion de gastos activa
-  const sesionActiva = getSesionGastos(chatId);
+  const sesionActiva = await getSesionGastos(chatId);
   if (sesionActiva && texto && !texto.startsWith("/")) {
     await procesarMensajeGastos(chatId, texto);
     return NextResponse.json({ ok: true });
