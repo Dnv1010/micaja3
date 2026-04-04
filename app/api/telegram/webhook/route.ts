@@ -7,7 +7,7 @@ import {
   handleComandoSaldo,
   handleComandoStartHelp,
 } from "@/lib/telegram-commands";
-import { iniciarFlujGastos, procesarMensajeGastos, getSesionGastos, procesarFotoGasto } from "@/lib/telegram-gastos";
+import { iniciarFlujGastos, procesarMensajeGastos, getSesionGastos, procesarFotoGasto, deleteSesionGastos } from "@/lib/telegram-gastos";
 import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { patchUsuarioTelegramChatId } from "@/lib/usuarios-micaja-crud";
 
@@ -69,7 +69,6 @@ export async function POST(req: NextRequest) {
   const primeraPalabra = texto.split(/\s+/)[0]?.toLowerCase() ?? "";
 
   if (primeraPalabra === "/cancelar") {
-    const { deleteSesionGastos } = await import("@/lib/telegram-gastos");
     await deleteSesionGastos(chatId);
     await enviarTelegram(chatId, "✅ Sesion cancelada. Escribe /menu para empezar.");
     return NextResponse.json({ ok: true });
