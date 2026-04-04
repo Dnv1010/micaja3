@@ -154,6 +154,36 @@ export async function procesarMensajeGastos(chatId: string, texto: string): Prom
   return true;
 }
 
+
+async function enviarReporteDirecto(chatId: string, s: any): Promise<void> {
+  const base = process.env.NEXTAUTH_URL || "https://micaja3-one.vercel.app";
+  const internalKey = process.env.INTERNAL_API_KEY || "";
+  const total = s.facturas.reduce((acc: number, f: any) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
+  
+  let htmlContent = "";
+  try {
+    const res = await fetch(base + "/api/gastos-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
+      body: JSON.stringify({ nombre: s.nombre, cargo: s.cargo, cc: s.cc, ciudad: s.ciudad, motivo: s.motivo, fechaInicio: s.fechaInicio, fechaFin: s.fechaFin, facturas: s.facturas })
+    });
+    if (res.ok) htmlContent = await res.text();
+  } catch(e) { console.error("gastos-pdf:", e); }
+
+  if (htmlContent) {
+    const token = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const formTg = new FormData();
+    formTg.append("chat_id", chatId);
+    formTg.append("document", blob, "Legalizacion_Gastos_" + s.nombre.replace(/\s+/g,"_") + ".html");
+    formTg.append("caption", "📋 Legalizacion de Gastos\n👤 " + s.nombre + "\n📅 " + (s.fechaInicio||"") + " al " + (s.fechaFin||"") + "\n💰 Total: " + formatCOP(total));
+    await fetch("https://api.telegram.org/bot" + token + "/sendDocument", { method: "POST", body: formTg });
+    await enviarTelegram(chatId, "✅ Reporte generado. Total: <b>" + formatCOP(total) + "</b>");
+  } else {
+    await enviarTelegram(chatId, "❌ No se pudo generar el reporte. Intenta de nuevo.");
+  }
+}
+
 async function guardarGastosEnSheet(s: any): Promise<void> {
   // Guardar todas las facturas en paralelo para ser mas rapido
   await Promise.all(s.facturas.map((f: any) =>
