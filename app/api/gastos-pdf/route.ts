@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const internalKey = req.headers.get("x-internal-key") || "";
   const session = await getServerSession(authOptions);
-  if (!verifyInternalApiKey(internalKey) && !session?.user?.email) {
+  if (!verifyInternalApiKey(internalKey as string) && !session?.user?.email) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
