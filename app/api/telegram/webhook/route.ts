@@ -98,6 +98,13 @@ export async function POST(req: NextRequest) {
 
   // Respuesta al menu
   
+  // Procesar sesion de gastos activa
+  const sesionActiva = getSesionGastos(chatId);
+  if (sesionActiva && texto && !texto.startsWith("/")) {
+    await procesarMensajeGastos(chatId, texto);
+    return NextResponse.json({ ok: true });
+  }
+
   if (texto === "2") {
     const usuarios2m = await getUsuariosFromSheet();
     const u2m = usuarios2m.find((u) => String(u.telegram_chat_id || "").trim() === chatId);
@@ -110,12 +117,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Procesar sesion de gastos activa
-  const sesionActiva = getSesionGastos(chatId);
-  if (sesionActiva && texto && !texto.startsWith("/")) {
-    await procesarMensajeGastos(chatId, texto);
-    return NextResponse.json({ ok: true });
-  }
+
 
   const usuarios = await getUsuariosFromSheet();
 
