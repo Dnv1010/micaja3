@@ -43,7 +43,7 @@ export function parseFacturaText(rawText: string): FacturaData {
 // ─── NIT del PROVEEDOR ────────────────────────────────────────────────────────
 // Extrae TODOS los NITs de la factura y descarta los de BIA → el que queda es del proveedor
 function extractNitProveedor(text: string): string | null {
-  const pattern = /N\.?I\.?T\.?\s*[:\-]?\s*([\d]{6,15}[\-]?\d?)/gi;
+  const pattern = /N\.?I\.?T\.?\s*[:\-]?\s*([\d][\d.]{4,18}[\-]?\d?)/gi;
   const found: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(text)) !== null) {
