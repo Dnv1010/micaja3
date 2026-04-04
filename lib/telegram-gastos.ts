@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { enviarTelegram, escHtml } from "@/lib/notificaciones";
 import { formatCOP } from "@/lib/format";
 import { appendSheetRow } from "@/lib/sheets-helpers";
