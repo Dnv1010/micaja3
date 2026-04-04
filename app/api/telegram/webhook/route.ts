@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
   const sesionActiva = getSesionGastos(chatId);
   if (sesionActiva && texto && !texto.startsWith("/")) {
     const usuarios0 = await getUsuariosFromSheet();
-    const u0 = usuarios0.find((u) => String(u.telegram_chat_id || "").trim() === chatId);
+    // u0 no usado
     await procesarMensajeGastos(chatId, texto);
     return NextResponse.json({ ok: true });
   }
