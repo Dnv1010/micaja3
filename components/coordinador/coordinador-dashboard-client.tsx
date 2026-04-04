@@ -112,12 +112,12 @@ export function CoordinadorDashboardClient({
     .reduce((s, f) => s + montoFactura(f), 0);
 
   const porReportar = Math.max(0, totalEntregado - totalFacturado);
-  const enCaja = Math.max(0, limite - totalEntregado);
+  const disponible = Math.max(0, limite - totalEntregado);
 
-  const pctFacturado = limite > 0 ? Math.round((totalFacturado / limite) * 100) : 0;
-  const pctPorReportar = limite > 0 ? Math.round((porReportar / limite) * 100) : 0;
-  const pctEnCaja = limite > 0 ? Math.round((enCaja / limite) * 100) : 0;
-  const pctEntregado = limite > 0 ? Math.min(Math.round((totalEntregado / limite) * 100), 100) : 0;
+  const pctEntregado = limite > 0 ? Math.min(100, Math.round((totalEntregado / limite) * 100)) : 0;
+  const pctFacturado = limite > 0 ? Math.min(100, Math.round((totalFacturado / limite) * 100)) : 0;
+  const pctReportar = limite > 0 ? Math.min(100, Math.round((porReportar / limite) * 100)) : 0;
+  const pctDisponible = Math.max(0, 100 - pctEntregado);
 
   if (loading) {
     return (
@@ -135,63 +135,60 @@ export function CoordinadorDashboardClient({
       <div className="rounded-2xl border border-[#525A72]/20 bg-[#0A1B4D] p-6">
         <div className="mb-5 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">💸 Entregado</p>
+            <p className="mb-1 text-xs text-[#8892A4]">💸 Entregado a técnicos</p>
             <p className="text-xl font-bold text-white">{formatCOP(totalEntregado)}</p>
             <p className="mt-1 text-xs text-[#525A72]">{pctEntregado}% del límite</p>
           </div>
 
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">🧾 Facturado</p>
+            <p className="mb-1 text-xs text-[#8892A4]">🧾 Facturado / Reportado</p>
             <p className="text-xl font-bold text-[#08DDBC]">{formatCOP(totalFacturado)}</p>
             <p className="mt-1 text-xs text-[#525A72]">{pctFacturado}% del límite</p>
           </div>
 
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">⏳ Por reportar</p>
+            <p className="mb-1 text-xs text-[#8892A4]">⚠️ Por reportar</p>
             <p className="text-xl font-bold text-yellow-400">{formatCOP(porReportar)}</p>
             <p className="mt-1 text-xs text-[#525A72]">
-              {pctPorReportar}% · técnicos tienen en mano
+              {pctReportar}% · en mano de técnicos
             </p>
           </div>
 
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">🏦 En caja</p>
-            <p className="text-xl font-bold text-white">{formatCOP(enCaja)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">{pctEnCaja}% · sin entregar</p>
+            <p className="mb-1 text-xs text-[#8892A4]">🏦 Disponible en caja</p>
+            <p className="text-xl font-bold text-white">{formatCOP(disponible)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">{pctDisponible}% · sin entregar</p>
           </div>
         </div>
 
-        <div className="h-6 flex overflow-hidden rounded-full bg-[#001035]">
-          <div
-            style={{ width: `${Math.min(pctFacturado, 100)}%` }}
-            className="flex h-full items-center justify-center bg-[#08DDBC]"
-          >
-            {pctFacturado > 8 && (
-              <span className="text-xs font-bold text-[#001035]">{pctFacturado}%</span>
-            )}
+        <div className="mb-4">
+          <div className="mb-1 flex justify-between text-xs text-[#8892A4]">
+            <span>Uso de la caja menor</span>
+            <span>{pctEntregado}% entregado</span>
           </div>
-          <div
-            style={{ width: `${Math.min(pctPorReportar, 100)}%` }}
-            className="flex h-full items-center justify-center bg-yellow-400"
-          >
-            {pctPorReportar > 5 && (
-              <span className="text-xs font-bold text-yellow-900">{pctPorReportar}%</span>
-            )}
+          <div className="flex h-5 overflow-hidden rounded-full bg-[#0a1628]">
+            <div
+              style={{ width: `${pctFacturado}%` }}
+              className="h-full bg-[#08DDBC] transition-all"
+            />
+            <div
+              style={{ width: `${pctReportar}%` }}
+              className="h-full bg-yellow-400 transition-all"
+            />
           </div>
-        </div>
-
-        <div className="mt-2 flex gap-4">
-          <div className="flex items-center gap-1">
-            <div className="h-3 w-3 rounded-full bg-[#08DDBC]" />
-            <span className="text-xs text-[#8892A4]">Facturado ({pctFacturado}%)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-3 w-3 rounded-full bg-yellow-400" />
-            <span className="text-xs text-[#8892A4]">Por reportar ({pctPorReportar}%)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-3 w-3 rounded-full border border-[#525A72]/30 bg-[#001035]" />
-            <span className="text-xs text-[#8892A4]">En caja ({pctEnCaja}%)</span>
+          <div className="mt-2 flex flex-wrap gap-4">
+            <div className="flex items-center gap-1">
+              <div className="h-2.5 w-2.5 rounded-full bg-[#08DDBC]" />
+              <span className="text-xs text-[#8892A4]">Facturado ({pctFacturado}%)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+              <span className="text-xs text-[#8892A4]">Por reportar ({pctReportar}%)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-2.5 w-2.5 rounded-full border border-[#525A72]/40 bg-[#0a1628]" />
+              <span className="text-xs text-[#8892A4]">Disponible ({pctDisponible}%)</span>
+            </div>
           </div>
         </div>
       </div>
