@@ -1,4 +1,4 @@
-import { Document, Font, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 Font.register({
   family: "Roboto",
@@ -29,6 +29,8 @@ const s = StyleSheet.create({
   firmaSection: { flexDirection: "row", marginTop: 30, gap: 20 },
   firmaBox: { flex: 1, borderWidth: 0.5, borderColor: "#ddd", height: 60, padding: 5 },
   firmaLabel: { fontSize: 8, fontWeight: 700, marginBottom: 4 },
+  facturaImg: { width: "100%", marginTop: 8, marginBottom: 8 },
+  facturaImgTitle: { fontSize: 9, fontWeight: 700, color: "#001035", marginTop: 12, marginBottom: 4 },
   footer: { marginTop: 10, fontSize: 7, color: "#666", borderTopWidth: 0.5, borderTopColor: "#ddd", paddingTop: 5 },
 });
 
@@ -39,7 +41,7 @@ function formatCOP(v: number) {
 export function GastosDocument({ nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas }: {
   nombre: string; cargo: string; cc: string; ciudad: string; motivo: string;
   fechaInicio: string; fechaFin: string;
-  facturas: { concepto: string; centroCostos: string; nit: string; fecha: string; valor: string }[];
+  facturas: { concepto: string; centroCostos: string; nit: string; fecha: string; valor: string; urlImagen?: string }[];
 }) {
   const total = facturas.reduce((acc, f) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
   const cols = [30, 140, 90, 70, 60, 70];
@@ -83,6 +85,17 @@ export function GastosDocument({ nombre, cargo, cc, ciudad, motivo, fechaInicio,
         </View>
         <Text style={s.footer}>(1) TODOS LOS GASTOS DEBEN ENCONTRARSE DEBIDAMENTE SOPORTADOS Y TODAS LAS FACTURAS DEBEN ESTAR A NOMBRE DE BIA ENERGY S.A.S. E.S.P</Text>
       </Page>
+      {facturas.filter(f => f.urlImagen).map((f, i) => (
+        <Page key={"img-" + i} size="A4" style={s.page}>
+          <View style={s.header}>
+            <Text style={s.headerTitle}>BIA Energy SAS ESP</Text>
+            <Text style={s.headerSub}>Soporte Factura #{i + 1}</Text>
+          </View>
+          <Text style={s.facturaImgTitle}>Factura #{i + 1} - {f.concepto}</Text>
+          <Text style={[s.infoRow as any, { fontSize: 8, color: "#555", marginBottom: 8 }]}>Centro: {f.centroCostos} | Fecha: {f.fecha} | Valor: {formatCOP(Number(String(f.valor).replace(/[^0-9]/g, "")))}</Text>
+          {f.urlImagen && <Image style={s.facturaImg} src={f.urlImagen} />}
+        </Page>
+      ))}
     </Document>
   );
 }
