@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { GastosPdf } from "@/components/pdf/gastos-pdf";
+import { GastosPdf, GastosDocument } from "@/components/pdf/gastos-pdf";
 import { verifyInternalApiKey } from "@/lib/internal-api";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const { nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas } = body;
   
   const pdfBuffer = await renderToBuffer(
-    React.createElement(GastosPdf, { nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas })
+    React.createElement(GastosDocument, { nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas })
   );
 
   return new NextResponse(pdfBuffer, {

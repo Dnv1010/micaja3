@@ -1,4 +1,4 @@
-import { Document, Font, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Page, StyleSheet, Text, View, type DocumentProps } from "@react-pdf/renderer";
 
 Font.register({
   family: "Roboto",
@@ -36,7 +36,7 @@ function formatCOP(v: number) {
   return "$ " + v.toLocaleString("es-CO");
 }
 
-export function GastosPdf({ nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas }: {
+export function GastosDocument({ nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas }: {
   nombre: string; cargo: string; cc: string; ciudad: string; motivo: string;
   fechaInicio: string; fechaFin: string;
   facturas: { concepto: string; centroCostos: string; nit: string; fecha: string; valor: string }[];
