@@ -209,67 +209,57 @@ export async function POST(req: NextRequest) {
       const base64DataUrl = `data:${mimeType};base64,${base64}`;
 
       let textoOCR = "";
-      try {
-        const ocrForm = new FormData();
-        ocrForm.append("base64Image", base64DataUrl);
-        ocrForm.append("apikey", process.env.OCR_SPACE_API_KEY || "helloworld");
-        ocrForm.append("language", "spa");
-        ocrForm.append("isOverlayRequired", "false");
-        ocrForm.append("OCREngine", "2");
 
-        const ocrRes = await fetch("https://api.ocr.space/parse/image", {
-          method: "POST",
-          body: ocrForm,
-        });
-        const ocrData = (await ocrRes.json()) as {
-          IsErrored?: boolean;
-          ParsedResults?: { ParsedText?: string }[];
-          ErrorMessage?: string | string[];
-        };
-        if (!ocrData.IsErrored && ocrData.ParsedResults?.[0]?.ParsedText) {
-          textoOCR = String(ocrData.ParsedResults[0].ParsedText);
+      // Gemini Vision (primario)
+      const geminiKey = process.env.GEMINI_API_KEY?.trim();
+      if (geminiKey) {
+        try {
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      { inline_data: { mime_type: mimeType, data: base64 } },
+                      { text: "Extrae el texto completo de esta factura colombiana. Incluye: NIT, raz\u00f3n social, n\u00famero de factura, fecha, valor total, y cualquier otro dato visible. Responde solo con el texto extra\u00eddo, sin explicaciones." },
+                    ],
+                  },
+                ],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+              }),
+            }
+          );
+          const geminiData = (await geminiRes.json()) as {
+            candidates?: { content?: { parts?: { text?: string }[] } }[];
+          };
+          textoOCR = geminiData.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text?.trim() || "";
+        } catch {
+          textoOCR = "";
         }
-      } catch {
-        textoOCR = "";
       }
 
+      // OCR.Space (respaldo si Gemini falla)
       if (!textoOCR.trim() || textoOCR.trim().length < 20) {
-        const geminiKey = process.env.GEMINI_API_KEY?.trim();
-        if (geminiKey) {
-          try {
-            const geminiRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [
-                        {
-                          inline_data: {
-                            mime_type: mimeType,
-                            data: base64,
-                          },
-                        },
-                        {
-                          text: "Extrae el texto completo de esta factura colombiana. Incluye: NIT, raz\u00f3n social, n\u00famero de factura, fecha, valor total, y cualquier otro dato visible. Responde solo con el texto extra\u00eddo, sin explicaciones.",
-                        },
-                      ],
-                    },
-                  ],
-                  generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-                }),
-              }
-            );
-            const geminiData = (await geminiRes.json()) as {
-              candidates?: { content?: { parts?: { text?: string }[] } }[];
-            };
-            textoOCR =
-              geminiData.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text?.trim() || "";
-          } catch {
-            textoOCR = "";
+        try {
+          const ocrForm = new FormData();
+          ocrForm.append("base64Image", base64DataUrl);
+          ocrForm.append("apikey", process.env.OCR_SPACE_API_KEY || "helloworld");
+          ocrForm.append("language", "spa");
+          ocrForm.append("isOverlayRequired", "false");
+          ocrForm.append("OCREngine", "2");
+          const ocrRes = await fetch("https://api.ocr.space/parse/image", { method: "POST", body: ocrForm });
+          const ocrData = (await ocrRes.json()) as {
+            IsErrored?: boolean;
+            ParsedResults?: { ParsedText?: string }[];
+          };
+          if (!ocrData.IsErrored && ocrData.ParsedResults?.[0]?.ParsedText) {
+            textoOCR = String(ocrData.ParsedResults[0].ParsedText);
           }
+        } catch {
+          textoOCR = "";
         }
       }
 
