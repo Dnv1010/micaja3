@@ -1,3 +1,5 @@
+﻿export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST manual (poco usado): misma disposición A:H que la hoja Entregas. */
+/** POST manual (poco usado): misma disposiciÃ³n A:H que la hoja Entregas. */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });

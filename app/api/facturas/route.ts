@@ -1,3 +1,5 @@
+﻿export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
@@ -93,7 +95,7 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as FacturaCreateBody;
   } catch {
-    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+    return NextResponse.json({ error: "JSON invÃ¡lido" }, { status: 400 });
   }
 
   if (internal) {
