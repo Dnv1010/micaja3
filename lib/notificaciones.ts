@@ -25,8 +25,15 @@ export function appPublicBaseUrl(): string {
   return "https://micaja3-one.vercel.app";
 }
 
-export async function enviarTelegram(chatId: string, mensaje: string): Promise<boolean> {
+export type TelegramParseMode = "HTML" | "Markdown";
+
+export async function enviarTelegram(
+  chatId: string,
+  mensaje: string,
+  opts?: { parse_mode?: TelegramParseMode }
+): Promise<boolean> {
   if (!TELEGRAM_TOKEN || !chatId) return false;
+  const parse_mode = opts?.parse_mode ?? "HTML";
   try {
     const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: "POST",
@@ -34,7 +41,7 @@ export async function enviarTelegram(chatId: string, mensaje: string): Promise<b
       body: JSON.stringify({
         chat_id: chatId,
         text: mensaje,
-        parse_mode: "HTML",
+        parse_mode,
         disable_web_page_preview: true,
       }),
     });

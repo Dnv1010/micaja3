@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { formatCOP } from "@/lib/format";
 import { parseFacturaText } from "@/lib/factura-parser";
 import { appPublicBaseUrl, enviarTelegram, escHtml } from "@/lib/notificaciones";
+import {
+  handleComandoEquipo,
+  handleComandoSaldo,
+  handleComandoStartHelp,
+} from "@/lib/telegram-commands";
 import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { patchUsuarioTelegramChatId } from "@/lib/usuarios-micaja-crud";
 
@@ -60,6 +65,23 @@ export async function POST(req: NextRequest) {
   const foto = message.photo;
   const documento = message.document;
 
+  const primeraPalabra = texto.split(/\s+/)[0]?.toLowerCase() ?? "";
+
+  if (texto === "/help" || /^\/start(\s|$)/i.test(texto)) {
+    await handleComandoStartHelp(chatId);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (primeraPalabra === "/saldo" || primeraPalabra === "/mi_saldo") {
+    await handleComandoSaldo(chatId);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (primeraPalabra === "/equipo" || primeraPalabra === "/zona") {
+    await handleComandoEquipo(chatId);
+    return NextResponse.json({ ok: true });
+  }
+
   const usuarios = await getUsuariosFromSheet();
 
   const matchChat = (u: (typeof usuarios)[0]) =>
@@ -99,22 +121,6 @@ export async function POST(req: NextRequest) {
     await enviarTelegram(
       chatId,
       "❌ Tu Telegram no está registrado en MiCaja.\nEscribe <code>/registro Tu Nombre</code> (como en la app) o pide a tu coordinador que agregue tu <b>TelegramChatId</b> en la hoja Usuarios."
-    );
-    return NextResponse.json({ ok: true });
-  }
-
-  if (texto === "/start" || texto.toLowerCase().startsWith("/start")) {
-    await enviarTelegram(
-      chatId,
-      `👋 Hola <b>${escHtml(usuario.responsable)}</b>\n\nBienvenido a <b>MiCaja BIA Energy</b>.\n\nEnvía una <b>foto</b> de tu factura y la procesamos con OCR. 📸`
-    );
-    return NextResponse.json({ ok: true });
-  }
-
-  if (texto === "/saldo") {
-    await enviarTelegram(
-      chatId,
-      `💰 Consulta tu saldo y movimientos en la app:\n${escHtml(serverBaseUrl())}/mi-cuenta`
     );
     return NextResponse.json({ ok: true });
   }
@@ -340,7 +346,7 @@ export async function POST(req: NextRequest) {
 
   await enviarTelegram(
     chatId,
-    "📸 Envía una <b>foto</b> de tu factura para registrarla.\n\nComandos: /start · /saldo · <code>/registro Tu Nombre</code>"
+    "📸 Envía una <b>foto</b> de tu factura para registrarla.\n\nComandos: /start · /help · /saldo · /equipo · <code>/registro Tu Nombre</code>"
   );
   return NextResponse.json({ ok: true });
 }
