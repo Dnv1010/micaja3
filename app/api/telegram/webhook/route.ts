@@ -68,6 +68,12 @@ export async function POST(req: NextRequest) {
 
   const primeraPalabra = texto.split(/\s+/)[0]?.toLowerCase() ?? "";
 
+  if (primeraPalabra === "/cancelar") {
+    const { deleteSesionGastos } = await import("@/lib/telegram-gastos");
+    await deleteSesionGastos(chatId);
+    await enviarTelegram(chatId, "✅ Sesion cancelada. Escribe /menu para empezar.");
+    return NextResponse.json({ ok: true });
+  }
   if (texto === "/help" || /^\/start(\s|$)/i.test(texto)) {
     await handleComandoStartHelp(chatId);
     return NextResponse.json({ ok: true });
