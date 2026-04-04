@@ -68,6 +68,19 @@ export async function POST(req: NextRequest) {
 
   const primeraPalabra = texto.split(/\s+/)[0]?.toLowerCase() ?? "";
 
+  if (primeraPalabra === "/reporte") {
+    const sesionR = await getSesionGastos(chatId);
+    if (sesionR && sesionR.paso === "listo") {
+      await enviarTelegram(chatId, "⏳ Generando reporte...");
+      await deleteSesionGastos(chatId);
+      const { enviarReporteDirecto } = await import("@/lib/telegram-gastos");
+      await guardarGastosEnSheet_webhook(sesionR, chatId);
+      await enviarReporteDirecto(chatId, sesionR);
+    } else {
+      await enviarTelegram(chatId, "No hay reporte pendiente. Usa /gastos para crear uno.");
+    }
+    return NextResponse.json({ ok: true });
+  }
   if (primeraPalabra === "/cancelar") {
     await deleteSesionGastos(chatId);
     await enviarTelegram(chatId, "✅ Sesion cancelada. Escribe /menu para empezar.");
