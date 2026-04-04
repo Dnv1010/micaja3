@@ -104,9 +104,10 @@ function extractFecha(text: string): string | null {
 // ─── MONTO ────────────────────────────────────────────────────────────────────
 function extractMonto(text: string): number | null {
   const patterns = [
-    /(?:TOTAL\s*A\s*PAGAR|GRAN\s*TOTAL|VALOR\s*TOTAL|TOTAL\s*FACTURA|NETO\s*A\s*PAGAR|TOTAL\s*COP|VALOR\s*A\s*PAGAR)\s*[:\$\s]*\$?\s*([\d.,]+)/i,
-    /(?:^|\s)TOTAL\s*\$?\s*([\d.,]+)/im,
-    /SUBTOTAL\s*[:\$\s]*\$?\s*([\d.,]+)/i,
+    /(?:TOTAL\s*A\s*PAGAR|GRAN\s*TOTAL|VALOR\s*TOTAL|TOTAL\s*FACTURA|NETO\s*A\s*PAGAR|TOTAL\s*COP|VALOR\s*A\s*PAGAR)\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/i,
+    /(?:^|\s)TOTAL\s*[:\s]*(?:COP|\$)?\s*([\d.,]+)/im,
+    /SUBTOTAL\s*[:\s]*(?:COP|\$)?\s*([\d.,]+)/i,
+    /COP\s*\$?\s*([\d.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
