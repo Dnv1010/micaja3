@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,7 +33,7 @@ function navByRole(rol: string): NavItem[] {
   if (rol === "coordinador") {
     return [
       { href: "/", label: "Mi Zona", icon: Users },
-      { href: "/envios", label: "Envíos", icon: Send },
+      { href: "/envios", label: "EnvÃ­os", icon: Send },
       { href: "/facturas", label: "Facturas", icon: FileText },
       { href: "/reporte", label: "Reporte", icon: BarChart3 },
       { href: "/usuarios-zona", label: "Usuarios", icon: Users },
@@ -114,13 +114,13 @@ export function SidebarNav({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-white">{nombre}</p>
-            <p className="truncate text-xs text-bia-gray-light">{cargo || "—"}</p>
+            <p className="truncate text-xs text-bia-gray-light">{cargo || "â€”"}</p>
           </div>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="shrink-0 text-bia-gray transition-colors hover:text-bia-aqua"
-            aria-label="Cerrar sesión"
+            aria-label="Cerrar sesiÃ³n"
           >
             <LogOut className="h-5 w-5" />
           </button>
