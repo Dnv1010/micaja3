@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       await enviarTelegram(chatId, "⏳ Generando reporte...");
       await deleteSesionGastos(chatId);
       const { enviarReporteDirecto } = await import("@/lib/telegram-gastos");
-      await guardarGastosEnSheet_webhook(sesionR, chatId);
+      
       await enviarReporteDirecto(chatId, sesionR);
     } else {
       await enviarTelegram(chatId, "No hay reporte pendiente. Usa /gastos para crear uno.");
