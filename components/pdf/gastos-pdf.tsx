@@ -93,8 +93,8 @@ export function GastosDocument({ nombre, cargo, cc, ciudad, motivo, fechaInicio,
             <Text style={s.headerTitle}>BIA Energy SAS ESP</Text>
             <Text style={s.headerSub}>Soporte Factura #{i + 1}</Text>
           </View>
-          <Text style={s.facturaImgTitle}>Factura #{i + 1} - {f.concepto}</Text>
-          <Text style={[s.infoRow as any, { fontSize: 8, color: "#555", marginBottom: 8 }]}>Centro: {f.centroCostos} | Fecha: {f.fecha} | Valor: {formatCOP(Number(String(f.valor).replace(/[^0-9]/g, "")))}</Text>
+          <Text style={[s.facturaImgTitle, { marginBottom: 2 }]}>Factura #{i + 1} - {f.concepto}</Text>
+          <Text style={{ fontSize: 7, color: "#555", marginBottom: 6 }}>Centro: {f.centroCostos} | Fecha: {f.fecha} | Valor: {formatCOP(Number(String(f.valor).replace(/[^0-9]/g, "")))}</Text>
           {f.urlImagen && <Image style={s.facturaImg} src={f.urlImagen} />}
         </Page>
       ))}
