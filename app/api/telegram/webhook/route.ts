@@ -81,6 +81,19 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true });
   }
+  if (primeraPalabra === "/reporte") {
+    const sesionR = await getSesionGastos(chatId);
+    if (sesionR) {
+      await deleteSesionGastos(chatId);
+      await enviarTelegram(chatId, "⏳ Generando reporte...");
+      const { enviarReporteDirecto, guardarGastosEnSheetPublic } = await import("@/lib/telegram-gastos");
+      await guardarGastosEnSheetPublic(sesionR);
+      await enviarReporteDirecto(chatId, sesionR);
+    } else {
+      await enviarTelegram(chatId, "No hay reporte pendiente. Usa /gastos para crear uno.");
+    }
+    return NextResponse.json({ ok: true });
+  }
   if (primeraPalabra === "/cancelar") {
     await deleteSesionGastos(chatId);
     await enviarTelegram(chatId, "✅ Sesion cancelada. Escribe /menu para empezar.");

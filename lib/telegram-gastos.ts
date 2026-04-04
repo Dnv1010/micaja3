@@ -184,6 +184,8 @@ export async function enviarReporteDirecto(chatId: string, s: any): Promise<void
   }
 }
 
+export async function guardarGastosEnSheetPublic(s: any): Promise<void> { return guardarGastosEnSheet(s); }
+
 async function guardarGastosEnSheet(s: any): Promise<void> {
   // Guardar todas las facturas en paralelo para ser mas rapido
   await Promise.all(s.facturas.map((f: any) =>
