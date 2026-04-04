@@ -7,6 +7,7 @@ import {
   handleComandoSaldo,
   handleComandoStartHelp,
 } from "@/lib/telegram-commands";
+import { iniciarFlujGastos, procesarMensajeGastos, getSesionGastos } from "@/lib/telegram-gastos";
 import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { patchUsuarioTelegramChatId } from "@/lib/usuarios-micaja-crud";
 
