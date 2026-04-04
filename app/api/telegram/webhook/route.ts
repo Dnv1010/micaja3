@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
         tipoFactura: datos.tipo_factura || "POS",
         servicioDeclarado: datos.servicio_declarado || "Otro",
         tipoOperacion: "OPS - Activaciones",
-        aNombreBia: datos.nombre_bia,
+        aNombreBia: datos.nombre_bia && !!datos.nit_factura,
         ciudad,
         sector: usuario.sector,
         responsable: usuario.responsable,
