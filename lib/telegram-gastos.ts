@@ -1,8 +1,6 @@
 import { enviarTelegram, escHtml } from "@/lib/notificaciones";
-import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { formatCOP } from "@/lib/format";
-import { appendSheetRow, getSheetData } from "@/lib/sheets-helpers";
-import { SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
+import { appendSheetRow } from "@/lib/sheets-helpers";
 
 const sesiones = new Map();
 
@@ -21,7 +19,7 @@ export async function iniciarFlujGastos(chatId, usuario) {
   await enviarTelegram(chatId, "📋 <b>Legalización de Gastos Generales</b>\n\nEscribe la <b>ciudad</b> del gasto:");
 }
 
-export async function procesarMensajeGastos(chatId, texto, usuario) {
+export async function procesarMensajeGastos(chatId, texto, _usuario) {
   const s = sesiones.get(chatId);
   if (!s) return false;
 
@@ -104,7 +102,8 @@ async function enviarReporteGastos(chatId, s, correo) {
     (i+1) + ". " + f.concepto + " - " + f.centroCostos + " - " + f.fecha + " - " + formatCOP(Number(f.valor.replace(/[^0-9]/g, "")))
   ).join("\n");
 
-  const resend = new (require("resend").Resend)(process.env.RESEND_API_KEY);
+  const { Resend } = await import("resend");
+  const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
     from: process.env.RESEND_FROM || "MiCaja BIA Energy <onboarding@resend.dev>",
     to: [correo],
