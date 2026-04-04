@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: { bodySizeLimit: "10mb" },
+  },
+  maxDuration: 90,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "drive.google.com", pathname: "/**" },
