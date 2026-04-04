@@ -85,6 +85,10 @@ export async function procesarFotoGasto(chatId: string, datosOCR: any, imagenUrl
 export async function procesarMensajeGastos(chatId: string, texto: string): Promise<boolean> {
   const s = await leerSesion(chatId);
   if (!s) return false;
+  // Confirmacion rapida para pasos criticos
+  if (texto === "2" && s.paso === "mas_facturas") {
+    await enviarTelegram(chatId, "⏳ Generando reporte...");
+  }
 
   if (s.paso === "ciudad") {
     s.ciudad = texto; s.paso = "motivo";
