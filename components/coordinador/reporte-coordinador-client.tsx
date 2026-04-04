@@ -113,19 +113,6 @@ async function facturasPdfFromReporteRow(reporte: ReporteRow): Promise<FacturaPd
   return [];
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const s = String(reader.result || "");
-      const i = s.indexOf(",");
-      resolve(i >= 0 ? s.slice(i + 1) : s);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-}
-
 export function ReporteCoordinadorClient() {
   const { data } = useSession();
   const sector = String(data?.user?.sector || "");
@@ -356,7 +343,15 @@ export function ReporteCoordinadorClient() {
           />
         );
         const blob = await pdf(pdfDoc).toBlob();
-        pdfBase64 = await blobToBase64(blob);
+        const arrayBuffer = await blob.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const chunks: string[] = [];
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const slice = uint8Array.subarray(i, i + chunkSize);
+          chunks.push(String.fromCharCode(...Array.from(slice)));
+        }
+        pdfBase64 = btoa(chunks.join(""));
       } catch (pdfErr) {
         console.error("[enviarFx] Error generando PDF:", pdfErr);
       }
