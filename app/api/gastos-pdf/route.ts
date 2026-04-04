@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { GastosPdf, GastosDocument } from "@/components/pdf/gastos-pdf";
+import { GastosDocument } from "@/components/pdf/gastos-pdf";
 import { verifyInternalApiKey } from "@/lib/internal-api";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";

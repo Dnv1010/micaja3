@@ -1,4 +1,4 @@
-import { Document, Font, Page, StyleSheet, Text, View, type DocumentProps } from "@react-pdf/renderer";
+import { Document, Font, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 Font.register({
   family: "Roboto",
