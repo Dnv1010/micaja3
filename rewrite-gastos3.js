@@ -1,4 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿const fs = require("fs");
+
+// Reescribir telegram-gastos.ts con sesiones en Sheet
+const content = `/* eslint-disable @typescript-eslint/no-explicit-any */
 import { enviarTelegram, escHtml } from "@/lib/notificaciones";
 import { formatCOP } from "@/lib/format";
 import { appendSheetRow, getSheetData, updateSheetRow, deleteSheetRow, getSheetId } from "@/lib/sheets-helpers";
@@ -53,7 +56,7 @@ export async function getSesionGastos(chatId: string): Promise<any | null> {
 export async function iniciarFlujGastos(chatId: string, usuario: any): Promise<void> {
   const sesion = { paso: "ciudad", nombre: usuario.responsable || "", cargo: usuario.cargo || "", cc: usuario.cedula || "", facturas: [] };
   await guardarSesion(chatId, sesion);
-  await enviarTelegram(chatId, "📋 <b>Legalizacion de Gastos Generales</b>\n\nEscribe la <b>ciudad</b> del gasto:");
+  await enviarTelegram(chatId, "📋 <b>Legalizacion de Gastos Generales</b>\\n\\nEscribe la <b>ciudad</b> del gasto:");
 }
 
 export async function procesarFotoGasto(chatId: string, datosOCR: any, imagenUrl: string): Promise<void> {
@@ -70,13 +73,13 @@ export async function procesarFotoGasto(chatId: string, datosOCR: any, imagenUrl
   s.paso = "editar_datos";
   await guardarSesion(chatId, s);
   await enviarTelegram(chatId,
-    "📄 <b>Datos extraidos:</b>\n" +
-    "Concepto: <b>" + escHtml(s.facturaActual.concepto || "No detectado") + "</b>\n" +
-    "NIT: <b>" + escHtml(s.facturaActual.nit || "No detectado") + "</b>\n" +
-    "Fecha: <b>" + escHtml(s.facturaActual.fecha) + "</b>\n" +
-    "Valor: <b>" + formatCOP(Number(s.facturaActual.valor)) + "</b>\n\n" +
-    "Deseas editar algun dato?\n\n" +
-    "1 Editar Valor\n2 Editar NIT\n3 Editar Fecha\n4 Editar Concepto\n5 Siguiente"
+    "📄 <b>Datos extraidos:</b>\\n" +
+    "Concepto: <b>" + escHtml(s.facturaActual.concepto || "No detectado") + "</b>\\n" +
+    "NIT: <b>" + escHtml(s.facturaActual.nit || "No detectado") + "</b>\\n" +
+    "Fecha: <b>" + escHtml(s.facturaActual.fecha) + "</b>\\n" +
+    "Valor: <b>" + formatCOP(Number(s.facturaActual.valor)) + "</b>\\n\\n" +
+    "Deseas editar algun dato?\\n\\n" +
+    "1 Editar Valor\\n2 Editar NIT\\n3 Editar Fecha\\n4 Editar Concepto\\n5 Siguiente"
   );
 }
 
@@ -87,7 +90,7 @@ export async function procesarMensajeGastos(chatId: string, texto: string): Prom
   if (s.paso === "ciudad") {
     s.ciudad = texto; s.paso = "motivo";
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "Ciudad: <b>" + escHtml(texto) + "</b>\n\nEscribe el <b>motivo</b>:");
+    await enviarTelegram(chatId, "Ciudad: <b>" + escHtml(texto) + "</b>\\n\\nEscribe el <b>motivo</b>:");
   } else if (s.paso === "motivo") {
     s.motivo = texto; s.paso = "fecha_inicio";
     await guardarSesion(chatId, s);
@@ -99,43 +102,43 @@ export async function procesarMensajeGastos(chatId: string, texto: string): Prom
   } else if (s.paso === "fecha_fin") {
     s.fechaFin = texto; s.paso = "esperando_foto";
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "Perfecto.\n\n📸 Sube la foto de la Factura #" + (s.facturas.length + 1) + ":");
+    await enviarTelegram(chatId, "Perfecto.\\n\\n📸 Sube la foto de la Factura #" + (s.facturas.length + 1) + ":");
   } else if (s.paso === "editar_datos") {
     if (texto === "1") { s.paso = "editar_valor"; await guardarSesion(chatId, s); await enviarTelegram(chatId, "Escribe el <b>nuevo valor</b> en COP:"); }
     else if (texto === "2") { s.paso = "editar_nit"; await guardarSesion(chatId, s); await enviarTelegram(chatId, "Escribe el <b>nuevo NIT</b>:"); }
     else if (texto === "3") { s.paso = "editar_fecha"; await guardarSesion(chatId, s); await enviarTelegram(chatId, "Escribe la <b>nueva fecha</b> (DD/MM/YYYY):"); }
     else if (texto === "4") { s.paso = "editar_concepto"; await guardarSesion(chatId, s); await enviarTelegram(chatId, "Escribe el <b>nuevo concepto</b>:"); }
-    else if (texto === "5") { s.paso = "centro_costos"; await guardarSesion(chatId, s); await enviarTelegram(chatId, "Selecciona <b>Centro de Costos</b>:\n1 Ops-Activacion\n2 Ops-Retention"); }
+    else if (texto === "5") { s.paso = "centro_costos"; await guardarSesion(chatId, s); await enviarTelegram(chatId, "Selecciona <b>Centro de Costos</b>:\\n1 Ops-Activacion\\n2 Ops-Retention"); }
   } else if (s.paso === "editar_valor") {
     s.facturaActual.valor = texto.replace(/[^0-9]/g, ""); s.paso = "editar_datos";
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "Valor: <b>" + formatCOP(Number(s.facturaActual.valor)) + "</b>\n\n1 Editar Valor\n2 Editar NIT\n3 Editar Fecha\n4 Editar Concepto\n5 Siguiente");
+    await enviarTelegram(chatId, "Valor: <b>" + formatCOP(Number(s.facturaActual.valor)) + "</b>\\n\\n1 Editar Valor\\n2 Editar NIT\\n3 Editar Fecha\\n4 Editar Concepto\\n5 Siguiente");
   } else if (s.paso === "editar_nit") {
     s.facturaActual.nit = texto; s.paso = "editar_datos";
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "NIT: <b>" + escHtml(texto) + "</b>\n\n1 Editar Valor\n2 Editar NIT\n3 Editar Fecha\n4 Editar Concepto\n5 Siguiente");
+    await enviarTelegram(chatId, "NIT: <b>" + escHtml(texto) + "</b>\\n\\n1 Editar Valor\\n2 Editar NIT\\n3 Editar Fecha\\n4 Editar Concepto\\n5 Siguiente");
   } else if (s.paso === "editar_fecha") {
     s.facturaActual.fecha = texto; s.paso = "editar_datos";
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "Fecha: <b>" + escHtml(texto) + "</b>\n\n1 Editar Valor\n2 Editar NIT\n3 Editar Fecha\n4 Editar Concepto\n5 Siguiente");
+    await enviarTelegram(chatId, "Fecha: <b>" + escHtml(texto) + "</b>\\n\\n1 Editar Valor\\n2 Editar NIT\\n3 Editar Fecha\\n4 Editar Concepto\\n5 Siguiente");
   } else if (s.paso === "editar_concepto") {
     s.facturaActual.concepto = texto; s.paso = "editar_datos";
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "Concepto: <b>" + escHtml(texto) + "</b>\n\n1 Editar Valor\n2 Editar NIT\n3 Editar Fecha\n4 Editar Concepto\n5 Siguiente");
+    await enviarTelegram(chatId, "Concepto: <b>" + escHtml(texto) + "</b>\\n\\n1 Editar Valor\\n2 Editar NIT\\n3 Editar Fecha\\n4 Editar Concepto\\n5 Siguiente");
   } else if (s.paso === "centro_costos") {
     s.facturaActual.centroCostos = texto === "1" ? "Ops-Activacion" : "Ops-Retention";
     s.facturas.push({ ...s.facturaActual });
     s.facturaActual = undefined; s.paso = "mas_facturas";
     const total = s.facturas.reduce((acc: number, f: any) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "Factura #" + s.facturas.length + " guardada. Total: <b>" + formatCOP(total) + "</b>\n\nAgregar otra?\n1 Si\n2 No, generar reporte");
+    await enviarTelegram(chatId, "Factura #" + s.facturas.length + " guardada. Total: <b>" + formatCOP(total) + "</b>\\n\\nAgregar otra?\\n1 Si\\n2 No, generar reporte");
   } else if (s.paso === "mas_facturas") {
     if (texto === "1") {
       s.paso = "esperando_foto"; await guardarSesion(chatId, s);
       await enviarTelegram(chatId, "📸 Sube la foto de la Factura #" + (s.facturas.length + 1) + ":");
     } else {
       await guardarGastosEnSheet(s); s.paso = "correo"; await guardarSesion(chatId, s);
-      await enviarTelegram(chatId, "Gastos guardados en Sheet.\n\nEscribe el <b>correo</b> para el reporte:\n(o escribe omitir)");
+      await enviarTelegram(chatId, "Gastos guardados en Sheet.\\n\\nEscribe el <b>correo</b> para el reporte:\\n(o escribe omitir)");
     }
   } else if (s.paso === "correo") {
     if (texto.toLowerCase() !== "omitir" && texto.includes("@")) {
@@ -161,14 +164,18 @@ async function guardarGastosEnSheet(s: any): Promise<void> {
 async function enviarReporteGastos(chatId: string, s: any, correo: string): Promise<void> {
   const total = s.facturas.reduce((acc: number, f: any) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
   const filas = s.facturas.map((f: any, i: number) =>
-    `<tr style="background:${i%2===0?"#f9f9f9":"white"}"><td style="padding:8px;border:1px solid #ddd">${i+1}</td><td style="padding:8px;border:1px solid #ddd">${f.concepto}</td><td style="padding:8px;border:1px solid #ddd">${f.centroCostos}</td><td style="padding:8px;border:1px solid #ddd">${f.nit||""}</td><td style="padding:8px;border:1px solid #ddd">${f.fecha}</td><td style="padding:8px;border:1px solid #ddd;text-align:right">${formatCOP(Number(String(f.valor).replace(/[^0-9]/g,"")))}</td></tr>`
+    \`<tr style="background:\${i%2===0?"#f9f9f9":"white"}"><td style="padding:8px;border:1px solid #ddd">\${i+1}</td><td style="padding:8px;border:1px solid #ddd">\${f.concepto}</td><td style="padding:8px;border:1px solid #ddd">\${f.centroCostos}</td><td style="padding:8px;border:1px solid #ddd">\${f.nit||""}</td><td style="padding:8px;border:1px solid #ddd">\${f.fecha}</td><td style="padding:8px;border:1px solid #ddd;text-align:right">\${formatCOP(Number(String(f.valor).replace(/[^0-9]/g,"")))}</td></tr>\`
   ).join("");
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
     from: process.env.RESEND_FROM || "MiCaja BIA Energy <onboarding@resend.dev>",
     to: [correo],
     subject: "Legalizacion Gastos - " + s.nombre + " - " + (s.fechaInicio||"") + " al " + (s.fechaFin||""),
-    html: `<div style="font-family:Arial;max-width:700px;margin:0 auto"><div style="background:#001035;padding:20px"><h2 style="color:#08DDBC;margin:0">BIA Energy SAS ESP</h2><p style="color:white">Legalizacion de Gastos</p></div><div style="padding:20px;border:1px solid #eee"><p><b>Nombre:</b> ${s.nombre} | <b>Cargo:</b> ${s.cargo} | <b>CC:</b> ${s.cc}</p><p><b>Ciudad:</b> ${s.ciudad||""} | <b>Motivo:</b> ${s.motivo||""}</p><p><b>Periodo:</b> ${s.fechaInicio||""} al ${s.fechaFin||""}</p><table style="width:100%;border-collapse:collapse;margin-top:16px"><thead><tr style="background:#001035;color:white"><th style="padding:8px;border:1px solid #ddd">No.</th><th style="padding:8px;border:1px solid #ddd">Concepto</th><th style="padding:8px;border:1px solid #ddd">Centro</th><th style="padding:8px;border:1px solid #ddd">NIT</th><th style="padding:8px;border:1px solid #ddd">Fecha</th><th style="padding:8px;border:1px solid #ddd">Valor</th></tr></thead><tbody>${filas}</tbody><tfoot><tr style="background:#001035;color:white"><td colspan="5" style="padding:8px;text-align:right"><b>TOTAL:</b></td><td style="padding:8px;text-align:right"><b>${formatCOP(total)}</b></td></tr></tfoot></table><p style="font-size:11px;margin-top:16px;color:#666">(1) TODOS LOS GASTOS DEBEN ESTAR A NOMBRE DE BIA ENERGY S.A.S. E.S.P</p></div></div>`
+    html: \`<div style="font-family:Arial;max-width:700px;margin:0 auto"><div style="background:#001035;padding:20px"><h2 style="color:#08DDBC;margin:0">BIA Energy SAS ESP</h2><p style="color:white">Legalizacion de Gastos</p></div><div style="padding:20px;border:1px solid #eee"><p><b>Nombre:</b> \${s.nombre} | <b>Cargo:</b> \${s.cargo} | <b>CC:</b> \${s.cc}</p><p><b>Ciudad:</b> \${s.ciudad||""} | <b>Motivo:</b> \${s.motivo||""}</p><p><b>Periodo:</b> \${s.fechaInicio||""} al \${s.fechaFin||""}</p><table style="width:100%;border-collapse:collapse;margin-top:16px"><thead><tr style="background:#001035;color:white"><th style="padding:8px;border:1px solid #ddd">No.</th><th style="padding:8px;border:1px solid #ddd">Concepto</th><th style="padding:8px;border:1px solid #ddd">Centro</th><th style="padding:8px;border:1px solid #ddd">NIT</th><th style="padding:8px;border:1px solid #ddd">Fecha</th><th style="padding:8px;border:1px solid #ddd">Valor</th></tr></thead><tbody>\${filas}</tbody><tfoot><tr style="background:#001035;color:white"><td colspan="5" style="padding:8px;text-align:right"><b>TOTAL:</b></td><td style="padding:8px;text-align:right"><b>\${formatCOP(total)}</b></td></tr></tfoot></table><p style="font-size:11px;margin-top:16px;color:#666">(1) TODOS LOS GASTOS DEBEN ESTAR A NOMBRE DE BIA ENERGY S.A.S. E.S.P</p></div></div>\`
   });
-  await enviarTelegram(chatId, "📧 Reporte enviado a <b>" + escHtml(correo) + "</b>\n💰 Total: <b>" + formatCOP(total) + "</b>");
+  await enviarTelegram(chatId, "📧 Reporte enviado a <b>" + escHtml(correo) + "</b>\\n💰 Total: <b>" + formatCOP(total) + "</b>");
 }
+`;
+
+fs.writeFileSync("lib/telegram-gastos.ts", content, "utf8");
+console.log("ok");
