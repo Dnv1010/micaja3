@@ -131,10 +131,10 @@ export async function procesarMensajeGastos(chatId: string, texto: string): Prom
   } else if (s.paso === "centro_costos") {
     s.facturaActual.centroCostos = texto === "1" ? "Ops-Activacion" : "Ops-Retention";
     s.facturas.push({ ...s.facturaActual });
-    s.facturaActual = undefined; s.paso = "mas_facturas";
+    s.facturaActual = undefined; s.paso = "listo";
     const total = s.facturas.reduce((acc: number, f: any) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
     await guardarSesion(chatId, s);
-    await enviarTelegram(chatId, "Factura #" + s.facturas.length + " guardada. Total: <b>" + formatCOP(total) + "</b>\n\nAgregar otra?\n1 Si\n2 No, generar reporte");
+    await enviarTelegram(chatId, "Factura #" + s.facturas.length + " guardada. Total: <b>" + formatCOP(total) + "</b>\n\nAgregar otra?\n1 Si\n2 No, generar reporte con /reporte");
   } else if (s.paso === "mas_facturas") {
     if (texto === "1") {
       s.paso = "esperando_foto"; await guardarSesion(chatId, s);
