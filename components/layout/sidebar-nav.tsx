@@ -33,7 +33,7 @@ function navByRole(rol: string): NavItem[] {
   if (rol === "coordinador") {
     return [
       { href: "/", label: "Mi Zona", icon: Users },
-      { href: "/envios", label: "EnvÃ­os", icon: Send },
+      { href: "/envios", label: "Envíos", icon: Send },
       { href: "/facturas", label: "Facturas", icon: FileText },
       { href: "/reporte", label: "Reporte", icon: BarChart3 },
       { href: "/usuarios-zona", label: "Usuarios", icon: Users },
@@ -120,7 +120,7 @@ export function SidebarNav({
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="shrink-0 text-bia-gray transition-colors hover:text-bia-aqua"
-            aria-label="Cerrar sesiÃ³n"
+            aria-label="Cerrar sesión"
           >
             <LogOut className="h-5 w-5" />
           </button>
