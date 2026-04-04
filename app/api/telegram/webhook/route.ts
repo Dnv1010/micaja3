@@ -1,4 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+
+      }
+    }
+    await enviarTelegram(
+      chatId,
+      "❌ No encontré un usuario activo con ese nombre. Prueba con tu nombre como aparece en MiCaja."
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  if (!usuario) {
+    await enviarTelegram(
+      chatId,
+      "❌ Tu Telegram no está registrado en MiCaja.\nEscribe <code>/registro Tu Nombre</code> (como en la app) o pide a tu coordinador que agregue tu <b>TelegramChatId</b> en la hoja Usuarios."
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  const esImagenDoc =
+    documento?.mime_type?.startsWith("image/") && documento.file_id;
+  if (foto?.length || esImagenDoc) {
+      import { NextRequest, NextResponse } from "next/server";
 import { formatCOP } from "@/lib/format";
 import { parseFacturaText } from "@/lib/factura-parser";
 import { appPublicBaseUrl, enviarTelegram, escHtml } from "@/lib/notificaciones";
@@ -173,26 +194,7 @@ export async function POST(req: NextRequest) {
           );
           return NextResponse.json({ ok: true });
         }
-      }
-    }
-    await enviarTelegram(
-      chatId,
-      "❌ No encontré un usuario activo con ese nombre. Prueba con tu nombre como aparece en MiCaja."
-    );
-    return NextResponse.json({ ok: true });
-  }
 
-  if (!usuario) {
-    await enviarTelegram(
-      chatId,
-      "❌ Tu Telegram no está registrado en MiCaja.\nEscribe <code>/registro Tu Nombre</code> (como en la app) o pide a tu coordinador que agregue tu <b>TelegramChatId</b> en la hoja Usuarios."
-    );
-    return NextResponse.json({ ok: true });
-  }
-
-  const esImagenDoc =
-    documento?.mime_type?.startsWith("image/") && documento.file_id;
-  if (foto?.length || esImagenDoc) {
     await enviarTelegram(chatId, "📸 Recibí tu factura, analizando…");
 
     const internalKey = process.env.INTERNAL_API_KEY?.trim() || "";
