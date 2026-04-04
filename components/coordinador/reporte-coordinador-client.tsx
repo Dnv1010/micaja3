@@ -113,39 +113,40 @@ export function ReporteCoordinadorClient() {
     [selectedRows]
   );
 
-  const userEmail = data?.user?.email ?? "";
-  const userCoord = String(data?.user?.responsable || data?.user?.name || "");
-  const userSectorStr = String(data?.user?.sector || "");
-
   useEffect(() => {
-    if (!userEmail || selectedRows.length === 0) {
+    if (selectedRows.length === 0) {
       setResumenIA("");
-      setCargandoResumen(false);
       return;
     }
-    const timer = window.setTimeout(() => {
+
+    const timer = setTimeout(() => {
       void (async () => {
         setCargandoResumen(true);
         try {
+          const facturas = selectedRows.map((f) => ({
+            proveedor: String(getCellCaseInsensitive(f, "Razon_Social", "Proveedor") || ""),
+            concepto: String(getCellCaseInsensitive(f, "Tipo_servicio", "Observacion") || ""),
+            valor: String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"),
+            fecha: String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || ""),
+            tipoFactura: String(getCellCaseInsensitive(f, "Tipo_Factura") || ""),
+          }));
+
           const res = await fetch("/api/ia/resumen-reporte", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              facturas: selectedRows.map((f) => ({
-                proveedor: getCellCaseInsensitive(f, "Razon_Social", "Proveedor"),
-                concepto: getCellCaseInsensitive(f, "Tipo_servicio", "Observacion", "Concepto"),
-                valor: getCellCaseInsensitive(f, "Monto_Factura", "Valor"),
-                fecha: getCellCaseInsensitive(f, "Fecha_Factura", "Fecha"),
-                tipoFactura: getCellCaseInsensitive(f, "Tipo_Factura", "TipoFactura"),
-              })),
-              coordinador: userCoord,
-              sector: userSectorStr,
+              facturas,
+              coordinador: data?.user?.responsable || data?.user?.name || "",
+              sector: data?.user?.sector || "",
               total: totalSeleccionado,
               limite,
             }),
           });
-          const json = (await res.json().catch(() => ({}))) as { resumen?: string };
-          setResumenIA(json.resumen || "");
+
+          if (res.ok) {
+            const resData = (await res.json().catch(() => ({}))) as { resumen?: string };
+            setResumenIA(resData.resumen || "");
+          }
         } catch {
           setResumenIA("");
         } finally {
@@ -153,8 +154,9 @@ export function ReporteCoordinadorClient() {
         }
       })();
     }, 1000);
+
     return () => clearTimeout(timer);
-  }, [selectedRows, totalSeleccionado, limite, userEmail, userCoord, userSectorStr]);
+  }, [selectedRows, totalSeleccionado, limite, data?.user?.responsable, data?.user?.name, data?.user?.sector]);
 
   const superaLimite = totalSeleccionado > limite;
   const pctBarra = limite > 0 ? Math.min(100, (totalSeleccionado / limite) * 100) : 0;

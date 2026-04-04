@@ -443,7 +443,7 @@ export function AdminUsuariosClient() {
                   const sheetActive = activeFromSheet.get(row.email);
                   const cuentaActiva = sheetActive !== undefined ? sheetActive : true;
                   const balanceSubCls =
-                    bal > 0 ? "text-[#08DDBC]" : bal < 0 ? "text-red-400" : "text-[#525A72]";
+                    bal > 0 ? "text-yellow-400" : bal < 0 ? "text-red-400" : "text-[#525A72]";
                   return (
                     <TableRow key={row.email}>
                       <TableCell className="font-medium">{row.responsable || "—"}</TableCell>
@@ -457,9 +457,9 @@ export function AdminUsuariosClient() {
                           <span className={`font-medium ${balanceSubCls}`}>{formatCOP(bal)}</span>
                           <span className={`text-xs font-medium ${balanceSubCls}`}>
                             {bal > 0
-                              ? `Tiene disponible: ${formatCOP(bal)}`
+                              ? `Por reportar: ${formatCOP(bal)}`
                               : bal < 0
-                                ? `Por reembolsar: ${formatCOP(Math.abs(bal))}`
+                                ? `Empresa le debe: ${formatCOP(Math.abs(bal))}`
                                 : "Al día"}
                           </span>
                         </div>

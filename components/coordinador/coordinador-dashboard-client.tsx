@@ -9,7 +9,7 @@ import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 type FacturaRow = Record<string, unknown>;
 type EntregaRow = Record<string, unknown>;
 
-/** Prioridad Verificado â†’ Legalizado â†’ Estado (como en negocio). */
+/** Prioridad Verificado → Legalizado → Estado (como en negocio). */
 function estadoFacturaZona(f: FacturaRow): string {
   return String(
     getCellCaseInsensitive(f, "Verificado", "Legalizado", "Estado") || ""
@@ -20,10 +20,6 @@ function estadoFacturaZona(f: FacturaRow): string {
 
 function esFacturaSoloAprobada(f: FacturaRow): boolean {
   return estadoFacturaZona(f) === "aprobada";
-}
-
-function esFacturaCompletada(f: FacturaRow): boolean {
-  return estadoFacturaZona(f) === "completada";
 }
 
 function esFacturaPendienteActiva(f: FacturaRow): boolean {
@@ -108,24 +104,20 @@ export function CoordinadorDashboardClient({
 
   const totalEntregado = entregas.reduce((s, e) => s + montoEntrega(e), 0);
 
-  const totalAprobado = facturas
-    .filter((f) => esFacturaSoloAprobada(f))
+  const totalFacturado = facturas
+    .filter((f) => {
+      const estado = estadoFacturaZona(f);
+      return estado === "aprobada" || estado === "completada" || estado === "pendiente";
+    })
     .reduce((s, f) => s + montoFactura(f), 0);
 
-  const totalCompletado = facturas
-    .filter((f) => esFacturaCompletada(f))
-    .reduce((s, f) => s + montoFactura(f), 0);
+  const porReportar = Math.max(0, totalEntregado - totalFacturado);
+  const enCaja = Math.max(0, limite - totalEntregado);
 
-  const totalPendiente = facturas
-    .filter((f) => esFacturaPendienteActiva(f))
-    .reduce((s, f) => s + montoFactura(f), 0);
-
-  const enTerreno = Math.max(0, totalEntregado - totalAprobado - totalPendiente);
-  const porReportar = totalAprobado;
-  const enCajaMenor = Math.max(0, limite - totalEntregado);
+  const pctFacturado = limite > 0 ? Math.round((totalFacturado / limite) * 100) : 0;
+  const pctPorReportar = limite > 0 ? Math.round((porReportar / limite) * 100) : 0;
+  const pctEnCaja = limite > 0 ? Math.round((enCaja / limite) * 100) : 0;
   const pctEntregado = limite > 0 ? Math.min(Math.round((totalEntregado / limite) * 100), 100) : 0;
-  const pctUsado =
-    limite > 0 ? Math.min(Math.round(((totalAprobado + totalPendiente) / limite) * 100), 100) : 0;
 
   if (loading) {
     return (
@@ -137,67 +129,77 @@ export function CoordinadorDashboardClient({
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-white">Zona {zonaLabel}</h1>
-        <p className="text-sm text-[#8892A4]">LÃ­mite de caja menor: {formatCOP(limite)}</p>
+        <p className="text-sm text-[#8892A4]">Límite de caja menor: {formatCOP(limite)}</p>
       </div>
 
       <div className="rounded-2xl border border-[#525A72]/20 bg-[#0A1B4D] p-6">
-        <div className="mb-5">
-          <div className="mb-1 flex justify-between text-sm">
-            <span className="text-[#8892A4]">Entregado a tÃ©cnicos</span>
-            <span className="font-semibold text-white">
-              {formatCOP(totalEntregado)}{" "}
-              <span className="text-[#08DDBC]">({pctEntregado}%)</span>
-            </span>
-          </div>
-          <div className="h-4 overflow-hidden rounded-full bg-[#001035]">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${pctEntregado}%`,
-                backgroundColor:
-                  pctEntregado >= 90 ? "#ef4444" : pctEntregado >= 70 ? "#f59e0b" : "#08DDBC",
-              }}
-            />
-          </div>
-          <div className="mt-1 flex justify-between text-xs">
-            <span className="text-[#525A72]">$0</span>
-            <span className="text-[#525A72]">{formatCOP(limite)} (100%)</span>
-          </div>
-        </div>
-
         <div className="mb-5 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">ðŸ”§ En terreno</p>
-            <p className="text-xl font-bold text-white">{formatCOP(enTerreno)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">Entregado y disponible para gastar</p>
+            <p className="mb-1 text-xs text-[#8892A4]">💸 Entregado</p>
+            <p className="text-xl font-bold text-white">{formatCOP(totalEntregado)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">{pctEntregado}% del límite</p>
           </div>
+
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">ðŸ“‹ Por reportar</p>
-            <p className="text-xl font-bold text-[#08DDBC]">{formatCOP(porReportar)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">Aprobadas pendientes de legalizar</p>
+            <p className="mb-1 text-xs text-[#8892A4]">🧾 Facturado</p>
+            <p className="text-xl font-bold text-[#08DDBC]">{formatCOP(totalFacturado)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">{pctFacturado}% del límite</p>
           </div>
+
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">ðŸ¦ En caja menor</p>
-            <p className="text-xl font-bold text-white">{formatCOP(enCajaMenor)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">Sin entregar del lÃ­mite</p>
+            <p className="mb-1 text-xs text-[#8892A4]">⏳ Por reportar</p>
+            <p className="text-xl font-bold text-yellow-400">{formatCOP(porReportar)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">
+              {pctPorReportar}% · técnicos tienen en mano
+            </p>
           </div>
+
           <div className="rounded-xl bg-[#001035] p-4">
-            <p className="mb-1 text-xs text-[#8892A4]">âœ… Ya legalizado</p>
-            <p className="text-xl font-bold text-[#525A72]">{formatCOP(totalCompletado)}</p>
-            <p className="mt-1 text-xs text-[#525A72]">HistÃ³rico pagado</p>
+            <p className="mb-1 text-xs text-[#8892A4]">🏦 En caja</p>
+            <p className="text-xl font-bold text-white">{formatCOP(enCaja)}</p>
+            <p className="mt-1 text-xs text-[#525A72]">{pctEnCaja}% · sin entregar</p>
           </div>
         </div>
 
-        <p className="mb-2 text-xs text-[#8892A4]">
-          Uso del lÃ­mite (aprobadas + pendientes):{" "}
-          <span className="font-semibold text-white">{pctUsado}%</span>
-        </p>
+        <div className="h-6 flex overflow-hidden rounded-full bg-[#001035]">
+          <div
+            style={{ width: `${Math.min(pctFacturado, 100)}%` }}
+            className="flex h-full items-center justify-center bg-[#08DDBC]"
+          >
+            {pctFacturado > 8 && (
+              <span className="text-xs font-bold text-[#001035]">{pctFacturado}%</span>
+            )}
+          </div>
+          <div
+            style={{ width: `${Math.min(pctPorReportar, 100)}%` }}
+            className="flex h-full items-center justify-center bg-yellow-400"
+          >
+            {pctPorReportar > 5 && (
+              <span className="text-xs font-bold text-yellow-900">{pctPorReportar}%</span>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2 flex gap-4">
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full bg-[#08DDBC]" />
+            <span className="text-xs text-[#8892A4]">Facturado ({pctFacturado}%)</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full bg-yellow-400" />
+            <span className="text-xs text-[#8892A4]">Por reportar ({pctPorReportar}%)</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full border border-[#525A72]/30 bg-[#001035]" />
+            <span className="text-xs text-[#8892A4]">En caja ({pctEnCaja}%)</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-white">{tecnicosZona.length}</p>
-          <p className="mt-1 text-xs text-[#8892A4]">TÃ©cnicos activos</p>
+          <p className="mt-1 text-xs text-[#8892A4]">Técnicos activos</p>
         </div>
         <div className="rounded-xl border border-[#525A72]/20 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-yellow-400">

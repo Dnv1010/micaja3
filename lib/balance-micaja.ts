@@ -18,19 +18,19 @@ function spreadsheetId(): string {
   return id;
 }
 
-/** Solo "aprobada" suma al gastado del balance; "completada" y "pendiente" no. */
-function facturaGastadoAprobada(f: Record<string, string>): boolean {
+/** Facturas que cuentan como facturado/gastado: pendiente, aprobada, completada. No rechazadas ni vacío. */
+function facturaGastado(f: Record<string, string>): boolean {
   const v = String(
     getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || ""
   )
     .toLowerCase()
     .trim();
-  return v === "aprobada" || v === "completada";
+  return v === "aprobada" || v === "completada" || v === "pendiente";
 }
 
 /** Agrega montos por responsable desde Entregas y Facturas (hojas MiCaja). */
 export async function loadMicajaBalancesByResponsable(opts?: {
-  /** Si se indica, solo entregas de responsables de la zona y facturas aprobadas de la zona (por responsable o columna Sector normalizada). */
+  /** Si se indica, solo entregas y facturas (no rechazadas) de la zona. */
   sectorRaw?: string;
 }): Promise<Map<string, { recibido: number; gastado: number }>> {
   assertSheetsConfigured();
@@ -74,7 +74,7 @@ export async function loadMicajaBalancesByResponsable(opts?: {
   }
 
   for (const row of facturas) {
-    if (!facturaGastadoAprobada(row)) continue;
+    if (!facturaGastado(row)) continue;
     const r = String(row.Responsable || "").trim();
     const rowSec = normalizeSector(getCellCaseInsensitive(row, "Sector") || "");
     if (zonaSet && !zonaSet.has(r.toLowerCase())) {
