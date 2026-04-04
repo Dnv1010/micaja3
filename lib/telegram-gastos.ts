@@ -46,6 +46,8 @@ async function borrarSesion(chatId: string): Promise<void> {
   } catch(e) { console.error("borrarSesion:", e); }
 }
 
+export async function deleteSesionGastos(chatId: string): Promise<void> { await borrarSesion(chatId); }
+
 export async function getSesionGastos(chatId: string): Promise<any | null> {
   return leerSesion(chatId);
 }
