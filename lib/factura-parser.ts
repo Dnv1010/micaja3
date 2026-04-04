@@ -121,24 +121,16 @@ function extractMonto(text: string): number | null {
   return null;
 }
 
-/** Parsea montos en formato colombiano: 20.000 = 20000, 20.000,00 = 20000, 1.148.08 = 1148 */
+/** Parsea montos colombianos: puntos y comas son miles, centavos se ignoran */
 function parseCOPAmount(raw: string): number {
-  // Si tiene coma como decimal: 20.000,50 -> 20000.50
-  if (raw.includes(",")) {
-    return parseFloat(raw.replace(/\./g, "").replace(",", "."));
-  }
-  // Solo puntos: contar decimales despues del ultimo punto
-  const parts = raw.split(".");
-  if (parts.length === 1) return parseFloat(raw);
-  const lastPart = parts[parts.length - 1];
-  // Si ultimo segmento es de 1-2 digitos, es decimal (20.000.00 -> los 00 son centavos)
-  if (lastPart.length <= 2) {
-    // Quitar centavos y juntar miles
-    const entero = parts.slice(0, -1).join("");
-    return parseFloat(entero);
-  }
-  // Todos son separadores de miles: 20.000 -> 20000
-  return parseFloat(parts.join(""));
+  // Quitar espacios
+  let s = raw.trim();
+  // Si termina en ,XX o .XX (1-2 digitos) -> son centavos, quitar
+  s = s.replace(/[.,]\d{1,2}$/, "");
+  // Quitar todos los puntos y comas restantes (son miles)
+  s = s.replace(/[.,]/g, "");
+  const n = parseInt(s, 10);
+  return isNaN(n) ? 0 : n;
 }
 
 // ─── RAZÓN SOCIAL ─────────────────────────────────────────────────────────────
