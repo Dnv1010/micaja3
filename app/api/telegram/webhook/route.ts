@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Si hay sesion de gastos activa, guardar en gastos en vez de caja menor
-      const sesionGastos2 = getSesionGastos(chatId);
+      const sesionGastos2 = await getSesionGastos(chatId);
       if (sesionGastos2) {
         await procesarFotoGasto(chatId, datos, imagenUrl);
         return NextResponse.json({ ok: true });
