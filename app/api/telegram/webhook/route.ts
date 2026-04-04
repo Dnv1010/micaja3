@@ -72,6 +72,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  if (primeraPalabra === "/menu") {
+    await enviarTelegram(chatId, "👋 <b>MiCaja BIA Energy</b>\n\n¿Qué deseas hacer?\n\n1️⃣ <code>/cajamenor</code> — Caja Menor\n2️⃣ <code>/gastos</code> — Gastos Generales\n3️⃣ <code>/saldo</code> — Ver mi saldo\n4️⃣ <code>/equipo</code> — Ver equipo (coordinadores)");
+    return NextResponse.json({ ok: true });
+  }
+  if (primeraPalabra === "/gastos") {
+    const usuarios2 = await getUsuariosFromSheet();
+    const u2 = usuarios2.find((u) => String(u.telegram_chat_id || "").trim() === chatId);
+    if (!u2) { await enviarTelegram(chatId, "❌ No estás registrado. Escribe /registro TuNombre"); return NextResponse.json({ ok: true }); }
+    const rol2 = String(u2.rol || "").toLowerCase();
+    if (rol2 !== "coordinador" && rol2 !== "admin") { await enviarTelegram(chatId, "❌ Solo coordinadores y administradores pueden usar Gastos Generales."); return NextResponse.json({ ok: true }); }
+    await iniciarFlujGastos(chatId, u2);
+    return NextResponse.json({ ok: true });
+  }
   if (primeraPalabra === "/saldo" || primeraPalabra === "/mi_saldo") {
     await handleComandoSaldo(chatId);
     return NextResponse.json({ ok: true });
@@ -79,6 +92,15 @@ export async function POST(req: NextRequest) {
 
   if (primeraPalabra === "/equipo" || primeraPalabra === "/zona") {
     await handleComandoEquipo(chatId);
+    return NextResponse.json({ ok: true });
+  }
+
+  // Procesar sesion de gastos activa
+  const sesionActiva = getSesionGastos(chatId);
+  if (sesionActiva && texto && !texto.startsWith("/")) {
+    const usuarios0 = await getUsuariosFromSheet();
+    const u0 = usuarios0.find((u) => String(u.telegram_chat_id || "").trim() === chatId);
+    await procesarMensajeGastos(chatId, texto, u0);
     return NextResponse.json({ ok: true });
   }
 
