@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Respuesta al menu
-  const sesionMenu = sesiones ? null : null; // placeholder
+  
   if (texto === "2") {
     const usuarios2m = await getUsuariosFromSheet();
     const u2m = usuarios2m.find((u) => String(u.telegram_chat_id || "").trim() === chatId);
