@@ -2,13 +2,13 @@ import { enviarTelegram, escHtml } from "@/lib/notificaciones";
 import { formatCOP } from "@/lib/format";
 import { appendSheetRow } from "@/lib/sheets-helpers";
 
-const sesiones = new Map();
+const sesiones = new Map<string, any>();
 
-export function getSesionGastos(chatId) { return sesiones.get(chatId); }
-export function setSesionGastos(chatId, data) { sesiones.set(chatId, data); }
-export function deleteSesionGastos(chatId) { sesiones.delete(chatId); }
+export function getSesionGastos(chatId: string) { return sesiones.get(chatId); }
+export function setSesionGastos(chatId: string, data: any) { sesiones.set(chatId, data); }
+export function deleteSesionGastos(chatId: string) { sesiones.delete(chatId); }
 
-export async function iniciarFlujGastos(chatId, usuario) {
+export async function iniciarFlujGastos(chatId: string, usuario: any) {
   sesiones.set(chatId, {
     paso: "ciudad",
     nombre: usuario.responsable,
@@ -19,7 +19,7 @@ export async function iniciarFlujGastos(chatId, usuario) {
   await enviarTelegram(chatId, "📋 <b>Legalización de Gastos Generales</b>\n\nEscribe la <b>ciudad</b> del gasto:");
 }
 
-export async function procesarMensajeGastos(chatId, texto) {
+export async function procesarMensajeGastos(chatId: string, texto: string) {
   const s = sesiones.get(chatId);
   if (!s) return false;
 
