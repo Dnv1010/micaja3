@@ -1,25 +1,5 @@
-
-      }
-    }
-    await enviarTelegram(
-      chatId,
-      "❌ No encontré un usuario activo con ese nombre. Prueba con tu nombre como aparece en MiCaja."
-    );
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!usuario) {
-    await enviarTelegram(
-      chatId,
-      "❌ Tu Telegram no está registrado en MiCaja.\nEscribe <code>/registro Tu Nombre</code> (como en la app) o pide a tu coordinador que agregue tu <b>TelegramChatId</b> en la hoja Usuarios."
-    );
-    return NextResponse.json({ ok: true });
-  }
-
-  const esImagenDoc =
-    documento?.mime_type?.startsWith("image/") && documento.file_id;
-  if (foto?.length || esImagenDoc) {
-      import { NextRequest, NextResponse } from "next/server";
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+import { NextRequest, NextResponse } from "next/server";
 import { formatCOP } from "@/lib/format";
 import { parseFacturaText } from "@/lib/factura-parser";
 import { appPublicBaseUrl, enviarTelegram, escHtml } from "@/lib/notificaciones";
@@ -89,24 +69,13 @@ export async function POST(req: NextRequest) {
 
   const primeraPalabra = texto.split(/\s+/)[0]?.toLowerCase() ?? "";
 
-  if (primeraPalabra === "/reporte") {
-    const sesionR = await getSesionGastos(chatId);
-    if (sesionR && sesionR.paso === "listo") {
-      await enviarTelegram(chatId, "⏳ Generando reporte...");
-      await deleteSesionGastos(chatId);
-      const { enviarReporteDirecto } = await import("@/lib/telegram-gastos");
-      
-      await enviarReporteDirecto(chatId, sesionR);
-    } else {
-      await enviarTelegram(chatId, "No hay reporte pendiente. Usa /gastos para crear uno.");
-    }
-    return NextResponse.json({ ok: true });
-  }
+  // ── Comandos ──
+
   if (primeraPalabra === "/reporte") {
     const sesionR = await getSesionGastos(chatId);
     if (sesionR) {
       await deleteSesionGastos(chatId);
-      await enviarTelegram(chatId, "⏳ Generando reporte...");
+      await enviarTelegram(chatId, "\u23f3 Generando reporte...");
       const { enviarReporteDirecto, guardarGastosEnSheetPublic } = await import("@/lib/telegram-gastos");
       await guardarGastosEnSheetPublic(sesionR);
       await enviarReporteDirecto(chatId, sesionR);
@@ -115,29 +84,33 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true });
   }
+
   if (primeraPalabra === "/cancelar") {
     await deleteSesionGastos(chatId);
-    await enviarTelegram(chatId, "✅ Sesion cancelada. Escribe /menu para empezar.");
+    await enviarTelegram(chatId, "\u2705 Sesion cancelada. Escribe /menu para empezar.");
     return NextResponse.json({ ok: true });
   }
+
   if (texto === "/help" || /^\/start(\s|$)/i.test(texto)) {
     await handleComandoStartHelp(chatId);
     return NextResponse.json({ ok: true });
   }
 
   if (primeraPalabra === "/menu") {
-    await enviarTelegram(chatId, "👋 <b>MiCaja BIA Energy</b>\n\n¿Qué deseas hacer?\n\n1️⃣ <code>/cajamenor</code> — Caja Menor\n2️⃣ <code>/gastos</code> — Gastos Generales\n3️⃣ <code>/saldo</code> — Ver mi saldo\n4️⃣ <code>/equipo</code> — Ver equipo (coordinadores)");
+    await enviarTelegram(chatId, "\ud83d\udc4b <b>MiCaja BIA Energy</b>\n\n\u00bfQu\u00e9 deseas hacer?\n\n1\ufe0f\u20e3 <code>/cajamenor</code> \u2014 Caja Menor\n2\ufe0f\u20e3 <code>/gastos</code> \u2014 Gastos Generales\n3\ufe0f\u20e3 <code>/saldo</code> \u2014 Ver mi saldo\n4\ufe0f\u20e3 <code>/equipo</code> \u2014 Ver equipo (coordinadores)");
     return NextResponse.json({ ok: true });
   }
+
   if (primeraPalabra === "/gastos") {
     const usuarios2 = await getUsuariosFromSheet();
     const u2 = usuarios2.find((u) => String(u.telegram_chat_id || "").trim() === chatId);
-    if (!u2) { await enviarTelegram(chatId, "❌ No estás registrado. Escribe /registro TuNombre"); return NextResponse.json({ ok: true }); }
+    if (!u2) { await enviarTelegram(chatId, "\u274c No est\u00e1s registrado. Escribe /registro TuNombre"); return NextResponse.json({ ok: true }); }
     const rol2 = String(u2.rol || "").toLowerCase();
-    if (rol2 !== "coordinador" && rol2 !== "admin") { await enviarTelegram(chatId, "❌ Solo coordinadores y administradores pueden usar Gastos Generales."); return NextResponse.json({ ok: true }); }
+    if (rol2 !== "coordinador" && rol2 !== "admin") { await enviarTelegram(chatId, "\u274c Solo coordinadores y administradores pueden usar Gastos Generales."); return NextResponse.json({ ok: true }); }
     await iniciarFlujGastos(chatId, u2);
     return NextResponse.json({ ok: true });
   }
+
   if (primeraPalabra === "/saldo" || primeraPalabra === "/mi_saldo") {
     await handleComandoSaldo(chatId);
     return NextResponse.json({ ok: true });
@@ -148,15 +121,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Respuesta al menu
-  
-  // Procesar sesion de gastos activa
+  // ── Sesion de gastos activa (texto) ──
+
   const sesionActiva = await getSesionGastos(chatId);
   if (sesionActiva && texto && !texto.startsWith("/")) {
-    // Responder inmediatamente a Telegram para evitar reintentos
     const responsePromise = procesarMensajeGastos(chatId, texto);
     if (sesionActiva.paso === "mas_facturas" && texto === "2") {
-      // Procesar en background sin bloquear
       responsePromise.catch(e => console.error("gastos bg:", e));
       return NextResponse.json({ ok: true });
     }
@@ -164,18 +134,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-
-
-
+  // ── Buscar usuario ──
 
   const usuarios = await getUsuariosFromSheet();
-
   const matchChat = (u: (typeof usuarios)[0]) =>
     String(u.telegram_chat_id || "").trim() === chatId;
-
   let usuario = usuarios.find(matchChat);
 
-  // /registro Nombre Apellido — vincular chat a fila Usuarios por nombre aproximado
+  // /registro
   if (!usuario && /^\/registro\s+/i.test(texto)) {
     const nombre = texto.replace(/^\/registro\s+/i, "").trim();
     if (nombre.length >= 2) {
@@ -190,16 +156,37 @@ export async function POST(req: NextRequest) {
           usuario = { ...candidato, telegram_chat_id: chatId };
           await enviarTelegram(
             chatId,
-            `✅ <b>Registro exitoso.</b> Hola ${escHtml(candidato.responsable)} — ya puedes enviar fotos de facturas.`
+            `\u2705 <b>Registro exitoso.</b> Hola ${escHtml(candidato.responsable)} \u2014 ya puedes enviar fotos de facturas.`
           );
           return NextResponse.json({ ok: true });
         }
+      }
+    }
+    await enviarTelegram(
+      chatId,
+      "\u274c No encontr\u00e9 un usuario activo con ese nombre. Prueba con tu nombre como aparece en MiCaja."
+    );
+    return NextResponse.json({ ok: true });
+  }
 
-    await enviarTelegram(chatId, "📸 Recibí tu factura, analizando…");
+  if (!usuario) {
+    await enviarTelegram(
+      chatId,
+      "\u274c Tu Telegram no est\u00e1 registrado en MiCaja.\nEscribe <code>/registro Tu Nombre</code> (como en la app) o pide a tu coordinador que agregue tu <b>TelegramChatId</b> en la hoja Usuarios."
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Foto / Imagen ──
+
+  const esImagenDoc =
+    documento?.mime_type?.startsWith("image/") && documento.file_id;
+  if (foto?.length || esImagenDoc) {
+    await enviarTelegram(chatId, "\ud83d\udcf8 Recib\u00ed tu factura, analizando\u2026");
 
     const internalKey = process.env.INTERNAL_API_KEY?.trim() || "";
     if (!internalKey) {
-      await enviarTelegram(chatId, "❌ Servidor sin INTERNAL_API_KEY — contacta al administrador.");
+      await enviarTelegram(chatId, "\u274c Servidor sin INTERNAL_API_KEY \u2014 contacta al administrador.");
       return NextResponse.json({ ok: true });
     }
 
@@ -266,7 +253,7 @@ export async function POST(req: NextRequest) {
                           },
                         },
                         {
-                          text: "Extrae el texto completo de esta factura colombiana. Incluye: NIT, razón social, número de factura, fecha, valor total, y cualquier otro dato visible. Responde solo con el texto extraído, sin explicaciones.",
+                          text: "Extrae el texto completo de esta factura colombiana. Incluye: NIT, raz\u00f3n social, n\u00famero de factura, fecha, valor total, y cualquier otro dato visible. Responde solo con el texto extra\u00eddo, sin explicaciones.",
                         },
                       ],
                     },
@@ -291,12 +278,12 @@ export async function POST(req: NextRequest) {
         await enviarTelegram(
           chatId,
           [
-            "❌ No pude leer el texto de la factura.",
+            "\u274c No pude leer el texto de la factura.",
             "",
-            "💡 <b>Consejos:</b>",
-            "· Imagen bien iluminada",
-            "· Sin sombras ni reflejos",
-            "· Foto enfocada",
+            "\ud83d\udca1 <b>Consejos:</b>",
+            "\u00b7 Imagen bien iluminada",
+            "\u00b7 Sin sombras ni reflejos",
+            "\u00b7 Foto enfocada",
             "",
             `O sube la factura en la app: ${appUrl}`,
           ].join("\n")
@@ -339,20 +326,21 @@ export async function POST(req: NextRequest) {
       if (!imagenUrl) {
         await enviarTelegram(
           chatId,
-          "❌ No se pudo subir la imagen a Drive. Intenta de nuevo más tarde o usa la app."
+          "\u274c No se pudo subir la imagen a Drive. Intenta de nuevo m\u00e1s tarde o usa la app."
         );
         return NextResponse.json({ ok: true });
       }
 
-      // Si hay sesion de gastos activa, guardar en gastos en vez de caja menor
+      // >>> PRIORIDAD: Si hay sesion de gastos activa, va a gastos <
       const sesionGastos2 = await getSesionGastos(chatId);
       if (sesionGastos2) {
         await procesarFotoGasto(chatId, datos, imagenUrl);
         return NextResponse.json({ ok: true });
       }
 
+      // >>> Flujo normal caja menor <
       const monto = datos.monto_factura ?? 0;
-      const ciudadDefault = usuario.sector === "Bogota" ? "Bogotá" : "Barranquilla";
+      const ciudadDefault = usuario.sector === "Bogota" ? "Bogot\u00e1" : "Barranquilla";
       const ciudad = datos.ciudad?.trim() || ciudadDefault;
 
       const facturaBody = {
@@ -387,22 +375,22 @@ export async function POST(req: NextRequest) {
       if (!saveRes.ok || !saveJson.ok) {
         await enviarTelegram(
           chatId,
-          `❌ No se pudo guardar: ${escHtml(saveJson.error || "error")}${saveJson.duplicada ? " (posible duplicado)" : ""}`
+          `\u274c No se pudo guardar: ${escHtml(saveJson.error || "error")}${saveJson.duplicada ? " (posible duplicado)" : ""}`
         );
         return NextResponse.json({ ok: true });
       }
 
       const resumen = [
-        `✅ <b>Factura registrada</b>`,
+        `\u2705 <b>Factura registrada</b>`,
         ``,
-        `🏪 Proveedor: ${escHtml(datos.razon_social || "No detectado")}`,
-        `🔢 NIT: ${escHtml(datos.nit_factura || "No detectado")}`,
-        `🧾 N° Factura: ${escHtml(datos.num_factura || "No detectado")}`,
-        `📅 Fecha: ${escHtml(datos.fecha_factura || "No detectada")}`,
-        `💰 Valor: ${escHtml(formatCOP(Math.max(0, Math.round(monto))))}`,
-        `🏷️ A nombre de BIA: ${datos.nombre_bia ? "✅ Sí" : "❌ No"}`,
+        `\ud83e\udd6b Proveedor: ${escHtml(datos.razon_social || "No detectado")}`,
+        `\ud83d\udd22 NIT: ${escHtml(datos.nit_factura || "No detectado")}`,
+        `\ud83e\uddfe N\u00b0 Factura: ${escHtml(datos.num_factura || "No detectado")}`,
+        `\ud83d\udcc5 Fecha: ${escHtml(datos.fecha_factura || "No detectada")}`,
+        `\ud83d\udcb0 Valor: ${escHtml(formatCOP(Math.max(0, Math.round(monto))))}`,
+        `\ud83c\udff7\ufe0f A nombre de BIA: ${datos.nombre_bia ? "\u2705 S\u00ed" : "\u274c No"}`,
         ``,
-        `<i>Si algo está incorrecto, edítala en la app.</i>`,
+        `<i>Si algo est\u00e1 incorrecto, ed\u00edtala en la app.</i>`,
         `${escHtml(serverBaseUrl())}/facturas`,
       ].join("\n");
 
@@ -411,7 +399,7 @@ export async function POST(req: NextRequest) {
       console.error("[telegram webhook]", e);
       await enviarTelegram(
         chatId,
-        `❌ Error procesando la factura. Intenta de nuevo o súbela desde la app:\n${escHtml(serverBaseUrl())}/facturas/nueva`
+        `\u274c Error procesando la factura. Intenta de nuevo o s\u00fabela desde la app:\n${escHtml(serverBaseUrl())}/facturas/nueva`
       );
     }
 
@@ -420,7 +408,7 @@ export async function POST(req: NextRequest) {
 
   await enviarTelegram(
     chatId,
-    "📸 Envía una <b>foto</b> de tu factura para registrarla.\n\nComandos: /start · /help · /saldo · /equipo · <code>/registro Tu Nombre</code>"
+    "\ud83d\udcf8 Env\u00eda una <b>foto</b> de tu factura para registrarla.\n\nComandos: /start \u00b7 /help \u00b7 /saldo \u00b7 /equipo \u00b7 <code>/registro Tu Nombre</code>"
   );
   return NextResponse.json({ ok: true });
 }
