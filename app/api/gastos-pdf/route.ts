@@ -8,9 +8,8 @@ import { verifyInternalApiKey } from "@/lib/internal-api";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const internalKey = req.headers.get("x-internal-key") || "";
   const session = await getServerSession(authOptions);
-  if (!verifyInternalApiKey(internalKey as string) && !session?.user?.email) {
+  if (!verifyInternalApiKey(req) && !session?.user?.email) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
