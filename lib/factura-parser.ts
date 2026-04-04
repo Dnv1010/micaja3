@@ -247,134 +247,54 @@ function detectTipoFactura(text: string, lines: string[]): string | null {
 // ─── SERVICIO DECLARADO ───────────────────────────────────────────────────────
 function detectServicio(text: string): string | null {
   // Parqueadero
-  if (
-    text.includes("PARQUEADERO") ||
-    text.includes("PARKING") ||
-    text.includes("ESTACIONAMIENTO") ||
-    text.includes("PARQUEO")
-  )
+  if (/PARQUEADERO|PARKING|ESTACIONAMIENTO|PARQUEO|TARIFA\s*MOTOS?|TARIFA\s*CARROS?|TARIFA\s*VEHIC/i.test(text))
     return "Parqueadero";
 
   // Peajes
-  if (
-    text.includes("PEAJE") ||
-    text.includes("CONCESION") ||
-    text.includes("AUTOPISTA") ||
-    text.includes("PEAJES")
-  )
+  if (/PEAJE|CONCESI[OÓ]N|AUTOPISTA/i.test(text))
     return "Peajes";
 
   // Gasolina / Combustible
-  if (
-    text.includes("GASOLINA") ||
-    text.includes("COMBUSTIBLE") ||
-    text.includes("ACPM") ||
-    text.includes("DIESEL") ||
-    text.includes("GAS NATURAL VEHICULAR") ||
-    text.includes("ESTACION DE SERVICIO") ||
-    text.includes("PETROLEO") ||
-    text.includes("GALONES")
-  )
+  if (/GASOLINA|COMBUSTIBLE|ACPM|DIESEL|GAS\s*NATURAL\s*VEHIC|ESTACION\s*DE\s*SERVICIO|PETROLEO|GAL[OÓ]N/i.test(text))
     return "Gasolina";
 
-  // Alimentación
-  if (
-    text.includes("RESTAURANTE") ||
-    text.includes("ALMUERZO") ||
-    text.includes("COMIDA") ||
-    text.includes("DESAYUNO") ||
-    text.includes("CENA") ||
-    text.includes("CAFE") ||
-    text.includes("PANADERIA") ||
-    text.includes("SUPERMERCADO") ||
-    text.includes("PLAZA DE MERCADO") ||
-    text.includes("FRUTAS") ||
-    text.includes("CARNES") ||
-    text.includes("ALIMENTOS")
-  )
-    return "Alimentación";
-
-  // Hospedaje / Hoteles
-  if (
-    text.includes("HOTEL") ||
-    text.includes("HOSTAL") ||
-    text.includes("HOSPEDAJE") ||
-    text.includes("ALOJAMIENTO") ||
-    text.includes("HABITACION") ||
-    text.includes("MOTEL")
-  )
+  // Hospedaje
+  if (/HOTEL|HOSTAL|HOSPEDAJE|ALOJAMIENTO|HABITACI[OÓ]N/i.test(text))
     return "Hospedaje";
 
-  // IVA Hoteles
-  if (text.includes("IVA") && (text.includes("HOTEL") || text.includes("HOSPEDAJE"))) {
-    return "IVA Hoteles";
-  }
+  // Alimentacion (antes de transporte porque restaurantes pueden tener "servicio")
+  if (/RESTAURANTE|ALMUERZO|COMIDA|DESAYUNO|CENA|PANADERI|SUPERMERCADO|PLAZA\s*DE\s*MERCADO|FRUTAS|CARNES|ALIMENTOS|SERVICIO\s*A\s*LA\s*MESA|POLLO|PIZZA|HAMBURGUESA|AREPA|EMPANADA|ASADERO|CAFETER[IÍ]A|SUSHI|COMIDAS\s*R[AÁ]PIDAS|BEBIDAS|JUGOS|HELAD|PASTEL|BAKERY|PARRILLA|BRASA|FRITANGA|BANDEJA|CORRIENTAZO|MENU\s*DEL\s*D[IÍ]A|BUFFET/i.test(text))
+    return "Alimentación";
 
   // Transporte
-  if (
-    text.includes("TRANSPORTE") ||
-    text.includes("TAXI") ||
-    text.includes("UBER") ||
-    text.includes("REMESA") ||
-    text.includes("FLETE") ||
-    text.includes("ENCOMIENDA") ||
-    text.includes("SERVICIO DE TRANSPORTE")
-  )
+  if (/TRANSPORTE|TAXI|UBER|REMESA|FLETE|ENCOMIENDA|ENV[IÍ]O|MENSAJER[IÍ]A|DIDI|INDRIVER|BEAT/i.test(text))
     return "Transporte";
 
   // Lavadero
-  if (
-    text.includes("LAVADERO") ||
-    text.includes("LAVADO") ||
-    text.includes("CAR WASH") ||
-    text.includes("LAVADO DE VEHICULO") ||
-    text.includes("LAVAUTO")
-  )
+  if (/LAVADERO|LAVADO|CAR\s*WASH|LAVAUTO|LAVAAUTOS/i.test(text))
     return "Lavadero";
 
   // Llantera
-  if (
-    text.includes("LLANTA") ||
-    text.includes("LLANTERA") ||
-    text.includes("NEUMATICO") ||
-    text.includes("VULCANIZADORA") ||
-    text.includes("PINCHADO") ||
-    text.includes("MONTALLANTAS")
-  )
+  if (/LLANTA|LLANTERA|NEUM[AÁ]TICO|VULCANIZADORA|PINCHADO|MONTALLANTAS/i.test(text))
     return "Llantera";
 
-  // Papelería
-  if (
-    text.includes("PAPELERIA") ||
-    text.includes("PAPELERÍA") ||
-    text.includes("UTILES DE OFICINA") ||
-    text.includes("PAPELES") ||
-    text.includes("LIBRERIA")
-  )
+  // Papeleria
+  if (/PAPELER[IÍ]A|[UÚ]TILES\s*DE\s*OFICINA|LIBRER[IÍ]A|IMPRESION|FOTOCOPIAS/i.test(text))
     return "Papelería";
 
-  // Gastos bancarios
-  if (
-    text.includes("BANCO") ||
-    text.includes("BANCARIO") ||
-    text.includes("COMISION BANCARIA") ||
-    text.includes("TRANSFERENCIA") ||
-    text.includes("TRANSACCION")
-  )
-    return "Gastos Bancarios";
-
-  // Pago a proveedores
-  if (
-    text.includes("PROVEEDOR") ||
-    text.includes("MATERIALES") ||
-    text.includes("FERRETERIA") ||
-    text.includes("ELECTRICIDAD") ||
-    text.includes("INSUMOS") ||
-    text.includes("REPUESTOS")
-  )
+  // Pago a proveedores / materiales
+  if (/MATERIALES|FERRETER[IÍ]A|INSUMOS|REPUESTOS|HERRAMIENTAS|TORNILLOS|CABLES|TUBER[IÍ]A|CEMENTO|PINTURA|SOLDADURA|ELECTRI/i.test(text))
     return "Pago a proveedores";
 
-  return null; // El usuario selecciona manualmente
+  // Gastos bancarios
+  if (/COMISI[OÓ]N\s*BANCARIA|TRANSFERENCIA\s*BANCARIA|TRANSACCI[OÓ]N\s*BANCARIA/i.test(text))
+    return "Gastos Bancarios";
+
+  // Servicios publicos
+  if (/FACTURA\s*DE\s*SERVICIO|SERVICIO\s*P[UÚ]BLICO|EMPRESAS\s*P[UÚ]BLICAS|ACUEDUCTO|GAS\s*NATURAL(?!\s*VEHIC)/i.test(text))
+    return "Servicios Públicos";
+
+  return null;
 }
 
 // ─── CIUDAD ───────────────────────────────────────────────────────────────────
