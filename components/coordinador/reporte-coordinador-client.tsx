@@ -240,7 +240,7 @@ export function ReporteCoordinadorClient() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [selectedRows, totalSeleccionado, limite, data?.user?.responsable, data?.user?.name, data?.user?.sector]);
+  }, [selectedRows.length, totalSeleccionado, limite]);
 
   const superaLimite = totalSeleccionado > limite;
   const pctBarra = limite > 0 ? Math.min(100, (totalSeleccionado / limite) * 100) : 0;
