@@ -160,22 +160,22 @@ export async function enviarReporteDirecto(chatId: string, s: any): Promise<void
   const internalKey = process.env.INTERNAL_API_KEY || "";
   const total = s.facturas.reduce((acc: number, f: any) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
   
-  let htmlContent = "";
+  let pdfBuffer: ArrayBuffer | null = null;
   try {
     const res = await fetch(base + "/api/gastos-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
       body: JSON.stringify({ nombre: s.nombre, cargo: s.cargo, cc: s.cc, ciudad: s.ciudad, motivo: s.motivo, fechaInicio: s.fechaInicio, fechaFin: s.fechaFin, facturas: s.facturas })
     });
-    if (res.ok) htmlContent = await res.text();
+    if (res.ok) pdfBuffer = await res.arrayBuffer();
   } catch(e) { console.error("gastos-pdf:", e); }
 
-  if (htmlContent) {
+  if (pdfBuffer) {
     const token = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
-    const blob = new Blob([htmlContent], { type: "text/html" });
+    const blob = new Blob([pdfBuffer], { type: "application/pdf" });
     const formTg = new FormData();
     formTg.append("chat_id", chatId);
-    formTg.append("document", blob, "Legalizacion_Gastos_" + s.nombre.replace(/\s+/g,"_") + ".html");
+    formTg.append("document", blob, "Legalizacion_Gastos_" + s.nombre.replace(/\s+/g,"_") + ".pdf");
     formTg.append("caption", "📋 Legalizacion de Gastos\n👤 " + s.nombre + "\n📅 " + (s.fechaInicio||"") + " al " + (s.fechaFin||"") + "\n💰 Total: " + formatCOP(total));
     await fetch("https://api.telegram.org/bot" + token + "/sendDocument", { method: "POST", body: formTg });
     await enviarTelegram(chatId, "✅ Reporte generado. Total: <b>" + formatCOP(total) + "</b>");
