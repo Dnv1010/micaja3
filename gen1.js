@@ -1,43 +1,45 @@
 ﻿const fs = require('fs');
 fs.mkdirSync('app/api/gastos/enviar-telegram', { recursive: true });
-fs.writeFileSync('app/api/gastos/enviar-telegram/route.ts', /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
-import { renderToBuffer } from "@react-pdf/renderer";
-import { GastosDocument } from "@/components/pdf/gastos-pdf";
-import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
-import { formatCOP } from "@/lib/format";
-import React from "react";
-export const dynamic = "force-dynamic";
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const rol = String(session.user.rol || "").toLowerCase();
-  if (rol !== "coordinador" && rol !== "admin") return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
-  const body = await req.json();
-  const { nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas, chatId } = body;
-  if (!facturas?.length) return NextResponse.json({ error: "Sin facturas" }, { status: 400 });
-  let targetChatId = chatId;
-  if (!targetChatId) {
-    const usuarios = await getUsuariosFromSheet();
-    const u = usuarios.find((u) => u.responsable === nombre || u.email === session.user.email);
-    targetChatId = u?.telegram_chat_id || "";
-  }
-  const pdfBuffer = await renderToBuffer(React.createElement(GastosDocument, { nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas }) as any);
-  if (targetChatId) {
-    const token = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
-    const total = facturas.reduce((a: number, f: any) => a + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);
-    const blob = new Blob([pdfBuffer], { type: "application/pdf" });
-    const form = new FormData();
-    form.append("chat_id", targetChatId);
-    form.append("document", blob, "Legalizacion_Gastos_" + nombre.replace(/\\s+/g, "_") + ".pdf");
-    form.append("caption", "\\u{1F4CB} Legalizacion generada desde MiCaja\\n\\u{1F464} " + nombre + "\\n\\u{1F4C5} " + (fechaInicio||"") + " al " + (fechaFin||"") + "\\n\\u{1F4B0} Total: " + formatCOP(total));
-    await fetch("https://api.telegram.org/bot" + token + "/sendDocument", { method: "POST", body: form });
-  }
-  return new NextResponse(new Uint8Array(pdfBuffer), {
-    headers: { "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=Legalizacion_Gastos.pdf" },
-  });
-}
-, 'utf8');
-console.log('OK - endpoint creado');
+const lines = [
+'/* eslint-disable @typescript-eslint/no-explicit-any */',
+'import { NextRequest, NextResponse } from "next/server";',
+'import { getServerSession } from "next-auth";',
+'import { authOptions } from "@/lib/auth-options";',
+'import { renderToBuffer } from "@react-pdf/renderer";',
+'import { GastosDocument } from "@/components/pdf/gastos-pdf";',
+'import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";',
+'import { formatCOP } from "@/lib/format";',
+'import React from "react";',
+'export const dynamic = "force-dynamic";',
+'export async function POST(req: NextRequest) {',
+'  const session = await getServerSession(authOptions);',
+'  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });',
+'  const rol = String(session.user.rol || "").toLowerCase();',
+'  if (rol !== "coordinador" && rol !== "admin") return NextResponse.json({ error: "Sin permiso" }, { status: 403 });',
+'  const body = await req.json();',
+'  const { nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas, chatId } = body;',
+'  if (!facturas?.length) return NextResponse.json({ error: "Sin facturas" }, { status: 400 });',
+'  let targetChatId = chatId;',
+'  if (!targetChatId) {',
+'    const usuarios = await getUsuariosFromSheet();',
+'    const u = usuarios.find((u) => u.email === session.user.email);',
+'    targetChatId = u?.telegram_chat_id || "";',
+'  }',
+'  const pdfBuffer = await renderToBuffer(React.createElement(GastosDocument, { nombre, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, facturas }) as any);',
+'  if (targetChatId) {',
+'    const token = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";',
+'    const total = facturas.reduce((a: number, f: any) => a + Number(String(f.valor).replace(/[^0-9]/g, "")), 0);',
+'    const blob = new Blob([pdfBuffer], { type: "application/pdf" });',
+'    const form = new FormData();',
+'    form.append("chat_id", targetChatId);',
+'    form.append("document", blob, "Legalizacion_Gastos_" + nombre.replace(/\\s+/g, "_") + ".pdf");',
+'    form.append("caption", "Legalizacion desde MiCaja - " + nombre + " - " + (fechaInicio||"") + " al " + (fechaFin||"") + " - Total: " + formatCOP(total));',
+'    await fetch("https://api.telegram.org/bot" + token + "/sendDocument", { method: "POST", body: form });',
+'  }',
+'  return new NextResponse(new Uint8Array(pdfBuffer), {',
+'    headers: { "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=Legalizacion_Gastos.pdf" },',
+'  });',
+'}',
+];
+fs.writeFileSync('app/api/gastos/enviar-telegram/route.ts', lines.join('\n'), 'utf8');
+console.log('OK');
