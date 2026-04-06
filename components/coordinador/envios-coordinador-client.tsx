@@ -484,6 +484,29 @@ export function EnviosCoordinadorClient({
                   lista.map((r, i) => {
                     const comp = String(getCellCaseInsensitive(r, "Comprobante") || "").trim();
                     const thumb = comp.startsWith("https://") && comprobantePermiteMiniatura(comp);
+
+  async function eliminarEnvio(id: string) {
+    if (!confirm("Eliminar este envio?")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch("/api/envios", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        void cargarLista();
+      } else {
+        const j = (await res.json().catch(() => ({}))) as Record<string, string>;
+        alert(String(j.error || "No se pudo eliminar"));
+      }
+    } catch {
+      alert("Error al eliminar");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
                     return (
                       <TableRow key={i}>
                         <TableCell>{formatDateDDMMYYYY(getCellCaseInsensitive(r, "Fecha"))}</TableCell>
