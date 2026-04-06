@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSheetsClient, assertSheetsConfigured, SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
-import { quoteSheetTitleForRange, sheetValuesToRecords, deleteSheetRow } from "@/lib/sheets-helpers";
+import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
