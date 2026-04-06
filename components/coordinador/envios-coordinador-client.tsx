@@ -544,11 +544,11 @@ export function EnviosCoordinadorClient({
                         <TableCell>
                           <button
                             type="button"
-                            onClick={() => eliminarEnvio(String(getCellCaseInsensitive(r, "ID_Envio", "ID") || ""))}
-                            disabled={deleting === String(getCellCaseInsensitive(r, "ID_Envio", "ID") || "")}
+                            onClick={() => eliminarEnvio(String(Object.values(r)[0] || ""))}
+                            disabled={deleting === String(Object.values(r)[0] || "")}
                             className="rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
                           >
-                            {deleting === String(getCellCaseInsensitive(r, "ID_Envio", "ID") || "") ? "..." : "Eliminar"}
+                            {deleting === String(Object.values(r)[0] || "") ? "..." : "Eliminar"}
                           </button>
                         </TableCell>
                       </TableRow>
