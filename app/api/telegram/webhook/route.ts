@@ -208,7 +208,6 @@ export async function POST(req: NextRequest) {
       const mimeType = mimeFromDownload(imgRes.headers.get("content-type"), filePath);
       const base64DataUrl = `data:${mimeType};base64,${base64}`;
 
-      let textoOCR = "";
 
 
       // --- OCR: Gemini JSON (primario) + OCR.Space texto (fallback) ---
