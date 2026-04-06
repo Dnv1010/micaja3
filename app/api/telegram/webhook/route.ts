@@ -1,7 +1,7 @@
 ﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { formatCOP } from "@/lib/format";
-import { parseFacturaText } from "@/lib/factura-parser";
+import { parseFacturaText, parseGeminiJson } from "@/lib/factura-parser";
 import { appPublicBaseUrl, enviarTelegram, escHtml } from "@/lib/notificaciones";
 import {
   handleComandoEquipo,
@@ -210,7 +210,10 @@ export async function POST(req: NextRequest) {
 
       let textoOCR = "";
 
-      // Gemini Vision (primario)
+
+      // --- OCR: Gemini JSON (primario) + OCR.Space texto (fallback) ---
+      let datos: ReturnType<typeof parseFacturaText> | null = null;
+
       const geminiKey = process.env.GEMINI_API_KEY?.trim();
       if (geminiKey) {
         try {
@@ -220,29 +223,31 @@ export async function POST(req: NextRequest) {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      { inline_data: { mime_type: mimeType, data: base64 } },
-                      { text: "Extrae el texto completo de esta factura colombiana. Incluye: NIT, raz\u00f3n social, n\u00famero de factura, fecha, valor total, y cualquier otro dato visible. Responde solo con el texto extra\u00eddo, sin explicaciones." },
-                    ],
-                  },
-                ],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+                contents: [{
+                  parts: [
+                    { inline_data: { mime_type: mimeType, data: base64 } },
+                    { text: "Eres un analista contable experto procesando facturas colombianas. Extrae la informacion de esta imagen y devuelve ESTRICTAMENTE un objeto JSON.\n\nReglas:\n- \"proveedor\": Razon social del que VENDE (arriba, cerca del logo). NUNCA debe ser \"Factura electronica de venta\".\n- \"nit\": NIT del PROVEEDOR (el que vende). Busca \"NIT\" o \"N.I.T\". NO pongas el NIT de BIA Energy (901588412 o 901588413).\n- \"numero_factura\": Prefijo y numero. Busca \"Factura\", \"FE\", \"FV\", \"Venta\", \"No.\".\n- \"fecha\": Fecha de emision en DD/MM/YYYY.\n- \"valor\": Valor TOTAL final a pagar. Solo numero entero en pesos colombianos. Puntos y comas son miles (7.200=7200). Ignora centavos.\n- \"a_nombre_de_bia\": true si el CLIENTE es BIA Energy o NIT 901588412/901588413.\n- \"ciudad\": Ciudad que aparezca.\n- \"tipo_factura\": Uno de: Electronica, POS, Equivalente, Talonario, Cuenta de Cobro, Servicios Publicos, o null.\n- \"servicio\": Categoria: Parqueadero, Peajes, Gasolina, Alimentacion, Hospedaje, Transporte, Lavadero, Llantera, Papeleria, Pago a proveedores, o null.\n- \"descripcion\": Concepto del servicio/producto.\n\nJSON:\n{\"proveedor\":\"\",\"nit\":\"\",\"numero_factura\":\"\",\"fecha\":\"DD/MM/YYYY\",\"valor\":0,\"a_nombre_de_bia\":false,\"ciudad\":\"\",\"tipo_factura\":\"\",\"servicio\":\"\",\"descripcion\":\"\"}" },
+                  ],
+                }],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 1024, response_mime_type: "application/json" },
               }),
             }
           );
           const geminiData = (await geminiRes.json()) as {
             candidates?: { content?: { parts?: { text?: string }[] } }[];
           };
-          textoOCR = geminiData.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text?.trim() || "";
+          const geminiText = geminiData.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text?.trim() || "";
+          if (geminiText) {
+            datos = parseGeminiJson(geminiText);
+          }
         } catch {
-          textoOCR = "";
+          datos = null;
         }
       }
 
-      // OCR.Space (respaldo si Gemini falla)
-      if (!textoOCR.trim() || textoOCR.trim().length < 20) {
+      // Fallback: OCR.Space + regex
+      if (!datos || (!datos.monto_factura && !datos.razon_social)) {
+        let textoOCR = "";
         try {
           const ocrForm = new FormData();
           ocrForm.append("base64Image", base64DataUrl);
@@ -251,37 +256,22 @@ export async function POST(req: NextRequest) {
           ocrForm.append("isOverlayRequired", "false");
           ocrForm.append("OCREngine", "2");
           const ocrRes = await fetch("https://api.ocr.space/parse/image", { method: "POST", body: ocrForm });
-          const ocrData = (await ocrRes.json()) as {
-            IsErrored?: boolean;
-            ParsedResults?: { ParsedText?: string }[];
-          };
+          const ocrData = (await ocrRes.json()) as { IsErrored?: boolean; ParsedResults?: { ParsedText?: string }[] };
           if (!ocrData.IsErrored && ocrData.ParsedResults?.[0]?.ParsedText) {
             textoOCR = String(ocrData.ParsedResults[0].ParsedText);
           }
-        } catch {
-          textoOCR = "";
+        } catch { textoOCR = ""; }
+        if (textoOCR.trim().length >= 10) {
+          datos = parseFacturaText(textoOCR);
         }
       }
 
-      if (!textoOCR.trim() || textoOCR.trim().length < 10) {
+      if (!datos || (!datos.monto_factura && !datos.razon_social && !datos.nit_factura)) {
         const appUrl = escHtml(`${serverBaseUrl()}/facturas/nueva`);
-        await enviarTelegram(
-          chatId,
-          [
-            "\u274c No pude leer el texto de la factura.",
-            "",
-            "\ud83d\udca1 <b>Consejos:</b>",
-            "\u00b7 Imagen bien iluminada",
-            "\u00b7 Sin sombras ni reflejos",
-            "\u00b7 Foto enfocada",
-            "",
-            `O sube la factura en la app: ${appUrl}`,
-          ].join("\n")
-        );
+        await enviarTelegram(chatId, "\u274c No pude leer la factura.\n\n\ud83d\udca1 Consejos:\n\u00b7 Imagen bien iluminada\n\u00b7 Sin sombras\n\u00b7 Foto enfocada\n\nO sube en la app: " + appUrl);
         return NextResponse.json({ ok: true });
       }
 
-      const datos = parseFacturaText(textoOCR);
 
       const ext =
         mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
