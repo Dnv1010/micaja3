@@ -110,29 +110,7 @@ export function EnviosCoordinadorClient({
       .catch(() => {
         if (!cancelled) setZoneUsers([]);
       });
-    async function eliminarEnvio(id: string) {
-    if (!confirm("¿Eliminar este envío? Se eliminará también de la hoja de entregas.")) return;
-    setDeleting(id);
-    try {
-      const res = await fetch("/api/envios", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (res.ok) {
-        void cargarLista();
-      } else {
-        const j = await res.json().catch(() => ({}));
-        alert(String((j as Record<string,string>).error || "No se pudo eliminar"));
-      }
-    } catch {
-      alert("Error al eliminar");
-    } finally {
-      setDeleting(null);
-    }
-  }
-
-  return () => {
+    return () => {
       cancelled = true;
     };
   }, [sector, sessionSector]);
