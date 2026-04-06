@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { formatCOP } from "@/lib/format";
 import { parseFacturaText, parseGeminiJson } from "@/lib/factura-parser";
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   const primeraPalabra = texto.split(/\s+/)[0]?.toLowerCase() ?? "";
 
-  // -- Comandos --
+  // ── Comandos ──
 
   if (primeraPalabra === "/reporte") {
     const sesionR = await getSesionGastos(chatId);
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // -- Sesion de gastos activa (texto) --
+  // ── Sesion de gastos activa (texto) ──
 
   const sesionActiva = await getSesionGastos(chatId);
   if (sesionActiva && texto && !texto.startsWith("/")) {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // -- Buscar usuario --
+  // ── Buscar usuario ──
 
   const usuarios = await getUsuariosFromSheet();
   const matchChat = (u: (typeof usuarios)[0]) =>
@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // -- Foto / Imagen --
+  // ── Foto / Imagen ──
 
   const esImagenDoc =
     documento?.mime_type?.startsWith("image/") && documento.file_id;
@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
                 contents: [{
                   parts: [
                     { inline_data: { mime_type: mimeType, data: base64 } },
-                    { text: "Analiza esta factura colombiana y extrae datos en JSON.\n\nREGLAS CRITICAS:\n1. \"Factura electr�nica de venta\", \"Factura de venta\", \"Documento equivalente\", \"Ticket POS\" son TIPOS DE DOCUMENTO � NUNCA son el proveedor.\n2. El PROVEEDOR es la empresa que VENDE: su nombre est� cerca del logo, arriba a la izquierda o centro, usualmente con S.A.S, LTDA, S.A., E.S.P., o nombre comercial.\n3. BIA ENERGY S.A.S. ESP (NIT 901588412 o 901588413) es SIEMPRE el CLIENTE/COMPRADOR, NUNCA el proveedor.\n4. El NIT del proveedor est� cerca de su nombre/logo, con formato XXXXXXXX-X. NUNCA retornes 901588412 ni 901588413 como NIT.\n5. Si no puedes identificar claramente el proveedor o NIT, retorna \"\" en esos campos.\n\nCampos a extraer:\n- proveedor: Nombre comercial o raz�n social del VENDEDOR (no el tipo de documento).\n- nit: NIT del VENDEDOR. Excluir NITs de BIA.\n- numero_factura: N�mero de factura (prefijos: FE, FV, FEHU, POS, No., #)\n- fecha: DD/MM/YYYY\n- valor: Total a pagar en pesos entero. Puntos y comas son miles (41.000=41000)\n- a_nombre_de_bia: true si BIA Energy aparece como cliente\n- ciudad: Ciudad visible\n- tipo_factura: Electronica/POS/Equivalente/Talonario/null\n- servicio: Parqueadero/Peajes/Gasolina/Alimentacion/Hospedaje/Transporte/Lavadero/Llantera/Papeleria/Pago a proveedores/null\n- descripcion: Concepto del servicio.\n\nJSON: {\"proveedor\":\"\",\"nit\":\"\",\"numero_factura\":\"\",\"fecha\":\"\",\"valor\":0,\"a_nombre_de_bia\":false,\"ciudad\":\"\",\"tipo_factura\":\"\",\"servicio\":\"\",\"descripcion\":\"\"} En una factura hay DOS partes:\n1. PROVEEDOR/VENDEDOR: aparece ARRIBA, cerca del logo, con su nombre grande y su NIT. Es quien VENDE.\n2. CLIENTE/COMPRADOR: aparece en campos como Senores, Cliente, Razon Social del cliente. En este caso SIEMPRE es BIA Energy.\n\nBIA ENERGY S.A.S. ESP (NIT 901588412 o 901588413) es SIEMPRE el CLIENTE, NUNCA el proveedor.\n\nCampos:\n- proveedor: Nombre/razon social del VENDEDOR (arriba, logo). NUNCA BIA Energy.\n- nit: NIT del VENDEDOR (cerca de su nombre arriba). NUNCA 901588412 ni 901588413.\n- numero_factura: Numero de factura (FE, FV, Venta, No., N).\n- fecha: DD/MM/YYYY\n- valor: Total a pagar en pesos enteros. Puntos y comas son miles (7.200=7200).\n- a_nombre_de_bia: true si BIA Energy aparece como cliente.\n- ciudad: Ciudad visible.\n- tipo_factura: Electronica/POS/Equivalente/Talonario/null\n- servicio: Parqueadero/Peajes/Gasolina/Alimentacion/Hospedaje/Transporte/Lavadero/Llantera/Papeleria/Pago a proveedores/null\n- descripcion: Concepto.\n\nJSON: {\"proveedor\":\"\",\"nit\":\"\",\"numero_factura\":\"\",\"fecha\":\"\",\"valor\":0,\"a_nombre_de_bia\":false,\"ciudad\":\"\",\"tipo_factura\":\"\",\"servicio\":\"\",\"descripcion\":\"\"}" },
+                    { text: "Analiza esta factura colombiana y devuelve JSON.\n\nIMPORTANTE: En una factura hay DOS partes:\n1. PROVEEDOR/VENDEDOR: aparece ARRIBA, cerca del logo, con su nombre grande y su NIT. Es quien VENDE.\n2. CLIENTE/COMPRADOR: aparece en campos como Senores, Cliente, Razon Social del cliente. En este caso SIEMPRE es BIA Energy.\n\nBIA ENERGY S.A.S. ESP (NIT 901588412 o 901588413) es SIEMPRE el CLIENTE, NUNCA el proveedor.\n\nCampos:\n- proveedor: Nombre/razon social del VENDEDOR (arriba, logo). NUNCA BIA Energy.\n- nit: NIT del VENDEDOR (cerca de su nombre arriba). NUNCA 901588412 ni 901588413.\n- numero_factura: Numero de factura (FE, FV, Venta, No., N).\n- fecha: DD/MM/YYYY\n- valor: Total a pagar en pesos enteros. Puntos y comas son miles (7.200=7200).\n- a_nombre_de_bia: true si BIA Energy aparece como cliente.\n- ciudad: Ciudad visible.\n- tipo_factura: Electronica/POS/Equivalente/Talonario/null\n- servicio: Parqueadero/Peajes/Gasolina/Alimentacion/Hospedaje/Transporte/Lavadero/Llantera/Papeleria/Pago a proveedores/null\n- descripcion: Concepto.\n\nJSON: {\"proveedor\":\"\",\"nit\":\"\",\"numero_factura\":\"\",\"fecha\":\"\",\"valor\":0,\"a_nombre_de_bia\":false,\"ciudad\":\"\",\"tipo_factura\":\"\",\"servicio\":\"\",\"descripcion\":\"\"}" },
                   ],
                 }],
                 generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
