@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSheetsClient, assertSheetsConfigured, SPREADSHEET_IDS, SHEET_NAMES } from "@/lib/google-sheets";
-import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
+import { quoteSheetTitleForRange, sheetValuesToRecords, deleteSheetRow } from "@/lib/sheets-helpers";
 import { parseSheetDate } from "@/lib/format";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
@@ -148,5 +148,99 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error("envios POST:", e);
     return NextResponse.json({ ok: false, error: "No se pudo registrar el envío" }, { status: 500 });
+  }
+}
+
+
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const rol = String(session.user.rol || "user").toLowerCase();
+  if (rol !== "admin" && rol !== "coordinador") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  }
+
+  try {
+    const body = (await req.json()) as { id?: string };
+    const id = String(body.id || "").trim();
+    if (!id) return NextResponse.json({ error: "Falta ID" }, { status: 400 });
+
+    assertSheetsConfigured();
+    const sheets = getSheetsClient();
+    const spreadsheetId = micajaSpreadsheetId();
+
+    // Buscar y eliminar en Envio
+    const envioRange = `${quoteSheetTitleForRange(SHEET_NAMES.ENVIO)}!A:F`;
+    const envioRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: envioRange });
+    const envioRows = envioRes.data.values ?? [];
+    let envioRowIdx = -1;
+    for (let i = 1; i < envioRows.length; i++) {
+      if (String(envioRows[i][0] || "").trim() === id) { envioRowIdx = i; break; }
+    }
+
+    if (envioRowIdx === -1) {
+      return NextResponse.json({ error: "Envio no encontrado" }, { status: 404 });
+    }
+
+    // Obtener sheetId del tab Envio
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties" });
+    const envioSheet = meta.data.sheets?.find(
+      (s) => s.properties?.title === SHEET_NAMES.ENVIO
+    );
+    const entregaSheet = meta.data.sheets?.find(
+      (s) => s.properties?.title === SHEET_NAMES.ENTREGAS
+    );
+
+    // Eliminar fila de Envio
+    if (envioSheet?.properties?.sheetId != null) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            deleteDimension: {
+              range: {
+                sheetId: envioSheet.properties.sheetId,
+                dimension: "ROWS",
+                startIndex: envioRowIdx,
+                endIndex: envioRowIdx + 1,
+              },
+            },
+          }],
+        },
+      });
+    }
+
+    // Buscar y eliminar en Entregas por ID_Envio
+    if (entregaSheet?.properties?.sheetId != null) {
+      const entregaRange = `${quoteSheetTitleForRange(SHEET_NAMES.ENTREGAS)}!A:H`;
+      const entregaRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: entregaRange });
+      const entregaRows = entregaRes.data.values ?? [];
+      // ID_Envio esta en columna C (indice 2)
+      for (let i = entregaRows.length - 1; i >= 1; i--) {
+        if (String(entregaRows[i][2] || "").trim() === id) {
+          await sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: {
+              requests: [{
+                deleteDimension: {
+                  range: {
+                    sheetId: entregaSheet.properties.sheetId,
+                    dimension: "ROWS",
+                    startIndex: i,
+                    endIndex: i + 1,
+                  },
+                },
+              }],
+            },
+          });
+          break;
+        }
+      }
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("envios DELETE:", e);
+    return NextResponse.json({ ok: false, error: "No se pudo eliminar" }, { status: 500 });
   }
 }

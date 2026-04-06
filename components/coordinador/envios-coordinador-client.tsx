@@ -76,6 +76,7 @@ export function EnviosCoordinadorClient({
   const [lista, setLista] = useState<EnvioRow[]>([]);
 
   const [imagenModal, setImagenModal] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [zoneUsers, setZoneUsers] = useState<ZoneUserEnvio[]>([]);
 
   useEffect(() => {
@@ -108,7 +109,29 @@ export function EnviosCoordinadorClient({
       .catch(() => {
         if (!cancelled) setZoneUsers([]);
       });
-    return () => {
+    async function eliminarEnvio(id: string) {
+    if (!confirm("¿Eliminar este envío? Se eliminará también de la hoja de entregas.")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch("/api/envios", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        void cargarLista();
+      } else {
+        const j = await res.json().catch(() => ({}));
+        alert(String((j as Record<string,string>).error || "No se pudo eliminar"));
+      }
+    } catch {
+      alert("Error al eliminar");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  return () => {
       cancelled = true;
     };
   }, [sector, sessionSector]);
@@ -474,7 +497,7 @@ export function EnviosCoordinadorClient({
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={6}>
                       <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                     </TableCell>
                   </TableRow>
@@ -516,12 +539,22 @@ export function EnviosCoordinadorClient({
                           )}
                         </TableCell>
                         <TableCell>{getCellCaseInsensitive(r, "Telefono") || "—"}</TableCell>
+                        <TableCell>
+                          <button
+                            type="button"
+                            onClick={() => eliminarEnvio(String(getCellCaseInsensitive(r, "ID_Envio", "ID") || ""))}
+                            disabled={deleting === String(getCellCaseInsensitive(r, "ID_Envio", "ID") || "")}
+                            className="rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {deleting === String(getCellCaseInsensitive(r, "ID_Envio", "ID") || "") ? "..." : "Eliminar"}
+                          </button>
+                        </TableCell>
                       </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-bia-gray">
+                    <TableCell colSpan={6} className="text-bia-gray">
                       Sin envíos en el período
                     </TableCell>
                   </TableRow>
