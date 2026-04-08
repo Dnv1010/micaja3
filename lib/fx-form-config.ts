@@ -3,13 +3,13 @@ export const FX_FORM_URL =
 
 export const FX_ENTRIES = {
   empresa: "entry.1555314988",
-  nombres: "entry.1481318872",
-  identificacion: "entry.1904157805",
-  cargo: "entry.1654512563",
-  correo: "entry.1410371680",
+  nombres: "entry.1904157805",
+  identificacion: "entry.1654512563",
+  cargo: "entry.1410371680",
+  correo: "entry.845182431",
   tipoSolicitud: "entry.706728192",
-  descripcion: "entry.845182431",
-  departamento: "entry.1421378834",
+  descripcion: "entry.1421378834",
+  departamento: "entry.1481318872",
 } as const;
 
 export interface FxFormData {
