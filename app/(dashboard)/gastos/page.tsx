@@ -1,17 +1,26 @@
-import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { GastosGeneralesClient } from "@/components/coordinador/gastos-generales-client";
-import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
+import { redirect } from "next/navigation";
+import GastosGeneralesClient from "@/components/gastos/GastosGeneralesClient";
+
 export default async function GastosPage() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) redirect("/login");
-  const rol = String(session.user.rol || "user").toLowerCase();
-  if (rol !== "coordinador" && rol !== "admin") redirect("/");
-  const sector = String(session.user.sector || "");
-  const responsable = String(session.user?.responsable || session.user?.name || "").trim();
-  const usuarios = await getUsuariosFromSheet();
-  const u = usuarios.find((u) => u.email === session.user.email);
-  const chatId = u?.telegram_chat_id || "";
-  return <GastosGeneralesClient sector={sector} responsable={responsable} rol={rol} chatId={chatId} />;
+  if (!session?.user) redirect("/login");
+
+  const rol = String(session.user.rol || "").toLowerCase();
+  if (rol !== "admin" && rol !== "coordinador") {
+    redirect("/");
+  }
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-white">Gastos Generales</h1>
+        <p className="mt-1 text-sm text-gray-400">
+          Gastos registrados vía Telegram por coordinadores y admins
+        </p>
+      </div>
+      <GastosGeneralesClient rol={rol} sector={String(session.user.sector || "")} />
+    </div>
+  );
 }

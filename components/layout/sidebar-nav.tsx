@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Home,
   Package,
+  Receipt,
   Scale,
   LogOut,
   Zap,
@@ -27,6 +28,7 @@ function navByRole(rol: string): NavItem[] {
       { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
       { href: "/admin/reportes", label: "Reportes", icon: ClipboardList },
       { href: "/admin/facturas", label: "Facturas", icon: FileText },
+      { href: "/gastos", label: "Gastos Generales", icon: Receipt },
       { href: "/admin/usuarios", label: "Usuarios", icon: Users },
     ];
   }
@@ -36,6 +38,7 @@ function navByRole(rol: string): NavItem[] {
       { href: "/envios", label: "Envíos", icon: Send },
       { href: "/facturas", label: "Facturas", icon: FileText },
       { href: "/reporte", label: "Reporte", icon: BarChart3 },
+      { href: "/gastos", label: "Gastos Generales", icon: Receipt },
       { href: "/usuarios-zona", label: "Usuarios", icon: Users },
       { href: "/legalizaciones", label: "Legalizaciones", icon: Scale },
     ];
