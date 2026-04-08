@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { pdf } from "@react-pdf/renderer";
 import { useSession } from "next-auth/react";
 import { FirmaCanvas } from "@/components/firma-canvas";
+import EnviarFxModal from "@/components/reporte/EnviarFxModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,15 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BiaConfirm } from "@/components/ui/bia-confirm";
-import { LegalizacionPdf, type FacturaPdf } from "@/components/pdf/legalizacion-pdf";
 import { etiquetaZona, limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
-import {
-  extractIdsFromReporteFacturasCell,
-  facturaRowToFacturaPdfForLegalizacion,
-  parseFacturasJsonFromSheetCell,
-  parseFacturasPdfFromReporteCell,
-} from "@/lib/legalizacion-factura-pdf-map";
+import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { cn } from "@/lib/utils";
 
@@ -34,83 +28,6 @@ function facturaEstadoEffective(f: FacturaRow): string {
 
 function reporteId(r: ReporteRow): string {
   return String(r.ID_Reporte || r.ID || "").trim();
-}
-
-function urlParaProxyFactura(f: FacturaPdf): string | null {
-  const u = f.imagenUrl?.trim();
-  if (u?.startsWith("data:")) return null;
-  if (u && (u.startsWith("http://") || u.startsWith("https://"))) {
-    if (u.includes("drive.google.com") || u.includes("googleusercontent.com")) return u;
-    return null;
-  }
-  const id = f.driveFileId?.trim();
-  if (id) return `https://drive.google.com/uc?id=${id}`;
-  return null;
-}
-
-async function resolveFacturaImages(facturas: FacturaPdf[]): Promise<FacturaPdf[]> {
-  return Promise.all(
-    facturas.map(async (f) => {
-      const target = urlParaProxyFactura(f);
-      if (!target) return f;
-      try {
-        const res = await fetch(`/api/proxy-imagen-base64?url=${encodeURIComponent(target)}`);
-        if (!res.ok) return f;
-        const j = (await res.json()) as { dataUrl?: string };
-        if (!j.dataUrl) return f;
-        return { ...f, imagenUrl: j.dataUrl };
-      } catch {
-        return f;
-      }
-    })
-  );
-}
-
-async function fetchFacturasByIds(ids: string[]): Promise<FacturaPdf[]> {
-  const responses = await Promise.all(
-    ids.map((id) =>
-      fetch(`/api/facturas/${encodeURIComponent(id)}`)
-        .then((r) => r.json())
-        .catch(() => null)
-    )
-  );
-  const rows = responses
-    .map((r) =>
-      r && typeof r === "object" && r !== null && "data" in r
-        ? (r as { data: Record<string, unknown> }).data
-        : null
-    )
-    .filter(Boolean) as Record<string, unknown>[];
-  return rows.map((f) => facturaRowToFacturaPdfForLegalizacion(f, { area: "—" }));
-}
-
-/** Facturas del reporte: JSON embebido, IDs o fetch por ID (misma lógica que admin). */
-async function facturasPdfFromReporteRow(reporte: ReporteRow): Promise<FacturaPdf[]> {
-  const raw = String(reporte.Facturas_IDs || reporte.FacturasIds || "").trim();
-
-  const parsedCell = parseFacturasPdfFromReporteCell(raw);
-  if (parsedCell?.length) {
-    if (typeof parsedCell[0] === "string") {
-      return fetchFacturasByIds(parsedCell as string[]);
-    }
-    return parsedCell as FacturaPdf[];
-  }
-
-  const parsedUnknown = parseFacturasJsonFromSheetCell(raw || "[]");
-  if (parsedUnknown !== null && Array.isArray(parsedUnknown) && parsedUnknown.length > 0) {
-    if (typeof parsedUnknown[0] === "string") {
-      const loaded = await fetchFacturasByIds(parsedUnknown as string[]);
-      if (loaded.length) return loaded;
-    } else if (typeof parsedUnknown[0] === "object" && parsedUnknown[0] !== null) {
-      return (parsedUnknown as Record<string, unknown>[]).map((row) =>
-        facturaRowToFacturaPdfForLegalizacion(row, { area: "—" })
-      );
-    }
-  }
-
-  const ids = extractIdsFromReporteFacturasCell(raw);
-  if (ids.length) return fetchFacturasByIds(ids);
-  return [];
 }
 
 export function ReporteCoordinadorClient() {
@@ -136,8 +53,7 @@ export function ReporteCoordinadorClient() {
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
   const [resumenIA, setResumenIA] = useState("");
   const [cargandoResumen, setCargandoResumen] = useState(false);
-  const [enviandoFx, setEnviandoFx] = useState<string | null>(null);
-  const [fxEnviado, setFxEnviado] = useState<Set<string>>(() => new Set());
+  const [fxReporte, setFxReporte] = useState<ReporteRow | null>(null);
 
   const cargarReportes = useCallback(async () => {
     setRepLoading(true);
@@ -311,80 +227,11 @@ export function ReporteCoordinadorClient() {
     }
   }
 
-  async function enviarFx(reporte: ReporteRow) {
-    const id = reporteId(reporte);
-    if (!id) return;
-
-    const user = data?.user;
-    setEnviandoFx(id);
-    try {
-      const facturasDelReporte = await facturasPdfFromReporteRow(reporte);
-      const facturasConImagenes = await resolveFacturaImages(facturasDelReporte);
-
-      const sectorRep = String(reporte.Sector || sector || "");
-      const limiteZonaVal = limiteAprobacionZona(sectorRep);
-      const coordNombre = String(reporte.Coordinador || coordinador || "");
-
-      let pdfBase64 = "";
-      try {
-        const pdfDoc = (
-          <LegalizacionPdf
-            coordinador={{
-              responsable: coordNombre,
-              cargo: String(user?.cargo || "Field Ops Planner"),
-              cedula: String(user?.cedula || ""),
-              sector: sectorRep,
-              area: String(user?.area || ""),
-            }}
-            facturas={facturasConImagenes}
-            firmaCoordinador={String(reporte.Firma_Coordinador || reporte.FirmaCoordinador || "")}
-            firmaAdmin={String(reporte.Firma_Admin || reporte.FirmaAdmin || "")}
-            fechaGeneracion={String(reporte.Fecha || new Date().toLocaleDateString("es-CO"))}
-            limiteZona={limiteZonaVal}
-          />
-        );
-        const blob = await pdf(pdfDoc).toBlob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        const chunks: string[] = [];
-        const chunkSize = 8192;
-        for (let i = 0; i < uint8Array.length; i += chunkSize) {
-          const slice = uint8Array.subarray(i, i + chunkSize);
-          chunks.push(String.fromCharCode(...Array.from(slice)));
-        }
-        pdfBase64 = btoa(chunks.join(""));
-      } catch (pdfErr) {
-        console.error("[enviarFx] Error generando PDF:", pdfErr);
-      }
-
-      const res = await fetch("/api/legalizaciones/enviar-fx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reporteId: id,
-          pdfUrl: String(reporte.PDF_URL || "").trim(),
-          pdfBase64: pdfBase64 || undefined,
-        }),
-      });
-
-      const j = (await res.json().catch(() => ({}))) as { error?: string };
-
-      if (res.ok) {
-        setFxEnviado((prev) => new Set(Array.from(prev).concat(id)));
-        window.alert("✅ Reporte enviado a FX correctamente");
-      } else {
-        window.alert(`❌ ${j.error || "Error al enviar el reporte"}`);
-      }
-    } catch (err) {
-      console.error("[enviarFx]", err);
-      window.alert("❌ Error inesperado al enviar el reporte");
-    } finally {
-      setEnviandoFx(null);
-    }
-  }
-
   function estadoReporteBadge(estado: string) {
     const e = estado.toLowerCase();
+    if (e.includes("enviado fx")) {
+      return <Badge className="border-purple-700 bg-purple-950 text-purple-200">{estado}</Badge>;
+    }
     if (e.includes("firmado")) {
       return <Badge className="border-emerald-700 bg-emerald-950 text-emerald-200">{estado}</Badge>;
     }
@@ -631,7 +478,7 @@ export function ReporteCoordinadorClient() {
                         <TableCell>{estadoReporteBadge(est)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-2">
-                            {est.toLowerCase().includes("firmado") ? (
+                            {est.toLowerCase().includes("firmado") || est.toLowerCase().includes("enviado fx") ? (
                               <div className="flex flex-wrap justify-end gap-2">
                                 {pdfUrl ? (
                                   <a
@@ -649,19 +496,22 @@ export function ReporteCoordinadorClient() {
                                 )}
                                 <button
                                   type="button"
-                                  onClick={() => void enviarFx(r)}
-                                  disabled={enviandoFx === id || fxEnviado.has(id)}
+                                  onClick={() => setFxReporte(r)}
+                                  disabled={!est.toLowerCase().includes("firmado") || est.toLowerCase().includes("enviado fx")}
+                                  title={
+                                    est.toLowerCase().includes("enviado fx")
+                                      ? "Este reporte ya fue enviado a FX"
+                                      : !est.toLowerCase().includes("firmado")
+                                        ? "Solo disponible para reportes firmados"
+                                        : "Abrir modal para enviar a FX"
+                                  }
                                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                                    fxEnviado.has(id)
-                                      ? "cursor-default border border-[#08DDBC]/20 bg-[#08DDBC]/10 text-[#08DDBC]"
-                                      : "bg-[#4728EF] text-white hover:bg-[#3a20d4]"
+                                    est.toLowerCase().includes("enviado fx")
+                                      ? "cursor-default border border-purple-500/20 bg-purple-500/10 text-purple-300"
+                                      : "bg-[#4728EF] text-white hover:bg-[#3a20d4] disabled:cursor-not-allowed disabled:opacity-60"
                                   }`}
                                 >
-                                  {enviandoFx === id
-                                    ? "Enviando..."
-                                    : fxEnviado.has(id)
-                                      ? "✓ Enviado a FX"
-                                      : "📧 Enviar a FX"}
+                                  {est.toLowerCase().includes("enviado fx") ? "✓ Ya enviado" : "📧 Enviar a FX"}
                                 </button>
                               </div>
                             ) : (
@@ -693,6 +543,17 @@ export function ReporteCoordinadorClient() {
           </CardContent>
         </Card>
       )}
+      <EnviarFxModal
+        reporte={fxReporte}
+        open={!!fxReporte}
+        onClose={() => setFxReporte(null)}
+        onSuccess={(reportId) => {
+          setReportes((prev) =>
+            prev.map((r) => (reporteId(r) === reportId ? { ...r, Estado: "Enviado FX" } : r))
+          );
+          setTimeout(() => setFxReporte(null), 1500);
+        }}
+      />
     </div>
   );
 }

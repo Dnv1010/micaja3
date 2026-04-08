@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";

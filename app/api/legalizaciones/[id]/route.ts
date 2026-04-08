@@ -31,12 +31,54 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const rol = String(session.user.rol || "").toLowerCase();
-  if (rol !== "admin") {
-    return NextResponse.json({ error: "Solo el administrador puede firmar el reporte" }, { status: 403 });
-  }
 
   try {
-    const body = (await req.json()) as { firmaAdmin?: string; pdfUrl?: string };
+    const body = (await req.json()) as { firmaAdmin?: string; pdfUrl?: string; estado?: string };
+    const estadoPatch = String(body.estado || "").trim();
+
+    // Coordinador/admin: marcar como "Enviado FX" sin tocar firmas.
+    if (estadoPatch === "Enviado FX") {
+      if (rol !== "coordinador" && rol !== "admin") {
+        return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+      }
+
+      assertSheetsConfigured();
+      const sheets = getSheetsClient();
+      const sid = spreadsheetId();
+      const res = await sheets.spreadsheets.values.get({ spreadsheetId: sid, range: RANGE });
+      const rows = res.data.values ?? [];
+      if (rows.length < 2) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+
+      const headers = (rows[0] || []).map((h) => String(h ?? "").trim());
+      const rowIndex = rows.findIndex((r, i) => i > 0 && String(r[0] ?? "").trim() === reportId);
+      if (rowIndex === -1) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+
+      const dataRow = rows[rowIndex] ?? [];
+      const idxCoord = headers.findIndex((h) => h === "Coordinador");
+      const idxEstado = headers.findIndex((h) => h === "Estado");
+      const coordSheet = idxCoord >= 0 ? String(dataRow[idxCoord] ?? "").trim() : "";
+      const mine = String(session.user.responsable || session.user.name || "").trim();
+      if (rol === "coordinador" && coordSheet.toLowerCase() !== mine.toLowerCase()) {
+        return NextResponse.json({ error: "No puedes actualizar reportes de otro coordinador" }, { status: 403 });
+      }
+      if (idxEstado === -1) {
+        return NextResponse.json({ error: "No se encontró columna Estado" }, { status: 500 });
+      }
+      const rowSheet = rowIndex + 1;
+      const colLetter = columnLetter(idxEstado);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sid,
+        range: `${quoteSheetTitleForRange(TAB)}!${colLetter}${rowSheet}`,
+        valueInputOption: "RAW",
+        requestBody: { values: [["Enviado FX"]] },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (rol !== "admin") {
+      return NextResponse.json({ error: "Solo el administrador puede firmar el reporte" }, { status: 403 });
+    }
+
     const firmaAdmin = String(body.firmaAdmin || "").trim().slice(0, 45000);
     const pdfUrl = String(body.pdfUrl || "").trim();
     if (!firmaAdmin || !pdfUrl) {
