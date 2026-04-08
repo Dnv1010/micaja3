@@ -230,12 +230,21 @@ export function ReporteCoordinadorClient() {
   function estadoReporteBadge(estado: string) {
     const e = estado.toLowerCase();
     if (e.includes("enviado fx")) {
-      return <Badge className="border-purple-700 bg-purple-950 text-purple-200">{estado}</Badge>;
+      return (
+        <Badge className="border-purple-500/30 bg-purple-500/20 text-purple-400">{estado}</Badge>
+      );
     }
     if (e.includes("firmado")) {
-      return <Badge className="border-emerald-700 bg-emerald-950 text-emerald-200">{estado}</Badge>;
+      return (
+        <Badge className="border-emerald-500/30 bg-emerald-500/20 text-emerald-400">{estado}</Badge>
+      );
     }
-    return <Badge className="border-amber-700 bg-amber-950 text-amber-200">{estado}</Badge>;
+    if (e.includes("pendiente")) {
+      return (
+        <Badge className="border-amber-500/30 bg-amber-500/20 text-amber-400">{estado}</Badge>
+      );
+    }
+    return <Badge className="border-gray-500/30 bg-gray-500/20 text-gray-400">{estado}</Badge>;
   }
 
   return (

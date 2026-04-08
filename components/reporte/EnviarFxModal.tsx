@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buildFxUrl } from "@/lib/fx-form-config";
+import { CheckCircle2, Download, ExternalLink, FileText } from "lucide-react";
+import { formatCOP, parseCOPString } from "@/lib/format";
+
+function pdfPreviewUrl(url: string): string {
+  const u = url.trim();
+  const driveFile = u.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
+  if (driveFile?.[1]) {
+    return `https://drive.google.com/file/d/${driveFile[1]}/preview`;
+  }
+  return u;
+}
 
 export interface FxReporte {
   ID_Reporte?: string;
@@ -61,7 +72,23 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
     }
   }, [session]);
 
+  useEffect(() => {
+    if (!open || !reporte) return;
+    const desde = String(reporte.Periodo_Desde || "").trim();
+    const hasta = String(reporte.Periodo_Hasta || "").trim();
+    const totalRaw = reporte.Total;
+    const totalNum =
+      typeof totalRaw === "number" ? totalRaw : parseCOPString(String(totalRaw ?? ""));
+    const periodo = desde && hasta ? `${desde} → ${hasta}` : desde || hasta || "";
+    const descripcion =
+      periodo || totalNum
+        ? `Legalización caja menor${periodo ? ` · ${periodo}` : ""}${totalNum ? ` · Total ${formatCOP(totalNum)}` : ""}`
+        : "Legalización gastos";
+    setCampos((prev) => ({ ...prev, descripcion }));
+  }, [open, reporte]);
+
   const pdfUrl = String(reporte?.PDF_URL || "").trim();
+  const previewSrc = pdfUrl ? pdfPreviewUrl(pdfUrl) : "";
   const fxUrl = useMemo(() => buildFxUrl(campos), [campos]);
   const reporteId = String(reporte?.ID_Reporte || reporte?.ID || "").trim();
 
@@ -98,10 +125,18 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <DialogContent className="max-h-[95vh] w-[95vw] max-w-3xl overflow-y-auto border border-white/10 bg-[#0f1729] text-white">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">Enviar a FX — Legalización</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+            <FileText className="h-5 w-5 shrink-0 text-cyan-400" />
+            Enviar a FX — Legalización
+          </DialogTitle>
           <p className="text-sm text-gray-400">
             Reporte {reporteId || "—"} · {reporte.Periodo_Desde || "—"} → {reporte.Periodo_Hasta || "—"}
           </p>
@@ -112,14 +147,24 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
             PDF del reporte (ya firmado)
           </p>
           {pdfUrl ? (
-            <div className="flex items-center gap-3">
-              <div className="flex-1 truncate rounded bg-white/5 p-2 text-xs text-gray-300">{pdfUrl}</div>
-              <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" variant="outline" className="border-cyan-500/50 text-cyan-400">
-                  Descargar PDF
-                </Button>
-              </a>
-            </div>
+            <>
+              <div className="mb-3 h-[min(50vh,420px)] min-h-[200px] w-full overflow-hidden rounded-md border border-white/10 bg-black/30">
+                <iframe
+                  title="Vista previa PDF"
+                  src={previewSrc}
+                  className="h-full w-full border-0"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 truncate rounded bg-white/5 p-2 text-xs text-gray-300">{pdfUrl}</div>
+                <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" variant="outline" className="gap-2 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10">
+                    <Download className="h-4 w-4" />
+                    Descargar PDF
+                  </Button>
+                </a>
+              </div>
+            </>
           ) : (
             <p className="text-sm text-red-400">⚠️ No se encontró PDF para este reporte.</p>
           )}
@@ -225,10 +270,20 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
               <Button variant="ghost" onClick={onClose} className="text-gray-400">
                 Cancelar
               </Button>
-              <Button onClick={handleAbrirFormulario} disabled={!pdfUrl} className="bg-blue-600 hover:bg-blue-700">
+              <Button
+                onClick={handleAbrirFormulario}
+                disabled={!pdfUrl}
+                className="gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                <ExternalLink className="h-4 w-4" />
                 Abrir Google Form
               </Button>
-              <Button onClick={handleMarcarEnviado} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button
+                onClick={handleMarcarEnviado}
+                disabled={loading}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+              >
+                <CheckCircle2 className="h-4 w-4" />
                 {loading ? "Guardando..." : "Marcar como Enviado"}
               </Button>
             </>
