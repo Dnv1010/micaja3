@@ -99,7 +99,7 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border border-white/10 bg-[#0f1729] text-white">
+      <DialogContent className="max-h-[95vh] w-[95vw] max-w-3xl overflow-y-auto border border-white/10 bg-[#0f1729] text-white">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">Enviar a FX — Legalización</DialogTitle>
           <p className="text-sm text-gray-400">
