@@ -211,7 +211,7 @@ export default function NuevaAgrupacionModal({
                     onCheckedChange={(v) =>
                       setSelected((prev) => {
                         const n = new Set(prev);
-                        if (v) n.add(g._rowIndex);
+                        if (v === true) n.add(g._rowIndex);
                         else n.delete(g._rowIndex);
                         return n;
                       })

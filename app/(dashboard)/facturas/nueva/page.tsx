@@ -278,6 +278,9 @@ export default function NuevaFacturaPage() {
         const { base64ToFile, pdfToJpgPages } = await import("@/lib/pdf-to-jpg");
         const pages = await pdfToJpgPages(file);
         if (!pages.length) throw new Error("No se pudo convertir el PDF.");
+        resetPreview();
+        const previewBlob = base64ToFile(pages[0], file.name.replace(/\.pdf$/i, ".jpg"));
+        setPreviewUrl(URL.createObjectURL(previewBlob));
         fileToProcess = base64ToFile(pages[0], file.name.replace(/\.pdf$/i, ".jpg"));
       }
 
@@ -538,15 +541,7 @@ export default function NuevaFacturaPage() {
 
           {file ? (
             <div className="rounded-md border border-bia-gray/40 bg-bia-blue/40 p-3">
-              {isPdf ? (
-                <div className="flex items-center gap-3 text-bia-gray-light">
-                  <FileText className="h-12 w-12 shrink-0 text-amber-400" />
-                  <div>
-                    <p className="font-medium">PDF</p>
-                    <p className="text-sm text-bia-gray">{file.name}</p>
-                  </div>
-                </div>
-              ) : previewUrl ? (
+              {previewUrl ? (
                 <Image
                   src={previewUrl}
                   alt="Factura"
@@ -555,6 +550,14 @@ export default function NuevaFacturaPage() {
                   unoptimized
                   className="max-h-64 w-full rounded-md border border-bia-gray/40 object-contain"
                 />
+              ) : isPdf ? (
+                <div className="flex items-center gap-3 text-bia-gray-light">
+                  <FileText className="h-12 w-12 shrink-0 text-amber-400" />
+                  <div>
+                    <p className="font-medium">PDF</p>
+                    <p className="text-sm text-bia-gray">{file.name}</p>
+                  </div>
+                </div>
               ) : null}
             </div>
           ) : null}
