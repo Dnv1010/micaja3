@@ -60,9 +60,17 @@ export default function NuevaAgrupacionModal({
     for (const f of Array.from(files)) {
       if (f.type === "application/pdf") {
         if (typeof window === "undefined") return;
-        const { pdfToJpgPages } = await import("@/lib/pdf-to-jpg");
+        const { base64ToFile, pdfToJpgPages } = await import("@/lib/pdf-to-jpg");
         const pages = await pdfToJpgPages(f);
-        newImgs.push(...pages);
+        if (!pages.length) continue;
+        const jpgFile = base64ToFile(pages[0], f.name.replace(/\.pdf$/i, ".jpg"));
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("No se pudo convertir PDF a JPG"));
+          reader.readAsDataURL(jpgFile);
+        });
+        newImgs.push(dataUrl);
       } else if (f.type.startsWith("image/")) {
         const r = new FileReader();
         const dataUrl = await new Promise<string>((resolve, reject) => {

@@ -1,29 +1,29 @@
-export async function pdfToJpgPages(file: File): Promise<string[]> {
+﻿export async function pdfToJpgPages(file: File): Promise<string[]> {
   if (typeof window === "undefined") return [];
-  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({
-    data: arrayBuffer,
-    useWorkerFetch: false,
-    isEvalSupported: false,
-    useSystemFonts: true,
-  }).promise;
-  const images: string[] = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d")!;
-    await (page.render as (params: unknown) => { promise: Promise<void> })({
-      canvasContext: ctx,
-      viewport,
-    }).promise;
-    images.push(canvas.toDataURL("image/jpeg", 0.92));
-  }
-  return images;
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    script.onload = async () => {
+      const lib = (window as any).pdfjsLib;
+      lib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+      const images: string[] = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        images.push(canvas.toDataURL("image/jpeg", 0.92));
+      }
+      resolve(images);
+    };
+    script.onerror = () => resolve([]);
+    document.head.appendChild(script);
+  });
 }
 
 export function base64ToFile(dataUrl: string, fileName: string): File {
