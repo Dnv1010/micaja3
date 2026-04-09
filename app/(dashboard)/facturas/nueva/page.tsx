@@ -23,6 +23,7 @@ import {
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { isFechaFacturaFutura, parseFechaFacturaDDMMYYYY } from "@/lib/nueva-factura-validation";
+import { base64ToFile, pdfToJpgPages } from "@/lib/pdf-to-jpg";
 
 /** DD/MM/YYYY → YYYY-MM-DD (input type="date") */
 function toInputDate(ddmmyyyy: string): string {
@@ -272,8 +273,15 @@ export default function NuevaFacturaPage() {
     setUploadState("uploading");
 
     try {
+      let fileToProcess = file;
+      if (file.type === "application/pdf") {
+        const pages = await pdfToJpgPages(file);
+        if (!pages.length) throw new Error("No se pudo convertir el PDF.");
+        fileToProcess = base64ToFile(pages[0], file.name.replace(/\.pdf$/i, ".jpg"));
+      }
+
       const formUp = new FormData();
-      formUp.append("file", file);
+      formUp.append("file", fileToProcess);
       formUp.append("sector", sessionSector);
       formUp.append("responsable", responsableTarget || String(user?.responsable || ""));
       if (fecha.trim()) formUp.append("fecha", fecha.trim());
@@ -300,8 +308,8 @@ export default function NuevaFacturaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           imageUrl: url,
-          mimeType: file.type,
-          filename: file.name,
+          mimeType: fileToProcess.type,
+          filename: fileToProcess.name,
         }),
       });
       const ocrJson = await ocrRes.json().catch(() => ({}));
