@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FirmaCanvas } from "@/components/firma-canvas";
 import { pdf } from "@react-pdf/renderer";
 import { GastosGruposPdf } from "@/components/pdf/GastosGruposPdf";
-import { pdfToJpgPages } from "@/lib/pdf-to-jpg";
 
 interface GastoSel {
   _rowIndex: string;
@@ -60,6 +59,8 @@ export default function NuevaAgrupacionModal({
     const newImgs: string[] = [];
     for (const f of Array.from(files)) {
       if (f.type === "application/pdf") {
+        if (typeof window === "undefined") return;
+        const { pdfToJpgPages } = await import("@/lib/pdf-to-jpg");
         const pages = await pdfToJpgPages(f);
         newImgs.push(...pages);
       } else if (f.type.startsWith("image/")) {

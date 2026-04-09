@@ -41,35 +41,49 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  try {
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const id = `GG-${Date.now()}`;
+    const now = new Date().toISOString();
 
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const id = `GG-${Date.now()}`;
-  const now = new Date().toISOString();
+    const sheets = await getSheetsClient();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: `${TAB}!A:N`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [[
+          id,
+          now,
+          String(body.responsable || session.user.responsable || ""),
+          String(body.cargo || session.user.cargo || ""),
+          String(body.sector || session.user.sector || ""),
+          String(body.motivo || ""),
+          String(body.fechaInicio || ""),
+          String(body.fechaFin || ""),
+          String(body.total || "0"),
+          "Borrador",
+          JSON.stringify(body.gastosIds || []),
+          "",
+          "",
+          String(body.centroCostos || ""),
+        ]],
+      },
+    });
 
-  const sheets = await getSheetsClient();
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID,
-    range: `${TAB}!A:N`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [[
-        id,
-        now,
-        String(body.responsable || session.user.responsable || ""),
-        String(body.cargo || session.user.cargo || ""),
-        String(body.sector || session.user.sector || ""),
-        String(body.motivo || ""),
-        String(body.fechaInicio || ""),
-        String(body.fechaFin || ""),
-        String(body.total || "0"),
-        "Borrador",
-        JSON.stringify(body.gastosIds || []),
-        "",
-        "",
-        String(body.centroCostos || ""),
-      ]],
-    },
-  });
-
-  return NextResponse.json({ ok: true, id });
+    return NextResponse.json({ ok: true, id, tab: TAB });
+  } catch (error) {
+    console.error("[gastos-grupos POST] error", {
+      tabExpected: TAB,
+      spreadsheetId: SHEET_ID,
+      error,
+    });
+    return NextResponse.json(
+      {
+        error: `Error creando grupo en pestaña ${TAB}`,
+        tabExpected: TAB,
+      },
+      { status: 500 }
+    );
+  }
 }

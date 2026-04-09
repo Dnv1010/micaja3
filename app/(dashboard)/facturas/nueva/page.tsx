@@ -23,7 +23,6 @@ import {
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { isFechaFacturaFutura, parseFechaFacturaDDMMYYYY } from "@/lib/nueva-factura-validation";
-import { base64ToFile, pdfToJpgPages } from "@/lib/pdf-to-jpg";
 
 /** DD/MM/YYYY → YYYY-MM-DD (input type="date") */
 function toInputDate(ddmmyyyy: string): string {
@@ -275,6 +274,8 @@ export default function NuevaFacturaPage() {
     try {
       let fileToProcess = file;
       if (file.type === "application/pdf") {
+        if (typeof window === "undefined") throw new Error("Conversión PDF no disponible en servidor.");
+        const { base64ToFile, pdfToJpgPages } = await import("@/lib/pdf-to-jpg");
         const pages = await pdfToJpgPages(file);
         if (!pages.length) throw new Error("No se pudo convertir el PDF.");
         fileToProcess = base64ToFile(pages[0], file.name.replace(/\.pdf$/i, ".jpg"));

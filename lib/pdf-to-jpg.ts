@@ -1,8 +1,10 @@
 "use client";
 
 export async function pdfToJpgPages(file: File): Promise<string[]> {
+  if (typeof window === "undefined") return [];
   const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js";
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -17,7 +19,10 @@ export async function pdfToJpgPages(file: File): Promise<string[]> {
     const ctx = canvas.getContext("2d");
     if (!ctx) continue;
 
-    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+    await (page.render as (params: unknown) => { promise: Promise<void> })({
+      canvasContext: ctx,
+      viewport,
+    }).promise;
     images.push(canvas.toDataURL("image/jpeg", 0.92));
   }
 
