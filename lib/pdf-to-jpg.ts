@@ -1,4 +1,5 @@
-﻿export async function pdfToJpgPages(file: File): Promise<string[]> {
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function pdfToJpgPages(file: File): Promise<string[]> {
   if (typeof window === "undefined") return [];
   return new Promise((resolve) => {
     const script = document.createElement("script");
