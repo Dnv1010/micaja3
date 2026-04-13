@@ -30,8 +30,10 @@ async function runGemini(imageBase64: string, mimeType: string) {
 
   const json = await res.json();
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const clean = text.replace(/```json|```/g, "").trim();
-  return JSON.parse(clean);
+  if (!text) throw new Error("Gemini no devolvió texto");
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("No se encontró JSON en la respuesta");
+  return JSON.parse(match[0]);
 }
 
 export async function POST(req: NextRequest) {
