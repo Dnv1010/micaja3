@@ -1,0 +1,70 @@
+﻿# Proyecto: MiCaja - Gestion de Caja Menor
+# Empresa: BIA Energy (Colombia)
+
+## Que es?
+App web para gestion de caja menor con registro por bot de Telegram,
+OCR de facturas, reportes PDF y flujo de legalizacion por zonas.
+
+## Stack
+- Next.js 14 (App Router) + TypeScript estricto + Tailwind CSS + shadcn/ui
+- Base de datos: Google Sheets (NO hay SQL - todo es Sheets API v4)
+- Archivos: Google Drive (service account)
+- Auth: NextAuth v4 - Google OAuth + PIN de 4 digitos
+- Bot: Telegram (webhook en /api/telegram)
+- AI: Gemini (OCR de facturas, resumen de legalizaciones)
+- Email: Resend (envio a FX)
+- PDF: @react-pdf/renderer
+- Deploy: Vercel
+
+## Sectores / Zonas
+- "Bogota"
+- "Costa Caribe"
+
+## Roles de usuario
+- admin -> acceso total
+- coordinador -> gestion de su zona
+- user -> tecnico, registra gastos
+- verificador -> solo lectura/verificacion
+
+## Spreadsheets
+- PETTY_CASH_SPREADSHEET_ID -> libro principal de caja
+- MICAJA_SPREADSHEET_ID -> parametros, usuarios, balance
+- USUARIOS_SPREADSHEET_ID -> opcional, tercer libro de usuarios
+
+## Pestanas clave en Sheets
+- Usuarios (Responsable, Correos, Telefono, Rol, UserActive, Area, Sector, Cargo, Cedula, PIN, TelegramChatId)
+- Facturas (ID, Fecha, Proveedor, NIT, NumFactura, Concepto, Valor, TipoFactura, Estado, ImagenURL)
+- Entregas (ID, Fecha, Responsable, Monto, Estado, Firma, Comprobante)
+- Envios (IDEnvio, Fecha, Monto, Responsable, Comprobante, Sector, Estado)
+- Legalizaciones (ID, Fecha, Coordinador, Zona, TotalAprobado, FacturasIds, PdfURL)
+- Balance (Fecha, Concepto, Entrada, Salida, Saldo)
+
+## Carpetas principales
+- /app -> rutas Next.js (App Router)
+- /components -> componentes React
+- /lib -> logica de negocio: google-sheets.ts, sheets-helpers.ts, usuarios-sheet.ts, email-normalize.ts, sector-normalize.ts
+- /types -> modelos: UsuarioRow, FacturaRow, EntregaRow, EnvioRow, LegalizacionRow, BalanceRow
+- /scripts -> scripts de utilidad
+
+## Variables de entorno clave (.env.local)
+GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY (con \n)
+MICAJA_SPREADSHEET_ID, PETTY_CASH_SPREADSHEET_ID
+NEXTAUTH_SECRET, NEXTAUTH_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, INTERNAL_API_KEY
+GEMINI_API_KEY, RESEND_API_KEY, OCR_SPACE_API_KEY
+NEXT_PUBLIC_MONTO_ASIGNADO=3000000
+
+## Convenciones importantes
+- NUNCA usar as any ni any sin justificacion
+- Encabezados de Sheets variables -> siempre usar getCellCaseInsensitive() o colIndex()
+- Emails siempre normalizados con normalizeEmailForAuth()
+- Sectores siempre canonizados con normalizeSector() -> "Bogota" | "Costa Caribe"
+- Cache de usuarios: TTL 5 min, invalidar con invalidarCacheUsuarios() al mutar
+- Montos en COP (pesos colombianos), NEXT_PUBLIC_MONTO_ASIGNADO=3000000
+- NIT con formato colombiano (con guion y digito verificador)
+
+## Lo que NO tocar sin revisar
+- lib/google-sheets.ts -> configuracion central de Sheets
+- lib/usuarios-sheet.ts -> cache de usuarios, invalidar al mutar
+- middleware.ts -> proteccion de rutas por rol
+- El flujo del bot de Telegram (webhook -> OCR -> Sheets)
