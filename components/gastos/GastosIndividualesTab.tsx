@@ -220,8 +220,8 @@ export default function GastosIndividualesTab({ rol }: { rol: string; sector: st
           onClose={() => setOpenAgregarFactura(false)}
           responsable={String(session.user.responsable || "")}
           cargo={String(session.user.cargo || "")}
-          cc={String(session.user.cc || "")}
-          ciudad={String(session.user.ciudad || "")}
+          cc={String(session.user.cedula || "")}
+          ciudad={String(session.user.area || "")}
           onSaved={() => {
             setOpenAgregarFactura(false);
             void cargar();
