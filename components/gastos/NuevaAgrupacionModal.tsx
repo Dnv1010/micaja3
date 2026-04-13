@@ -195,7 +195,8 @@ export default function NuevaAgrupacionModal({
       if (!createRes.ok || !createJson.id) { alert(createJson.error || "No se pudo crear grupo"); return; }
 
       const allItems = [
-        ...gastosSel.map((g) => ({ FechaFactura: g.FechaFactura || "", Concepto: g.Concepto || "", NIT: g.NIT || "", Valor: g.Valor || "", imagenBase64: g.ImagenURL || "" })),
+     ...gastosSel.map((g) => ({ FechaFactura: g.FechaFactura || "", Concepto: g.Concepto || "", NIT: g.NIT || "", Valor: g.Valor || "", imagenBase64: g.ImagenURL || "", Ciudad: g.Ciudad || "", CentroCostos: g.CentroCostos || "" })),
+...facturasOcr.filter((f) => !f.error).map((f) => ({ FechaFactura: f.fecha || "", Concepto: f.concepto || "", NIT: f.nit || "", Valor: f.valor || "", imagenBase64: "", Ciudad: "", CentroCostos: centroCostos })),
         ...facturasOcr.filter((f) => !f.error).map((f) => ({ FechaFactura: f.fecha || "", Concepto: f.concepto || "", NIT: f.nit || "", Valor: f.valor || "", imagenBase64: "" })),
       ];
 
