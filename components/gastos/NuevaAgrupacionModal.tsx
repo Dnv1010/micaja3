@@ -200,7 +200,7 @@ export default function NuevaAgrupacionModal({
           concepto: resultado.concepto || "",
           valor: resultado.valor || "",
           fecha: resultado.fecha || "",
-          error: resultado.error,
+         error: typeof resultado.error === "string" ? resultado.error : undefined,
           loading: false,
         };
       })
