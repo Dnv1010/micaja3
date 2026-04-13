@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +34,7 @@ export function GastosGeneralesClient({ responsable, rol, chatId }: { sector: st
   const [lista, setLista] = useState<GastoRow[]>([]);
   const [generando, setGenerando] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
-  async function cargar() {
+const cargar = useCallback(async () => {
     setLoading(true);
     try {
       const q = new URLSearchParams();
@@ -45,8 +45,8 @@ export function GastosGeneralesClient({ responsable, rol, chatId }: { sector: st
       setLista(Array.isArray(json.data) ? json.data : []);
     } catch { setLista([]); }
     finally { setLoading(false); }
-  }
-  useEffect(() => { void cargar(); }, [desde, hasta]);
+  }, [desde, hasta]);
+  useEffect(() => { void cargar(); }, [cargar]);
   const sesiones = agrupar(lista, responsable, rol);
   const totalGlobal = sesiones.reduce((a, s) => a + s.facturas.reduce((b: number, f: any) => b + Number(String(f.valor).replace(/[^0-9]/g, "")), 0), 0);
   async function generarPDF(s: Sesion) {
