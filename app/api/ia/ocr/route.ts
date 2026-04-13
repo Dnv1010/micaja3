@@ -11,7 +11,7 @@ async function runGemini(imageBase64: string, mimeType: string) {
 {"proveedor":"nombre proveedor o null","nit":"NIT formato 000.000.000-0 o null","numFactura":"número factura o null","concepto":"descripción o null","valor":numero o null,"fecha":"DD/MM/YYYY o null"}`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
