@@ -15,7 +15,6 @@ export async function GET() {
     if (rol !== "admin" && rol !== "coordinador") {
       return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
-
     const sheets = getSheetsClient();
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
@@ -23,19 +22,16 @@ export async function GET() {
     });
     const rows = res.data.values || [];
     if (rows.length < 2) return NextResponse.json({ data: [] });
-
     const headers = rows[0];
     let data = rows.slice(1).map((row, idx) => {
       const obj: Record<string, string> = { _rowIndex: String(idx + 2) };
       headers.forEach((h: string, i: number) => { obj[h.trim()] = row[i] || ""; });
       return obj;
     });
-
     if (rol === "coordinador") {
       const me = String(session.user.responsable || "").trim().toLowerCase();
       data = data.filter((d) => String(d.Responsable || "").trim().toLowerCase() === me);
     }
-
     return NextResponse.json({ data });
   } catch (error) {
     const msg = error instanceof Error ? error.message : JSON.stringify(error);
@@ -64,6 +60,7 @@ export async function POST(req: Request) {
     const id = `GG-${Date.now()}`;
     const fecha = new Date().toLocaleDateString("es-CO");
 
+    // Orden exacto de columnas: ID_Grupo, FechaCreacion, Responsable, Cargo, Sector, Motivo, FechaInicio, FechaFin, Total, Estado, Gastos_IDs, PDF_URL, Firma, CentroCostos
     const row = [
       id,
       fecha,
@@ -73,12 +70,12 @@ export async function POST(req: Request) {
       body.motivo || "",
       body.fechaInicio || "",
       body.fechaFin || "",
-      body.centroCostos || "",
-      (body.gastosIds || []).join(","),
       body.total || "0",
       "Pendiente",
+      (body.gastosIds || []).join(","),
       "",
       "",
+      body.centroCostos || "",
     ];
 
     await sheets.spreadsheets.values.append({
