@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
@@ -41,66 +41,8 @@ export async function GET() {
 
     return NextResponse.json({ data });
   } catch (error) {
-    console.error("[gastos-grupos GET] error", {
-      tabExpected: TAB,
-      spreadsheetId: SHEET_ID,
-      error,
-    });
-    return NextResponse.json({ error: "Error leyendo grupos de gastos" }, { status: 500 });
-  }
-}
-
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  try {
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const id = `GG-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    const sheets = await getSheetsClient();
-    const values = [
-      id,
-      now,
-      String(body.responsable || session.user.responsable || ""),
-      String(body.cargo || session.user.cargo || ""),
-      String(body.sector || session.user.sector || ""),
-      String(body.motivo || ""),
-      String(body.fechaInicio || ""),
-      String(body.fechaFin || ""),
-      String(body.total || "0"),
-      "Borrador",
-      JSON.stringify(body.gastosIds || []),
-      "",
-      "",
-      String(body.centroCostos || ""),
-    ];
-    if (values.length !== 14) {
-      throw new Error(`Cantidad de columnas inválida: ${values.length}`);
-    }
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: `'${TAB}'!A:N`,
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [values],
-      },
-    });
-
-    return NextResponse.json({ ok: true, id, tab: TAB });
-  } catch (error) {
-    console.error("[gastos-grupos POST] error", {
-      tabExpected: TAB,
-      spreadsheetId: SHEET_ID,
-      error,
-    });
-    return NextResponse.json(
-      {
-        error: `Error creando grupo en pestaña ${TAB}`,
-        tabExpected: TAB,
-      },
-      { status: 500 }
-    );
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    console.error("[gastos-grupos POST] DETALLE:", msg);
+    return NextResponse.json({ error: "Error creando grupo", detalle: msg }, { status: 500 });
   }
 }
