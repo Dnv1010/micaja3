@@ -54,55 +54,6 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const rol = String(session.user.rol || "").toLowerCase();
-  if (rol !== "admin" && rol !== "coordinador") {
-    return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
-  }
-
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const { responsable, cargo, cc, ciudad, motivo, fechaInicio, fechaFin, concepto, nit, valor, fechaFactura, centroCostos } = body;
-
-  if (!responsable || !ciudad || !motivo || !fechaInicio || !fechaFin || !concepto || !valor) {
-    return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
-  }
-
-  try {
-    const sheets = await getSheetsClient();
-    const newRow = [
-      `=NOW()`,
-      responsable,
-      cargo || "",
-      cc || "",
-      ciudad,
-      motivo,
-      fechaInicio,
-      fechaFin,
-      concepto,
-      centroCostos || "",
-      nit || "",
-      fechaFactura || "",
-      valor,
-      "Pendiente",
-    ];
-
-    const appendRes = await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: `${TAB}!A:N`,
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values: [newRow] },
-    });
-
-    const newRowIndex = (appendRes.data.updates?.updatedRows || 1) + 1;
-    return NextResponse.json({ id: String(newRowIndex), ok: true });
-  } catch (e) {
-    console.error("[gastos POST]", e);
-    return NextResponse.json({ error: "Error creando gasto" }, { status: 500 });
-  }
-}
-
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
