@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       mimeType?: string;
     };
 
-    let imageBase64 = String(body.imageBase64 || "").trim();
+    const imageBase64 = String(body.imageBase64 || "").trim();
     const mimeType = String(body.mimeType || "image/jpeg");
 
     if (!imageBase64) {
