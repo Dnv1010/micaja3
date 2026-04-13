@@ -3,42 +3,49 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 
-async function runGemini(imageBase64: string, mimeType: string) {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) throw new Error("Sin GEMINI_API_KEY");
+async function runOcrSpace(imageBase64: string, mimeType: string) {
+  const apiKey = process.env.OCR_SPACE_API_KEY?.trim();
+  if (!apiKey) throw new Error("Sin OCR_SPACE_API_KEY");
 
-  const prompt = `Extrae los datos de esta factura colombiana y responde SOLO con JSON válido sin markdown:
-{"proveedor":"nombre proveedor o null","nit":"NIT formato 000.000.000-0 o null","numFactura":"número factura o null","concepto":"descripción o null","valor":numero o null,"fecha":"DD/MM/YYYY o null"}`;
+  const body = new URLSearchParams();
+  body.append("base64Image", `data:${mimeType};base64,${imageBase64}`);
+  body.append("language", "spa");
+  body.append("isOverlayRequired", "false");
+  body.append("detectOrientation", "true");
+  body.append("scale", "true");
+  body.append("OCREngine", "2");
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: mimeType, data: imageBase64 } },
-            { text: prompt },
-          ],
-        }],
-      }),
-    }
-  );
+  const res = await fetch("https://api.ocr.space/parse/image", {
+    method: "POST",
+    headers: { apikey: apiKey },
+    body,
+  });
 
   const json = await res.json();
-  console.log("[ia/ocr] Gemini status:", res.status);
-  console.log("[ia/ocr] Gemini response:", JSON.stringify(json).slice(0, 500));
+  if (json.IsErroredOnProcessing) throw new Error(json.ErrorMessage?.[0] || "OCR.Space error");
 
-  if (!res.ok) {
-    throw new Error(`Gemini error ${res.status}: ${json?.error?.message || JSON.stringify(json)}`);
-  }
+  const text = json.ParsedResults?.[0]?.ParsedText || "";
+  if (!text) throw new Error("OCR no extrajo texto");
 
-  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  if (!text) throw new Error(`Gemini sin texto. FinishReason: ${json?.candidates?.[0]?.finishReason || "unknown"}`);
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("No se encontró JSON en la respuesta");
-  return JSON.parse(match[0]);
+  return extraerDatosFactura(text);
+}
+
+function extraerDatosFactura(texto: string) {
+  const lineas = texto.split("\n").map((l: string) => l.trim()).filter(Boolean);
+
+  const nitMatch = texto.match(/NIT[:\s.]*([0-9]{3}[.\s]?[0-9]{3}[.\s]?[0-9]{3}[-.\s]?[0-9])/i);
+  const valorMatch = texto.match(/(?:TOTAL|VALOR|A PAGAR|SUBTOTAL)[:\s$]*([0-9.,]+)/i);
+  const facturaMatch = texto.match(/(?:FACTURA|FAC|FV|FC)[:\s#Nº°]*([A-Z0-9-]+)/i);
+  const fechaMatch = texto.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+
+  const proveedor = lineas[0] || null;
+  const nit = nitMatch ? nitMatch[1].replace(/\s/g, "") : null;
+  const numFactura = facturaMatch ? facturaMatch[1] : null;
+  const valor = valorMatch ? valorMatch[1].replace(/[.,]/g, "") : null;
+  const fecha = fechaMatch ? fechaMatch[1] : null;
+  const concepto = lineas.slice(1, 4).join(" ") || null;
+
+  return { proveedor, nit, numFactura, concepto, valor, fecha };
 }
 
 export async function POST(req: NextRequest) {
@@ -58,19 +65,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Envía imageBase64" }, { status: 400 });
     }
 
-    const data = await runGemini(imageBase64, mimeType);
+    const data = await runOcrSpace(imageBase64, mimeType);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        proveedor: data.proveedor || null,
-        nit: data.nit || null,
-        numFactura: data.numFactura || null,
-        concepto: data.concepto || null,
-        valor: data.valor || null,
-        fecha: data.fecha || null,
-      },
-    });
+    return NextResponse.json({ success: true, data });
   } catch (e) {
     console.error("[ia/ocr] ERROR:", e instanceof Error ? e.message : e);
     return NextResponse.json(
