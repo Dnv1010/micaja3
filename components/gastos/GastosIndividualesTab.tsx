@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCOP } from "@/lib/format";
-import { CheckCircle2, FileText, Pencil, RefreshCw, Search, XCircle } from "lucide-react";
+import { CheckCircle2, FileText, Pencil, Plus, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
 import EditarGastoModal, { GastoEditable } from "@/components/gastos/EditarGastoModal";
+import AgregarFacturaModal from "@/components/gastos/AgregarFacturaModal";
 
 export interface GastoRow extends GastoEditable {
   FechaCreacion: string;
@@ -19,11 +21,14 @@ function valorNum(raw: string): number {
 }
 
 export default function GastosIndividualesTab({ rol }: { rol: string; sector: string }) {
+  const { data: session } = useSession();
   const [gastos, setGastos] = useState<GastoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [actualizando, setActualizando] = useState<string | null>(null);
+  const [eliminando, setEliminando] = useState<string | null>(null);
   const [edit, setEdit] = useState<GastoRow | null>(null);
+  const [openAgregarFactura, setOpenAgregarFactura] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -65,6 +70,24 @@ export default function GastosIndividualesTab({ rol }: { rol: string; sector: st
     }
   }
 
+  async function eliminarGasto(rowIndex: string) {
+    if (!window.confirm("¿Estás seguro que deseas eliminar este gasto?")) return;
+    setEliminando(rowIndex);
+    try {
+      const res = await fetch(`/api/gastos/${encodeURIComponent(rowIndex)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = (await res.json().catch(() => ({}))) as { error?: string };
+        window.alert(error.error || "Error eliminando gasto");
+        return;
+      }
+      setGastos((prev) => prev.filter((g) => g._rowIndex !== rowIndex));
+    } finally {
+      setEliminando(null);
+    }
+  }
+
   const totalValor = useMemo(() => filtrados.reduce((sum, g) => sum + valorNum(g.Valor), 0), [filtrados]);
   const estadoBadge = (estado: string) =>
     estado === "Aprobada"
@@ -75,7 +98,7 @@ export default function GastosIndividualesTab({ rol }: { rol: string; sector: st
 
   return (
     <div>
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex gap-3 flex-wrap">
         <div className="relative min-w-[220px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
@@ -89,6 +112,15 @@ export default function GastosIndividualesTab({ rol }: { rol: string; sector: st
           <RefreshCw className="h-4 w-4" />
           Actualizar
         </Button>
+        {session?.user && (
+          <Button
+            onClick={() => setOpenAgregarFactura(true)}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="h-4 w-4" />
+            + Agregar Factura
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -129,6 +161,15 @@ export default function GastosIndividualesTab({ rol }: { rol: string; sector: st
                     <div className="flex items-center justify-center gap-1">
                       <Button size="sm" variant="ghost" onClick={() => setEdit(g)} className="h-7 px-2 text-blue-300">
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={eliminando === g._rowIndex}
+                        onClick={() => void eliminarGasto(g._rowIndex)}
+                        className="h-7 px-2 text-red-400"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                       {rol === "admin" ? (
                         <>
@@ -173,6 +214,20 @@ export default function GastosIndividualesTab({ rol }: { rol: string; sector: st
           setGastos((prev) => prev.map((g) => (g._rowIndex === rowIndex ? { ...g, ...patch } : g)));
         }}
       />
+      {session?.user && (
+        <AgregarFacturaModal
+          open={openAgregarFactura}
+          onClose={() => setOpenAgregarFactura(false)}
+          responsable={String(session.user.responsable || "")}
+          cargo={String(session.user.cargo || "")}
+          cc={String(session.user.cc || "")}
+          ciudad={String(session.user.ciudad || "")}
+          onSaved={() => {
+            setOpenAgregarFactura(false);
+            void cargar();
+          }}
+        />
+      )}
     </div>
   );
 }
