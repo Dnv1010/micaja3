@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { etiquetaZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseCOPString, parseMonto, parseSheetDate } from "@/lib/format";
-import { sectorsEquivalent } from "@/lib/sector-normalize";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaRow = Record<string, unknown>;
@@ -21,9 +20,6 @@ function montoEntregaRow(e: EntregaRow): number {
 }
 function montoFacturaRow(f: FacturaRow): number {
   return parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"));
-}
-function facturaEnZona(f: FacturaRow, zona: "Bogota" | "Costa Caribe"): boolean {
-  return sectorsEquivalent(String(getCellCaseInsensitive(f, "Sector") || ""), zona);
 }
 function facturaFecha(f: FacturaRow): string {
   return String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || "");
@@ -93,7 +89,12 @@ function ZonaCard({ titulo, limite, tecnicos, entregado, facturado, pendiente, e
 
 export function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
-  const [facturas, setFacturas] = useState<FacturaRow[]>([]);
+
+  // ✅ CAMBIO: facturas separadas por zona (igual que entregas)
+  const [facturasBogota, setFacturasBogota] = useState<FacturaRow[]>([]);
+  const [facturasCosta, setFacturasCosta] = useState<FacturaRow[]>([]);
+  const [todasFacturas, setTodasFacturas] = useState<FacturaRow[]>([]); // solo para la tabla de últimas facturas
+
   const [reportes, setReportes] = useState<ReporteRow[]>([]);
   const [entregasBogota, setEntregasBogota] = useState<EntregaRow[]>([]);
   const [entregasCosta, setEntregasCosta] = useState<EntregaRow[]>([]);
@@ -104,24 +105,37 @@ export function AdminDashboardClient() {
     try {
       const encB = encodeURIComponent("Bogota");
       const encC = encodeURIComponent("Costa Caribe");
-      const [fRes, rRes, eBogRes, eCostaRes] = await Promise.all([
-        fetch("/api/facturas"),
+
+      // ✅ CAMBIO: pedimos facturas filtradas por zona desde la API,
+      //    igual que hacemos con las entregas — así el cálculo coincide
+      //    con lo que ve el coordinador de cada zona.
+      const [fBogRes, fCostaRes, fTodasRes, rRes, eBogRes, eCostaRes] = await Promise.all([
+        fetch(`/api/facturas?sector=${encB}`),
+        fetch(`/api/facturas?sector=${encC}`),
+        fetch("/api/facturas"),           // para la tabla de últimas 10
         fetch("/api/legalizaciones"),
         fetch(`/api/entregas?zonaSector=${encB}`),
         fetch(`/api/entregas?zonaSector=${encC}`),
       ]);
-      const [fJson, rJson, eBogJson, eCostaJson] = await Promise.all([
-        fRes.json().catch(() => ({ data: [] })),
+
+      const [fBogJson, fCostaJson, fTodasJson, rJson, eBogJson, eCostaJson] = await Promise.all([
+        fBogRes.json().catch(() => ({ data: [] })),
+        fCostaRes.json().catch(() => ({ data: [] })),
+        fTodasRes.json().catch(() => ({ data: [] })),
         rRes.json().catch(() => ({ data: [] })),
         eBogRes.json().catch(() => ({ data: [] })),
         eCostaRes.json().catch(() => ({ data: [] })),
       ]);
-      setFacturas(Array.isArray(fJson.data) ? fJson.data : []);
+
+      setFacturasBogota(Array.isArray(fBogJson.data) ? fBogJson.data : []);
+      setFacturasCosta(Array.isArray(fCostaJson.data) ? fCostaJson.data : []);
+      setTodasFacturas(Array.isArray(fTodasJson.data) ? fTodasJson.data : []);
       setReportes(Array.isArray(rJson.data) ? rJson.data : []);
       setEntregasBogota(Array.isArray(eBogJson.data) ? eBogJson.data : []);
       setEntregasCosta(Array.isArray(eCostaJson.data) ? eCostaJson.data : []);
     } catch {
-      setFacturas([]); setReportes([]); setEntregasBogota([]); setEntregasCosta([]);
+      setFacturasBogota([]); setFacturasCosta([]); setTodasFacturas([]);
+      setReportes([]); setEntregasBogota([]); setEntregasCosta([]);
     } finally {
       setLoading(false);
     }
@@ -147,45 +161,37 @@ export function AdminDashboardClient() {
   const limiteBogota = 1_000_000;
   const limiteCosta = 3_000_000;
 
-  // ── BOGOTÁ ──
+  // ── BOGOTÁ ── ✅ usa facturasBogota directo, sin filtrar en cliente
   const bogota = useMemo(() => {
-    const fz = facturas.filter((f) => facturaEnZona(f, "Bogota"));
-    // Entregado = suma Monto_Entregado de Entregas Bogotá
     const entregado = entregasBogota.reduce((s, e) => s + montoEntregaRow(e), 0);
-    // Facturado = suma TODOS los Monto_Factura de Facturas Bogotá
-    const facturado = fz.reduce((s, f) => s + montoFacturaRow(f), 0);
-    // Pendiente = entregado sin facturar por usuario
-    const pendiente = calcularPendiente(entregasBogota, fz);
-    // En Caja = Facturado − Entregado
+    const facturado = facturasBogota.reduce((s, f) => s + montoFacturaRow(f), 0);
+    const pendiente = calcularPendiente(entregasBogota, facturasBogota);
     const enCaja = facturado - entregado;
     const pctEntregado = limiteBogota > 0 ? Math.min(100, Math.round((entregado / limiteBogota) * 100)) : 0;
     const pctFacturado = limiteBogota > 0 ? Math.min(100, Math.round((facturado / limiteBogota) * 100)) : 0;
     const pctPendiente = limiteBogota > 0 ? Math.min(100, Math.round((pendiente / limiteBogota) * 100)) : 0;
     return { entregado, facturado, pendiente, enCaja, pctEntregado, pctFacturado, pctPendiente };
-  }, [facturas, entregasBogota]);
+  }, [facturasBogota, entregasBogota]);
 
-  // ── COSTA CARIBE ──
+  // ── COSTA CARIBE ── ✅ usa facturasCosta directo, sin filtrar en cliente
   const costa = useMemo(() => {
-    const fz = facturas.filter((f) => facturaEnZona(f, "Costa Caribe"));
-    // Entregado = suma Monto_Entregado de Entregas Costa
     const entregado = entregasCosta.reduce((s, e) => s + montoEntregaRow(e), 0);
-    // Facturado = suma TODOS los Monto_Factura de Facturas Costa
-    const facturado = fz.reduce((s, f) => s + montoFacturaRow(f), 0);
-    // Pendiente = entregado sin facturar por usuario
-    const pendiente = calcularPendiente(entregasCosta, fz);
-    // En Caja = Facturado − Entregado
+    const facturado = facturasCosta.reduce((s, f) => s + montoFacturaRow(f), 0);
+    const pendiente = calcularPendiente(entregasCosta, facturasCosta);
     const enCaja = facturado - entregado;
     const pctEntregado = limiteCosta > 0 ? Math.min(100, Math.round((entregado / limiteCosta) * 100)) : 0;
     const pctFacturado = limiteCosta > 0 ? Math.min(100, Math.round((facturado / limiteCosta) * 100)) : 0;
     const pctPendiente = limiteCosta > 0 ? Math.min(100, Math.round((pendiente / limiteCosta) * 100)) : 0;
     return { entregado, facturado, pendiente, enCaja, pctEntregado, pctFacturado, pctPendiente };
-  }, [facturas, entregasCosta]);
+  }, [facturasCosta, entregasCosta]);
 
   const usuariosBogota = useMemo(() => tecnicosPorSector.filter((u) => u.sector === "Bogota").length, [tecnicosPorSector]);
   const usuariosCosta = useMemo(() => tecnicosPorSector.filter((u) => u.sector === "Costa Caribe").length, [tecnicosPorSector]);
-  const facturasPendientes = useMemo(() => facturas.filter((f) => facturaEstado(f).toLowerCase() === "pendiente").length, [facturas]);
+
+  // ✅ facturasPendientes usa todasFacturas para no perder ninguna
+  const facturasPendientes = useMemo(() => todasFacturas.filter((f) => facturaEstado(f).toLowerCase() === "pendiente").length, [todasFacturas]);
   const reportesPendientesFirma = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }).length, [reportes]);
-  const ultimasFacturas = useMemo(() => [...facturas].sort((a, b) => { const ta = parseSheetDate(facturaFecha(a))?.getTime() ?? 0; const tb = parseSheetDate(facturaFecha(b))?.getTime() ?? 0; return tb - ta; }).slice(0, 10), [facturas]);
+  const ultimasFacturas = useMemo(() => [...todasFacturas].sort((a, b) => { const ta = parseSheetDate(facturaFecha(a))?.getTime() ?? 0; const tb = parseSheetDate(facturaFecha(b))?.getTime() ?? 0; return tb - ta; }).slice(0, 10), [todasFacturas]);
   const reportesPendientes = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }), [reportes]);
 
   return (
