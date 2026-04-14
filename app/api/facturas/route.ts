@@ -6,13 +6,10 @@ import { authOptions } from "@/lib/auth-options";
 import { crearFacturaMicaja, type FacturaCreateBody } from "@/lib/facturas-create-micaja";
 import { verifyInternalApiKey } from "@/lib/internal-api";
 import { parseSheetDate } from "@/lib/format";
-import {
-  loadMicajaFacturasSheetRows,
-} from "@/lib/micaja-facturas-sheet";
+import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { rowsToObjects } from "@/lib/sheets-helpers";
 import { normalizeSector, sectorsEquivalent } from "@/lib/sector-normalize";
-import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import type { FacturaRow } from "@/types/models";
 
 function facturaEstadoCell(f: FacturaRow): string {
@@ -47,12 +44,15 @@ export async function GET(req: NextRequest) {
     const hasta = parseSheetDate(hastaQ);
     const zonaSector = searchParams.get("zonaSector")?.trim() || "";
     const rol = String(session.user.rol || "").toLowerCase();
-    let zonaSet: Set<string> | null = null;
+
+    // Validar acceso por zona
     if (zonaSector) {
       if (rol === "admin") {
-        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
+        // admin puede ver cualquier zona
       } else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector)) {
-        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
+        // coordinador solo puede ver su propia zona
+      } else if (rol === "user") {
+        // user solo ve sus propias facturas — se filtra por responsableQ abajo
       } else {
         return NextResponse.json({ data: [] });
       }
@@ -68,16 +68,13 @@ export async function GET(req: NextRequest) {
       const fecha = facturaFechaCell(f);
       const fechaObj = parseSheetDate(fecha);
 
-      if (zonaSet && filterSec !== null) {
+      // ── Filtro por zona: usar SOLO la columna Sector de la factura ──
+      if (filterSec !== null) {
         const rowSec = normalizeSector(getCellCaseInsensitive(f, "Sector") || "");
-        if (rowSec !== null) {
-          // La factura tiene sector — filtrar directamente por sector
-          if (rowSec !== filterSec) return false;
-        } else {
-          // Sin sector en la factura — usar set de responsables como respaldo
-          if (!zonaSet.has(responsable.toLowerCase())) return false;
-        }
+        // Si la factura no tiene sector reconocible, excluirla al filtrar por zona
+        if (rowSec !== filterSec) return false;
       }
+
       if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
       if (estadoQ && estado.toLowerCase() !== estadoQ) return false;
       if (desde && (!fechaObj || fechaObj < desde)) return false;
@@ -100,7 +97,7 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as FacturaCreateBody;
   } catch {
-    return NextResponse.json({ error: "JSON invÃ¡lido" }, { status: 400 });
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
   if (internal) {
