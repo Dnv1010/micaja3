@@ -9,7 +9,8 @@ import { parseSheetDate } from "@/lib/format";
 import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { rowsToObjects } from "@/lib/sheets-helpers";
-import { normalizeSector, sectorsEquivalent } from "@/lib/sector-normalize";
+import { sectorsEquivalent } from "@/lib/sector-normalize";
+import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import type { FacturaRow } from "@/types/models";
 
 function facturaEstadoCell(f: FacturaRow): string {
@@ -45,14 +46,15 @@ export async function GET(req: NextRequest) {
     const zonaSector = searchParams.get("zonaSector")?.trim() || "";
     const rol = String(session.user.rol || "").toLowerCase();
 
-    // Validar acceso por zona
+    // Construir set de responsables de la zona (incluye activos e inactivos)
+    let zonaSet: Set<string> | null = null;
     if (zonaSector) {
       if (rol === "admin") {
-        // admin puede ver cualquier zona
+        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       } else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector)) {
-        // coordinador solo puede ver su propia zona
+        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       } else if (rol === "user") {
-        // user solo ve sus propias facturas — se filtra por responsableQ abajo
+        // user ve solo sus propias facturas — se filtra por responsableQ abajo
       } else {
         return NextResponse.json({ data: [] });
       }
@@ -60,7 +62,6 @@ export async function GET(req: NextRequest) {
 
     const factRows = await loadMicajaFacturasSheetRows();
     const facturas = rowsToObjects<FacturaRow>(factRows);
-    const filterSec = normalizeSector(zonaSector);
 
     const filtered = facturas.filter((f) => {
       const responsable = getCellCaseInsensitive(f, "Responsable");
@@ -68,12 +69,10 @@ export async function GET(req: NextRequest) {
       const fecha = facturaFechaCell(f);
       const fechaObj = parseSheetDate(fecha);
 
-      // ── Filtro por zona: usar SOLO la columna Sector de la factura ──
-      if (filterSec !== null) {
-        const rowSec = normalizeSector(getCellCaseInsensitive(f, "Sector") || "");
-        // Si la factura no tiene sector reconocible, excluirla al filtrar por zona
-        if (rowSec !== filterSec) return false;
-      }
+      // Filtrar por responsable de la zona (activos + inactivos)
+      // Este filtro es el correcto: coincide con lo que muestra Sheets
+      // al filtrar por columna Responsable
+      if (zonaSet && !zonaSet.has(responsable.toLowerCase())) return false;
 
       if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
       if (estadoQ && estado.toLowerCase() !== estadoQ) return false;

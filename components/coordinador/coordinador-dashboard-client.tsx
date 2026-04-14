@@ -40,7 +40,7 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
 
   const [tecnicosZona, setTecnicosZona] = useState<{ responsable: string }[]>([]);
   const [facturas, setFacturas] = useState<FacturaRow[]>([]);
-  const [todasEntregas, setTodasEntregas] = useState<EntregaRow[]>([]);
+  const [entregas, setEntregas] = useState<EntregaRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,19 +69,18 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
       const enc = encodeURIComponent(sectorQuery);
       try {
         const [fRes, eRes] = await Promise.all([
-          // Facturas filtradas por sector en el servidor (fuente de verdad para zona)
+          // Facturas y entregas filtradas por responsables de la zona (servidor)
           fetch(`/api/facturas?zonaSector=${enc}`),
-          // Todas las entregas — filtramos client-side por responsables de facturas
-          fetch(`/api/entregas`),
+          fetch(`/api/entregas?zonaSector=${enc}`),
         ]);
         const fJson = await fRes.json().catch(() => ({ data: [] })) as { data?: FacturaRow[] };
         const eJson = await eRes.json().catch(() => ({ data: [] })) as { data?: EntregaRow[] };
         if (!mounted) return;
         setFacturas(Array.isArray(fJson.data) ? fJson.data : []);
-        setTodasEntregas(Array.isArray(eJson.data) ? eJson.data : []);
+        setEntregas(Array.isArray(eJson.data) ? eJson.data : []);
       } catch {
         if (!mounted) return;
-        setFacturas([]); setTodasEntregas([]);
+        setFacturas([]); setEntregas([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -90,44 +89,32 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     return () => { mounted = false; };
   }, [sectorQuery]);
 
-  // Responsables de la zona = todos los que tienen facturas con sector = esta zona
-  // Las facturas ya vienen filtradas por sector desde el servidor (fuente de verdad)
-  const respsZona = useMemo(() =>
-    new Set(facturas.map(respKey).filter(Boolean)),
-    [facturas]
-  );
-
-  // Entregas de la zona = entregas cuyo responsable aparece en facturas de la zona
-  const entregas = useMemo(() =>
-    todasEntregas.filter((e) => respsZona.has(respKey(e))),
-    [todasEntregas, respsZona]
-  );
-
-  // ── ENTREGADO = suma columna E (Monto_Entregado) de Entregas de la zona ──
+  // ENTREGADO = suma columna E (Monto_Entregado) de Entregas de la zona
   const totalEntregado = useMemo(
     () => entregas.reduce((s, e) => s + montoEntrega(e), 0),
     [entregas]
   );
 
-  // ── FACTURADO = suma columna D (Monto_Factura) de todas las facturas de la zona ──
+  // FACTURADO = suma columna D (Monto_Factura) de Facturas de la zona
   const totalFacturado = useMemo(
     () => facturas.reduce((s, f) => s + montoFactura(f), 0),
     [facturas]
   );
 
-  // ── PENDIENTE LEGALIZAR = por técnico: lo entregado que aún no ha facturado ──
+  // PENDIENTE = por técnico: entregado - facturado (solo positivos)
   const pendienteLegalizar = useMemo(() => {
+    const resps = new Set([...entregas.map(respKey), ...facturas.map(respKey)].filter(Boolean));
     let total = 0;
-    for (const resp of Array.from(respsZona)) {
+    for (const resp of Array.from(resps)) {
       const entregado = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntrega(e), 0);
       const facturado = facturas.filter((f) => respKey(f) === resp).reduce((s, f) => s + montoFactura(f), 0);
       const saldo = entregado - facturado;
       if (saldo > 0) total += saldo;
     }
     return total;
-  }, [entregas, facturas, respsZona]);
+  }, [entregas, facturas]);
 
-  // ── EN CAJA = Facturado − Entregado ──
+  // EN CAJA = Facturado - Entregado
   const enCaja = useMemo(
     () => totalFacturado - totalEntregado,
     [totalFacturado, totalEntregado]
@@ -138,13 +125,9 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
   const pctPendiente = limite > 0 ? Math.min(100, Math.round((pendienteLegalizar / limite) * 100)) : 0;
 
   const facturasPendientes = useMemo(() =>
-    facturas.filter((f) => estadoFactura(f).toLowerCase() === "pendiente").length,
-    [facturas]
-  );
+    facturas.filter((f) => estadoFactura(f).toLowerCase() === "pendiente").length, [facturas]);
   const facturasAprobadas = useMemo(() =>
-    facturas.filter((f) => { const e = estadoFactura(f).toLowerCase(); return e === "aprobada" || e === "completada"; }).length,
-    [facturas]
-  );
+    facturas.filter((f) => { const e = estadoFactura(f).toLowerCase(); return e === "aprobada" || e === "completada"; }).length, [facturas]);
 
   if (loading) {
     return <div className="animate-pulse p-8 text-[#8892A4]">Cargando zona...</div>;
