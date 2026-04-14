@@ -110,8 +110,8 @@ export function AdminDashboardClient() {
       //    igual que hacemos con las entregas — así el cálculo coincide
       //    con lo que ve el coordinador de cada zona.
       const [fBogRes, fCostaRes, fTodasRes, rRes, eBogRes, eCostaRes] = await Promise.all([
-        fetch(`/api/facturas?sector=${encB}`),
-        fetch(`/api/facturas?sector=${encC}`),
+        fetch(`/api/facturas?zonaSector=${encB}`),
+        fetch(`/api/facturas?zonaSector=${encC}`),
         fetch("/api/facturas"),           // para la tabla de últimas 10
         fetch("/api/legalizaciones"),
         fetch(`/api/entregas?zonaSector=${encB}`),
