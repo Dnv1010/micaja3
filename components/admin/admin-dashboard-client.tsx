@@ -11,7 +11,6 @@ import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaRow = Record<string, unknown>;
 type EntregaRow = Record<string, unknown>;
-type EnvioRow = Record<string, unknown>;
 type ReporteRow = Record<string, string>;
 
 function facturaEstado(f: FacturaRow): string {
