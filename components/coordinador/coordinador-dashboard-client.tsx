@@ -114,7 +114,7 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
       ...facturas.map((f) => String(getCellCaseInsensitive(f, "Responsable") || "").trim().toLowerCase()),
     ]);
     let total = 0;
-    for (const resp of responsables) {
+    for (const resp of Array.from(responsables)) {
       if (!resp) continue;
       const recibido = entregas
         .filter((e) => String(getCellCaseInsensitive(e, "Responsable") || "").trim().toLowerCase() === resp)
