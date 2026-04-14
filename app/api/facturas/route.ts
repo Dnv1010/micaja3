@@ -68,10 +68,15 @@ export async function GET(req: NextRequest) {
       const fecha = facturaFechaCell(f);
       const fechaObj = parseSheetDate(fecha);
 
-      if (zonaSet) {
-        const inSet = zonaSet.has(responsable.toLowerCase());
+      if (zonaSet && filterSec !== null) {
         const rowSec = normalizeSector(getCellCaseInsensitive(f, "Sector") || "");
-        if (!inSet && (filterSec === null || rowSec !== filterSec)) return false;
+        if (rowSec !== null) {
+          // La factura tiene sector — filtrar directamente por sector
+          if (rowSec !== filterSec) return false;
+        } else {
+          // Sin sector en la factura — usar set de responsables como respaldo
+          if (!zonaSet.has(responsable.toLowerCase())) return false;
+        }
       }
       if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
       if (estadoQ && estado.toLowerCase() !== estadoQ) return false;
