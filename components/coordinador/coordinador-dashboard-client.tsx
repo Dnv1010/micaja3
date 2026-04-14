@@ -26,6 +26,9 @@ function montoEntrega(e: EntregaRow): number {
 function montoEnvio(e: EnvioRow): number {
   return parseMonto(String(getCellCaseInsensitive(e, "Monto", "Valor") || "0"));
 }
+function respKey(r: Record<string, unknown>): string {
+  return String(getCellCaseInsensitive(r, "Responsable") || "").trim().toLowerCase();
+}
 
 function MetricaBox({ icon, label, valor, sub, color }: { icon: string; label: string; valor: string; sub?: string; color: string }) {
   return (
@@ -75,7 +78,7 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
         const [fRes, eRes, envRes] = await Promise.all([
           fetch(`/api/facturas?zonaSector=${enc}`),
           fetch(`/api/entregas?zonaSector=${enc}`),
-          fetch(`/api/envios?sector=${enc}`),
+          fetch(`/api/envios`), // todos los envíos — filtramos client-side por responsable
         ]);
         const fJson = await fRes.json().catch(() => ({ data: [] })) as { data?: FacturaRow[] };
         const eJson = await eRes.json().catch(() => ({ data: [] })) as { data?: EntregaRow[] };
@@ -95,10 +98,17 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     return () => { mounted = false; };
   }, [sectorQuery]);
 
-  // Entregado = Total envíos
+  // Responsables de la zona = todos los que aparecen en entregas O facturas
+  const respsZona = useMemo(() => new Set(
+    [...entregas.map(respKey), ...facturas.map(respKey)].filter(Boolean)
+  ), [entregas, facturas]);
+
+  // Entregado = suma envíos cuyo responsable esté en la zona (activos e inactivos)
   const totalEntregado = useMemo(
-    () => envios.reduce((s, e) => s + montoEnvio(e), 0),
-    [envios]
+    () => envios
+      .filter((e) => respsZona.has(respKey(e)))
+      .reduce((s, e) => s + montoEnvio(e), 0),
+    [envios, respsZona]
   );
 
   // Facturado = Total facturas (pendiente + aprobada + completada)
@@ -107,29 +117,22 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     [facturas]
   );
 
-  // Pendiente legalizar = suma saldos POSITIVOS por técnico usando Entregas
+  // Pendiente legalizar = suma saldos POSITIVOS por técnico (Entregas - Facturas)
   const pendienteLegalizar = useMemo(() => {
-    const responsables = new Set([
-      ...entregas.map((e) => String(getCellCaseInsensitive(e, "Responsable") || "").trim().toLowerCase()),
-      ...facturas.map((f) => String(getCellCaseInsensitive(f, "Responsable") || "").trim().toLowerCase()),
-    ]);
     let total = 0;
-    for (const resp of Array.from(responsables)) {
+    for (const resp of Array.from(respsZona)) {
       if (!resp) continue;
       const recibido = entregas
-        .filter((e) => String(getCellCaseInsensitive(e, "Responsable") || "").trim().toLowerCase() === resp)
+        .filter((e) => respKey(e) === resp)
         .reduce((s, e) => s + montoEntrega(e), 0);
       const gastado = facturas
-        .filter((f) => {
-          const esResp = String(getCellCaseInsensitive(f, "Responsable") || "").trim().toLowerCase() === resp;
-          return esResp && facturaGastado(f);
-        })
+        .filter((f) => respKey(f) === resp && facturaGastado(f))
         .reduce((s, f) => s + montoFactura(f), 0);
       const saldo = recibido - gastado;
       if (saldo > 0) total += saldo;
     }
     return total;
-  }, [entregas, facturas]);
+  }, [entregas, facturas, respsZona]);
 
   // Reportado a FX = facturas completadas/aprobadas
   const totalReportadoFX = useMemo(
@@ -139,7 +142,7 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     [facturas]
   );
 
-  // En caja = Envíos - Reportado a FX (puede ser negativo)
+  // En caja = Envíos zona - Reportado a FX (puede ser negativo)
   const enCaja = useMemo(
     () => totalEntregado - totalReportadoFX,
     [totalEntregado, totalReportadoFX]
