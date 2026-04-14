@@ -8,7 +8,6 @@ import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaRow = Record<string, unknown>;
 type EntregaRow = Record<string, unknown>;
-type EnvioRow = Record<string, unknown>;
 
 function estadoFacturaZona(f: FacturaRow): string {
   return String(getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || "").toLowerCase().trim();
