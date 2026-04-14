@@ -95,7 +95,7 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     return () => { mounted = false; };
   }, [sectorQuery]);
 
-  // Entregado = Total envíos (para métrica principal y En caja)
+  // Entregado = Total envíos
   const totalEntregado = useMemo(
     () => envios.reduce((s, e) => s + montoEnvio(e), 0),
     [envios]
@@ -139,9 +139,9 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     [facturas]
   );
 
-  // En caja = Envíos - Reportado a FX
+  // En caja = Envíos - Reportado a FX (puede ser negativo)
   const enCaja = useMemo(
-    () => Math.max(0, totalEntregado - totalReportadoFX),
+    () => totalEntregado - totalReportadoFX,
     [totalEntregado, totalReportadoFX]
   );
 
@@ -167,7 +167,13 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
         <MetricaBox icon="💸" label="Entregado" valor={formatCOP(totalEntregado)} sub={`${pctEntregado}% del límite`} color="text-white" />
         <MetricaBox icon="🧾" label="Facturado" valor={formatCOP(totalFacturado)} sub={`${pctFacturado}% del límite`} color="text-[#08DDBC]" />
         <MetricaBox icon="⚠️" label="Pendiente legalizar" valor={formatCOP(pendienteLegalizar)} sub="Suma saldos en mano técnicos" color="text-yellow-400" />
-        <MetricaBox icon="🏦" label="En caja" valor={formatCOP(enCaja)} sub="Entregado − Reportado FX" color="text-emerald-400" />
+        <MetricaBox
+          icon="🏦"
+          label="En caja"
+          valor={`${enCaja < 0 ? "-" : ""}${formatCOP(Math.abs(enCaja))}`}
+          sub="Entregado − Reportado FX"
+          color={enCaja >= 0 ? "text-emerald-400" : "text-red-400"}
+        />
       </div>
 
       <div className="rounded-2xl border border-white/5 bg-[#0A1B4D] p-5">
