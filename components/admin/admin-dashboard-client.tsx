@@ -14,13 +14,6 @@ type EntregaRow = Record<string, unknown>;
 type EnvioRow = Record<string, unknown>;
 type ReporteRow = Record<string, string>;
 
-function estadoFacturaCaja(f: FacturaRow): string {
-  return String(getCellCaseInsensitive(f, "Verificado", "Legalizado", "Estado") || "").toLowerCase().trim();
-}
-function facturaGastado(f: FacturaRow): boolean {
-  const e = estadoFacturaCaja(f);
-  return e === "aprobada" || e === "completada" || e === "pendiente";
-}
 function facturaEstado(f: FacturaRow): string {
   return String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente");
 }
@@ -29,9 +22,6 @@ function montoEntregaRow(e: EntregaRow): number {
 }
 function montoFacturaRow(f: FacturaRow): number {
   return parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"));
-}
-function montoEnvioRow(e: EnvioRow): number {
-  return parseMonto(String(getCellCaseInsensitive(e, "Monto", "Valor") || "0"));
 }
 function facturaEnZona(f: FacturaRow, zona: "Bogota" | "Costa Caribe"): boolean {
   return sectorsEquivalent(String(getCellCaseInsensitive(f, "Sector") || ""), zona);
@@ -55,14 +45,14 @@ function BarraProgreso({ pctFacturado, pctPendiente }: { pctFacturado: number; p
   );
 }
 
-function calcularPendientePorUsuario(entregas: EntregaRow[], facturas: FacturaRow[]): number {
-  const responsables = new Set([...entregas.map(respKey), ...facturas.map(respKey)]);
+// ── PENDIENTE por usuario: entregado − facturado, solo positivos ──
+function calcularPendiente(entregas: EntregaRow[], facturas: FacturaRow[]): number {
+  const resps = new Set([...entregas.map(respKey), ...facturas.map(respKey)].filter(Boolean));
   let total = 0;
-  for (const resp of Array.from(responsables)) {
-    if (!resp) continue;
-    const recibido = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntregaRow(e), 0);
-    const gastado = facturas.filter((f) => respKey(f) === resp && facturaGastado(f)).reduce((s, f) => s + montoFacturaRow(f), 0);
-    const saldo = recibido - gastado;
+  for (const resp of Array.from(resps)) {
+    const entregado = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntregaRow(e), 0);
+    const facturado = facturas.filter((f) => respKey(f) === resp).reduce((s, f) => s + montoFacturaRow(f), 0);
+    const saldo = entregado - facturado;
     if (saldo > 0) total += saldo;
   }
   return total;
@@ -106,7 +96,6 @@ export function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [facturas, setFacturas] = useState<FacturaRow[]>([]);
   const [reportes, setReportes] = useState<ReporteRow[]>([]);
-  const [envios, setEnvios] = useState<EnvioRow[]>([]);
   const [entregasBogota, setEntregasBogota] = useState<EntregaRow[]>([]);
   const [entregasCosta, setEntregasCosta] = useState<EntregaRow[]>([]);
   const [tecnicosPorSector, setTecnicosPorSector] = useState<{ sector: string }[]>([]);
@@ -116,27 +105,24 @@ export function AdminDashboardClient() {
     try {
       const encB = encodeURIComponent("Bogota");
       const encC = encodeURIComponent("Costa Caribe");
-      const [fRes, rRes, eBogRes, eCostaRes, envRes] = await Promise.all([
+      const [fRes, rRes, eBogRes, eCostaRes] = await Promise.all([
         fetch("/api/facturas"),
         fetch("/api/legalizaciones"),
         fetch(`/api/entregas?zonaSector=${encB}`),
         fetch(`/api/entregas?zonaSector=${encC}`),
-        fetch("/api/envios"),
       ]);
-      const [fJson, rJson, eBogJson, eCostaJson, envJson] = await Promise.all([
+      const [fJson, rJson, eBogJson, eCostaJson] = await Promise.all([
         fRes.json().catch(() => ({ data: [] })),
         rRes.json().catch(() => ({ data: [] })),
         eBogRes.json().catch(() => ({ data: [] })),
         eCostaRes.json().catch(() => ({ data: [] })),
-        envRes.json().catch(() => ({ data: [] })),
       ]);
       setFacturas(Array.isArray(fJson.data) ? fJson.data : []);
       setReportes(Array.isArray(rJson.data) ? rJson.data : []);
       setEntregasBogota(Array.isArray(eBogJson.data) ? eBogJson.data : []);
       setEntregasCosta(Array.isArray(eCostaJson.data) ? eCostaJson.data : []);
-      setEnvios(Array.isArray(envJson.data) ? envJson.data : []);
     } catch {
-      setFacturas([]); setReportes([]); setEntregasBogota([]); setEntregasCosta([]); setEnvios([]);
+      setFacturas([]); setReportes([]); setEntregasBogota([]); setEntregasCosta([]);
     } finally {
       setLoading(false);
     }
@@ -162,39 +148,43 @@ export function AdminDashboardClient() {
   const limiteBogota = 1_000_000;
   const limiteCosta = 3_000_000;
 
+  // ── BOGOTÁ ──
   const bogota = useMemo(() => {
     const fz = facturas.filter((f) => facturaEnZona(f, "Bogota"));
+    // Entregado = suma Monto_Entregado de Entregas Bogotá
     const entregado = entregasBogota.reduce((s, e) => s + montoEntregaRow(e), 0);
-    const facturado = fz.filter(facturaGastado).reduce((s, f) => s + montoFacturaRow(f), 0);
-    const pendiente = calcularPendientePorUsuario(entregasBogota, fz);
-    const reportadoFX = fz.filter((f) => { const e = estadoFacturaCaja(f); return e === "completada" || e === "aprobada"; }).reduce((s, f) => s + montoFacturaRow(f), 0);
-    const respsBog = new Set([...entregasBogota.map(respKey), ...fz.map(respKey)]);
-    const enviadoZona = envios.filter((e) => respsBog.has(respKey(e))).reduce((s, e) => s + montoEnvioRow(e), 0);
-    const enCajaZona = enviadoZona - reportadoFX;
+    // Facturado = suma TODOS los Monto_Factura de Facturas Bogotá
+    const facturado = fz.reduce((s, f) => s + montoFacturaRow(f), 0);
+    // Pendiente = entregado sin facturar por usuario
+    const pendiente = calcularPendiente(entregasBogota, fz);
+    // En Caja = Facturado − Entregado
+    const enCaja = facturado - entregado;
     const pctEntregado = limiteBogota > 0 ? Math.min(100, Math.round((entregado / limiteBogota) * 100)) : 0;
     const pctFacturado = limiteBogota > 0 ? Math.min(100, Math.round((facturado / limiteBogota) * 100)) : 0;
     const pctPendiente = limiteBogota > 0 ? Math.min(100, Math.round((pendiente / limiteBogota) * 100)) : 0;
-    return { entregado, facturado, pendiente, enCajaZona, pctEntregado, pctFacturado, pctPendiente };
-  }, [facturas, entregasBogota, envios]);
+    return { entregado, facturado, pendiente, enCaja, pctEntregado, pctFacturado, pctPendiente };
+  }, [facturas, entregasBogota]);
 
+  // ── COSTA CARIBE ──
   const costa = useMemo(() => {
     const fz = facturas.filter((f) => facturaEnZona(f, "Costa Caribe"));
+    // Entregado = suma Monto_Entregado de Entregas Costa
     const entregado = entregasCosta.reduce((s, e) => s + montoEntregaRow(e), 0);
-    const facturado = fz.filter(facturaGastado).reduce((s, f) => s + montoFacturaRow(f), 0);
-    const pendiente = calcularPendientePorUsuario(entregasCosta, fz);
-    const reportadoFX = fz.filter((f) => { const e = estadoFacturaCaja(f); return e === "completada" || e === "aprobada"; }).reduce((s, f) => s + montoFacturaRow(f), 0);
-    const respsCosta = new Set([...entregasCosta.map(respKey), ...fz.map(respKey)]);
-    const enviadoZona = envios.filter((e) => respsCosta.has(respKey(e))).reduce((s, e) => s + montoEnvioRow(e), 0);
-    const enCajaZona = enviadoZona - reportadoFX;
+    // Facturado = suma TODOS los Monto_Factura de Facturas Costa
+    const facturado = fz.reduce((s, f) => s + montoFacturaRow(f), 0);
+    // Pendiente = entregado sin facturar por usuario
+    const pendiente = calcularPendiente(entregasCosta, fz);
+    // En Caja = Facturado − Entregado
+    const enCaja = facturado - entregado;
     const pctEntregado = limiteCosta > 0 ? Math.min(100, Math.round((entregado / limiteCosta) * 100)) : 0;
     const pctFacturado = limiteCosta > 0 ? Math.min(100, Math.round((facturado / limiteCosta) * 100)) : 0;
     const pctPendiente = limiteCosta > 0 ? Math.min(100, Math.round((pendiente / limiteCosta) * 100)) : 0;
-    return { entregado, facturado, pendiente, enCajaZona, pctEntregado, pctFacturado, pctPendiente };
-  }, [facturas, entregasCosta, envios]);
+    return { entregado, facturado, pendiente, enCaja, pctEntregado, pctFacturado, pctPendiente };
+  }, [facturas, entregasCosta]);
 
   const usuariosBogota = useMemo(() => tecnicosPorSector.filter((u) => u.sector === "Bogota").length, [tecnicosPorSector]);
   const usuariosCosta = useMemo(() => tecnicosPorSector.filter((u) => u.sector === "Costa Caribe").length, [tecnicosPorSector]);
-  const facturasPendientes = useMemo(() => facturas.filter((f) => estadoFacturaCaja(f) === "pendiente").length, [facturas]);
+  const facturasPendientes = useMemo(() => facturas.filter((f) => facturaEstado(f).toLowerCase() === "pendiente").length, [facturas]);
   const reportesPendientesFirma = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }).length, [reportes]);
   const ultimasFacturas = useMemo(() => [...facturas].sort((a, b) => { const ta = parseSheetDate(facturaFecha(a))?.getTime() ?? 0; const tb = parseSheetDate(facturaFecha(b))?.getTime() ?? 0; return tb - ta; }).slice(0, 10), [facturas]);
   const reportesPendientes = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }), [reportes]);
@@ -213,10 +203,10 @@ export function AdminDashboardClient() {
         ) : (
           <>
             <ZonaCard titulo="Zona Bogotá" limite={limiteBogota} tecnicos={usuariosBogota}
-              entregado={bogota.entregado} facturado={bogota.facturado} pendiente={bogota.pendiente} enCaja={bogota.enCajaZona}
+              entregado={bogota.entregado} facturado={bogota.facturado} pendiente={bogota.pendiente} enCaja={bogota.enCaja}
               pctEntregado={bogota.pctEntregado} pctFacturado={bogota.pctFacturado} pctPendiente={bogota.pctPendiente} />
             <ZonaCard titulo="Zona Costa Caribe" limite={limiteCosta} tecnicos={usuariosCosta}
-              entregado={costa.entregado} facturado={costa.facturado} pendiente={costa.pendiente} enCaja={costa.enCajaZona}
+              entregado={costa.entregado} facturado={costa.facturado} pendiente={costa.pendiente} enCaja={costa.enCaja}
               pctEntregado={costa.pctEntregado} pctFacturado={costa.pctFacturado} pctPendiente={costa.pctPendiente} />
           </>
         )}

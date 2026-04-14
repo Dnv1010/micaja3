@@ -9,13 +9,6 @@ import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 type FacturaRow = Record<string, unknown>;
 type EntregaRow = Record<string, unknown>;
 
-function estadoFacturaZona(f: FacturaRow): string {
-  return String(getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || "").toLowerCase().trim();
-}
-function facturaGastado(f: FacturaRow): boolean {
-  const e = estadoFacturaZona(f);
-  return e === "aprobada" || e === "completada" || e === "pendiente";
-}
 function montoFactura(f: FacturaRow): number {
   return parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"));
 }
@@ -25,8 +18,13 @@ function montoEntrega(e: EntregaRow): number {
 function respKey(r: Record<string, unknown>): string {
   return String(getCellCaseInsensitive(r, "Responsable") || "").trim().toLowerCase();
 }
+function estadoFactura(f: FacturaRow): string {
+  return String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente");
+}
 
-function MetricaBox({ icon, label, valor, sub, color }: { icon: string; label: string; valor: string; sub?: string; color: string }) {
+function MetricaBox({ icon, label, valor, sub, color }: {
+  icon: string; label: string; valor: string; sub?: string; color: string;
+}) {
   return (
     <div className="rounded-xl bg-[#001035] p-4 border border-white/5">
       <p className="mb-1 text-xs text-[#8892A4]">{icon} {label}</p>
@@ -70,7 +68,6 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     async function load() {
       const enc = encodeURIComponent(sectorQuery);
       try {
-        // Solo facturas y entregas — ambas ya vienen filtradas por zona desde el API
         const [fRes, eRes] = await Promise.all([
           fetch(`/api/facturas?zonaSector=${enc}`),
           fetch(`/api/entregas?zonaSector=${enc}`),
@@ -91,59 +88,43 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     return () => { mounted = false; };
   }, [sectorQuery]);
 
-  // ── ENTREGADO = suma de Entregas filtradas por zona (fuente de verdad) ──
+  // ── ENTREGADO = suma columna E de Entregas (Monto_Entregado) ──
   const totalEntregado = useMemo(
     () => entregas.reduce((s, e) => s + montoEntrega(e), 0),
     [entregas]
   );
 
-  // ── FACTURADO = facturas pendiente + aprobada + completada ──
+  // ── FACTURADO = suma columna D de Facturas (Monto_Factura), todos los estados ──
   const totalFacturado = useMemo(
-    () => facturas.filter(facturaGastado).reduce((s, f) => s + montoFactura(f), 0),
+    () => facturas.reduce((s, f) => s + montoFactura(f), 0),
     [facturas]
   );
 
-  // ── PENDIENTE LEGALIZAR = saldos positivos por técnico (Entregas − Facturas) ──
+  // ── PENDIENTE LEGALIZAR = por técnico: lo entregado que aún no ha facturado ──
   const pendienteLegalizar = useMemo(() => {
-    const resps = new Set([
-      ...entregas.map(respKey),
-      ...facturas.map(respKey),
-    ].filter(Boolean));
+    const resps = new Set([...entregas.map(respKey), ...facturas.map(respKey)].filter(Boolean));
     let total = 0;
     for (const resp of Array.from(resps)) {
-      if (!resp) continue;
-      const recibido = entregas
-        .filter((e) => respKey(e) === resp)
-        .reduce((s, e) => s + montoEntrega(e), 0);
-      const gastado = facturas
-        .filter((f) => respKey(f) === resp && facturaGastado(f))
-        .reduce((s, f) => s + montoFactura(f), 0);
-      const saldo = recibido - gastado;
+      const entregado = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntrega(e), 0);
+      const facturado = facturas.filter((f) => respKey(f) === resp).reduce((s, f) => s + montoFactura(f), 0);
+      const saldo = entregado - facturado;
       if (saldo > 0) total += saldo;
     }
     return total;
   }, [entregas, facturas]);
 
-  // ── REPORTADO A FX = facturas completadas/aprobadas ──
-  const totalReportadoFX = useMemo(
-    () => facturas
-      .filter((f) => { const e = estadoFacturaZona(f); return e === "completada" || e === "aprobada"; })
-      .reduce((s, f) => s + montoFactura(f), 0),
-    [facturas]
-  );
-
-  // ── EN CAJA = Entregado − Reportado FX (puede ser negativo) ──
+  // ── EN CAJA = Facturado − Entregado ──
   const enCaja = useMemo(
-    () => totalEntregado - totalReportadoFX,
-    [totalEntregado, totalReportadoFX]
+    () => totalFacturado - totalEntregado,
+    [totalFacturado, totalEntregado]
   );
 
   const pctEntregado = limite > 0 ? Math.min(100, Math.round((totalEntregado / limite) * 100)) : 0;
   const pctFacturado = limite > 0 ? Math.min(100, Math.round((totalFacturado / limite) * 100)) : 0;
   const pctPendiente = limite > 0 ? Math.min(100, Math.round((pendienteLegalizar / limite) * 100)) : 0;
 
-  const facturasPendientes = useMemo(() => facturas.filter((f) => estadoFacturaZona(f) === "pendiente").length, [facturas]);
-  const facturasAprobadas = useMemo(() => facturas.filter((f) => { const e = estadoFacturaZona(f); return e === "aprobada" || e === "completada"; }).length, [facturas]);
+  const facturasPendientes = useMemo(() => facturas.filter((f) => estadoFactura(f).toLowerCase() === "pendiente").length, [facturas]);
+  const facturasAprobadas = useMemo(() => facturas.filter((f) => { const e = estadoFactura(f).toLowerCase(); return e === "aprobada" || e === "completada"; }).length, [facturas]);
 
   if (loading) {
     return <div className="animate-pulse p-8 text-[#8892A4]">Cargando zona...</div>;
@@ -159,12 +140,12 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
       <div className="grid grid-cols-2 gap-3">
         <MetricaBox icon="💸" label="Entregado" valor={formatCOP(totalEntregado)} sub={`${pctEntregado}% del límite`} color="text-white" />
         <MetricaBox icon="🧾" label="Facturado" valor={formatCOP(totalFacturado)} sub={`${pctFacturado}% del límite`} color="text-[#08DDBC]" />
-        <MetricaBox icon="⚠️" label="Pendiente legalizar" valor={formatCOP(pendienteLegalizar)} sub="Suma saldos en mano técnicos" color="text-yellow-400" />
+        <MetricaBox icon="⚠️" label="Pendiente legalizar" valor={formatCOP(pendienteLegalizar)} sub="Entregado sin facturar" color="text-yellow-400" />
         <MetricaBox
           icon="🏦"
           label="En caja"
           valor={`${enCaja < 0 ? "-" : ""}${formatCOP(Math.abs(enCaja))}`}
-          sub="Entregado − Reportado FX"
+          sub="Facturado − Entregado"
           color={enCaja >= 0 ? "text-emerald-400" : "text-red-400"}
         />
       </div>
