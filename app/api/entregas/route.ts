@@ -68,10 +68,13 @@ export async function GET(req: NextRequest) {
 
     let zonaSet: Set<string> | null = null;
     if (zonaSector && rol !== "user") {
-      if (rol === "admin") zonaSet = await responsablesEnZonaSheetSet(zonaSector);
-      else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector))
+      if (rol === "admin") {
         zonaSet = await responsablesEnZonaSheetSet(zonaSector);
-      else return NextResponse.json({ data: [] });
+      } else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector)) {
+        zonaSet = await responsablesEnZonaSheetSet(zonaSector);
+      } else {
+        return NextResponse.json({ data: [] });
+      }
     }
 
     data = data.filter((row) => {
@@ -91,7 +94,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST manual (poco usado): misma disposiciÃ³n A:H que la hoja Entregas. */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
