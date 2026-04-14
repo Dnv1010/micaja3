@@ -11,7 +11,6 @@ import type { Session } from "next-auth";
 
 type FacturaItem = Record<string, unknown>;
 type EntregaItem = Record<string, unknown>;
-type EnvioItem = Record<string, unknown>;
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -23,7 +22,6 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
   const responsable = String(user.responsable || "");
   const [loading, setLoading] = useState(true);
   const [facturas, setFacturas] = useState<FacturaItem[]>([]);
-  const [envios, setEnvios] = useState<EnvioItem[]>([]);
   const [entregas, setEntregas] = useState<EntregaItem[]>([]);
 
   useEffect(() => {
@@ -31,21 +29,18 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
     async function loadData() {
       try {
         const enc = encodeURIComponent(responsable);
-        const [fRes, eRes, envRes] = await Promise.all([
+        const [fRes, eRes] = await Promise.all([
           fetch(`/api/facturas?responsable=${enc}`),
           fetch(`/api/entregas?responsable=${enc}`),
-          fetch(`/api/envios?responsable=${enc}`),
         ]);
         const fJson = await fRes.json().catch(() => ({ data: [] }));
         const eJson = await eRes.json().catch(() => ({ data: [] }));
-        const envJson = await envRes.json().catch(() => ({ data: [] }));
         if (!mounted) return;
         setFacturas(Array.isArray(fJson.data) ? fJson.data : []);
         setEntregas(Array.isArray(eJson.data) ? eJson.data : []);
-        setEnvios(Array.isArray(envJson.data) ? envJson.data : []);
       } catch {
         if (!mounted) return;
-        setFacturas([]); setEntregas([]); setEnvios([]);
+        setFacturas([]); setEntregas([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -54,11 +49,10 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
     return () => { mounted = false; };
   }, [responsable]);
 
-  // ── MÉTRICAS ──────────────────────────────────────────────────
-  // Recibido = Total envíos al técnico
+  // Recibido = Total entregas al técnico
   const totalRecibido = useMemo(
-    () => envios.reduce((s, e) => s + parseMonto(String(getCellCaseInsensitive(e, "Monto", "Valor") || "0")), 0),
-    [envios]
+    () => entregas.reduce((s, e) => s + parseMonto(String(getCellCaseInsensitive(e, "Monto_Entregado", "Monto") || "0")), 0),
+    [entregas]
   );
 
   // Facturado = Total facturas del técnico
@@ -67,9 +61,9 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
     [facturas]
   );
 
-  // Saldo = Recibido - Facturado
-  // positivo = debe legalizar (tiene plata en mano)
-  // negativo = gastó de más (debe a la empresa)
+  // Total = Recibido - Facturado
+  // positivo = tiene disponible
+  // negativo = excedido (gastó de más)
   const saldo = totalRecibido - totalFacturado;
 
   const ultimasEntregas = useMemo(() => [...entregas].slice(-3).reverse(), [entregas]);
@@ -102,7 +96,7 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
           <div className="rounded-xl bg-[#001035] p-4 border border-white/5">
             <p className="text-xs text-[#8892A4] mb-1">💸 Recibido</p>
             <p className="text-lg font-bold text-white">{formatCOP(totalRecibido)}</p>
-            <p className="text-xs text-[#525A72] mt-1">Total enviado</p>
+            <p className="text-xs text-[#525A72] mt-1">Total entregado</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4 border border-white/5">
             <p className="text-xs text-[#8892A4] mb-1">🧾 Facturado</p>
@@ -111,19 +105,19 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
           </div>
           <div className="rounded-xl bg-[#001035] p-4 border border-white/5">
             <p className="text-xs text-[#8892A4] mb-1">
-              {saldo > 0 ? "⚠️ Debes" : saldo < 0 ? "🔴 Excedido" : "✅ Al día"}
+              {saldo >= 0 ? "✅ Total" : "🔴 Excedido"}
             </p>
-            <p className={`text-lg font-bold ${saldo > 0 ? "text-yellow-400" : saldo < 0 ? "text-red-400" : "text-emerald-400"}`}>
+            <p className={`text-lg font-bold ${saldo >= 0 ? "text-emerald-400" : "text-red-400"}`}>
               {formatCOP(Math.abs(saldo))}
             </p>
             <p className="text-xs text-[#525A72] mt-1">
-              {saldo > 0 ? "por legalizar" : saldo < 0 ? "gastaste de más" : "todo legalizado"}
+              {saldo >= 0 ? "disponible" : "gastaste de más"}
             </p>
           </div>
         </div>
       )}
 
-      {/* ── ALERTA SI TIENE SALDO PENDIENTE ── */}
+      {/* ── ALERTA ── */}
       {!loading && saldo > 0 && (
         <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3">
           <p className="text-sm text-yellow-400">
@@ -200,7 +194,6 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
           )}
         </CardContent>
       </Card>
-
     </div>
   );
 }

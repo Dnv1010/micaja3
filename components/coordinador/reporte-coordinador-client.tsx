@@ -325,7 +325,18 @@ export function ReporteCoordinadorClient() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10" />
+                      <TableHead className="w-10">
+  <Checkbox
+    checked={lista.length > 0 && selected.size === lista.length}
+    onCheckedChange={(v) => {
+      if (v === true) {
+        setSelected(new Set(lista.map((f) => String(getCellCaseInsensitive(f, "ID_Factura", "ID")))));
+      } else {
+        setSelected(new Set());
+      }
+    }}
+  />
+</TableHead>
                       <TableHead>Fecha</TableHead>
                       <TableHead>Usuario</TableHead>
                       <TableHead>Proveedor</TableHead>

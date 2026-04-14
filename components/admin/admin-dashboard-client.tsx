@@ -17,6 +17,10 @@ type ReporteRow = Record<string, string>;
 function estadoFacturaCaja(f: FacturaRow): string {
   return String(getCellCaseInsensitive(f, "Verificado", "Legalizado", "Estado") || "").toLowerCase().trim();
 }
+function facturaGastado(f: FacturaRow): boolean {
+  const e = estadoFacturaCaja(f);
+  return e === "aprobada" || e === "completada" || e === "pendiente";
+}
 function facturaEstado(f: FacturaRow): string {
   return String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente");
 }
@@ -38,18 +42,8 @@ function facturaFecha(f: FacturaRow): string {
 function reporteId(r: ReporteRow): string {
   return String(r.ID_Reporte || r.ID || "").trim();
 }
-
-function MetricaCard({ icon, label, valor, sub, color }: { icon: string; label: string; valor: string; sub?: string; color: string }) {
-  return (
-    <div className="rounded-xl bg-[#001035] p-5 flex flex-col gap-2 border border-white/5">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{icon}</span>
-        <span className="text-xs text-[#8892A4] font-medium uppercase tracking-wide">{label}</span>
-      </div>
-      <p className={`text-2xl font-bold ${color}`}>{valor}</p>
-      {sub && <p className="text-xs text-[#525A72]">{sub}</p>}
-    </div>
-  );
+function respKey(r: Record<string, unknown>): string {
+  return String(getCellCaseInsensitive(r, "Responsable") || "").trim().toLowerCase();
 }
 
 function BarraProgreso({ pctFacturado, pctPendiente }: { pctFacturado: number; pctPendiente: number }) {
@@ -57,6 +51,53 @@ function BarraProgreso({ pctFacturado, pctPendiente }: { pctFacturado: number; p
     <div className="h-2 w-full overflow-hidden rounded-full bg-[#0a1628] flex">
       <div style={{ width: `${pctFacturado}%` }} className="h-full bg-[#08DDBC] transition-all" />
       <div style={{ width: `${pctPendiente}%` }} className="h-full bg-yellow-400 transition-all" />
+    </div>
+  );
+}
+
+function calcularPendientePorUsuario(entregas: EntregaRow[], facturas: FacturaRow[]): number {
+  const responsables = new Set([...entregas.map(respKey), ...facturas.map(respKey)]);
+  let total = 0;
+  for (const resp of responsables) {
+    if (!resp) continue;
+    const recibido = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntregaRow(e), 0);
+    const gastado = facturas.filter((f) => respKey(f) === resp && facturaGastado(f)).reduce((s, f) => s + montoFacturaRow(f), 0);
+    const saldo = recibido - gastado;
+    if (saldo > 0) total += saldo;
+  }
+  return total;
+}
+
+function ZonaCard({ titulo, limite, tecnicos, entregado, facturado, pendiente, enCaja, pctEntregado, pctFacturado, pctPendiente }: {
+  titulo: string; limite: number; tecnicos: number;
+  entregado: number; facturado: number; pendiente: number; enCaja: number;
+  pctEntregado: number; pctFacturado: number; pctPendiente: number;
+}) {
+  return (
+    <div className="rounded-xl bg-[#001035] p-5 border border-white/5">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-bold text-white">{titulo}</h3>
+          <p className="text-xs text-[#8892A4]">Límite {formatCOP(limite)} · {tecnicos} técnicos</p>
+        </div>
+        <span className="text-lg font-bold text-[#08DDBC]">{pctEntregado}%</span>
+      </div>
+      <BarraProgreso pctFacturado={pctFacturado} pctPendiente={pctPendiente} />
+      <div className="mt-1 flex gap-3 text-xs text-[#525A72]">
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#08DDBC] inline-block" />Facturado</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-400 inline-block" />Pendiente</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div><p className="text-xs text-[#8892A4]">💸 Entregado</p><p className="font-bold text-white text-sm">{formatCOP(entregado)}</p></div>
+        <div><p className="text-xs text-[#8892A4]">🧾 Facturado</p><p className="font-bold text-[#08DDBC] text-sm">{formatCOP(facturado)}</p></div>
+        <div><p className="text-xs text-[#8892A4]">⚠️ Pendiente legalizar</p><p className="font-bold text-yellow-400 text-sm">{formatCOP(pendiente)}</p></div>
+        <div>
+          <p className="text-xs text-[#8892A4]">🏦 En caja</p>
+          <p className={`font-bold text-sm ${enCaja >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {enCaja < 0 ? "-" : ""}{formatCOP(Math.abs(enCaja))}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -121,74 +162,41 @@ export function AdminDashboardClient() {
   const limiteBogota = 1_000_000;
   const limiteCosta = 3_000_000;
 
-  // ── MÉTRICAS GLOBALES ──────────────────────────────────────────────
-  // Entregado = Total enviado (Envios)
-  const totalEntregado = useMemo(
-    () => envios.reduce((s, e) => s + montoEnvioRow(e), 0),
-    [envios]
-  );
-
-  // Facturado = Total Facturas
-  const totalFacturado = useMemo(
-    () => facturas.reduce((s, f) => s + montoFacturaRow(f), 0),
-    [facturas]
-  );
-
-  // Pendiente por legalizar = Entregado - Facturado
-  const pendienteLegalizar = useMemo(
-    () => Math.max(0, totalEntregado - totalFacturado),
-    [totalEntregado, totalFacturado]
-  );
-
-  // Caja = lo que ya fue reportado a FX (estado completada/aprobada)
-  const totalReportadoFX = useMemo(
-    () => facturas
-      .filter((f) => { const e = estadoFacturaCaja(f); return e === "completada" || e === "aprobada"; })
-      .reduce((s, f) => s + montoFacturaRow(f), 0),
-    [facturas]
-  );
-
-  const enCaja = useMemo(
-    () => Math.max(0, totalReportadoFX - pendienteLegalizar),
-    [totalReportadoFX, pendienteLegalizar]
-  );
-
-  // ── POR ZONA ──────────────────────────────────────────────────────
   const bogota = useMemo(() => {
     const fz = facturas.filter((f) => facturaEnZona(f, "Bogota"));
     const entregado = entregasBogota.reduce((s, e) => s + montoEntregaRow(e), 0);
-    const facturado = fz.reduce((s, f) => s + montoFacturaRow(f), 0);
-    const pendiente = Math.max(0, entregado - facturado);
+    const facturado = fz.filter(facturaGastado).reduce((s, f) => s + montoFacturaRow(f), 0);
+    const pendiente = calcularPendientePorUsuario(entregasBogota, fz);
+    const reportadoFX = fz.filter((f) => { const e = estadoFacturaCaja(f); return e === "completada" || e === "aprobada"; }).reduce((s, f) => s + montoFacturaRow(f), 0);
+    const respsBog = new Set([...entregasBogota.map(respKey), ...fz.map(respKey)]);
+    const enviadoZona = envios.filter((e) => respsBog.has(respKey(e))).reduce((s, e) => s + montoEnvioRow(e), 0);
+    const enCajaZona = enviadoZona - reportadoFX;
     const pctEntregado = limiteBogota > 0 ? Math.min(100, Math.round((entregado / limiteBogota) * 100)) : 0;
     const pctFacturado = limiteBogota > 0 ? Math.min(100, Math.round((facturado / limiteBogota) * 100)) : 0;
     const pctPendiente = limiteBogota > 0 ? Math.min(100, Math.round((pendiente / limiteBogota) * 100)) : 0;
-    return { entregado, facturado, pendiente, pctEntregado, pctFacturado, pctPendiente };
-  }, [facturas, entregasBogota]);
+    return { entregado, facturado, pendiente, enCajaZona, pctEntregado, pctFacturado, pctPendiente };
+  }, [facturas, entregasBogota, envios]);
 
   const costa = useMemo(() => {
     const fz = facturas.filter((f) => facturaEnZona(f, "Costa Caribe"));
     const entregado = entregasCosta.reduce((s, e) => s + montoEntregaRow(e), 0);
-    const facturado = fz.reduce((s, f) => s + montoFacturaRow(f), 0);
-    const pendiente = Math.max(0, entregado - facturado);
+    const facturado = fz.filter(facturaGastado).reduce((s, f) => s + montoFacturaRow(f), 0);
+    const pendiente = calcularPendientePorUsuario(entregasCosta, fz);
+    const reportadoFX = fz.filter((f) => { const e = estadoFacturaCaja(f); return e === "completada" || e === "aprobada"; }).reduce((s, f) => s + montoFacturaRow(f), 0);
+    const respsCosta = new Set([...entregasCosta.map(respKey), ...fz.map(respKey)]);
+    const enviadoZona = envios.filter((e) => respsCosta.has(respKey(e))).reduce((s, e) => s + montoEnvioRow(e), 0);
+    const enCajaZona = enviadoZona - reportadoFX;
     const pctEntregado = limiteCosta > 0 ? Math.min(100, Math.round((entregado / limiteCosta) * 100)) : 0;
     const pctFacturado = limiteCosta > 0 ? Math.min(100, Math.round((facturado / limiteCosta) * 100)) : 0;
     const pctPendiente = limiteCosta > 0 ? Math.min(100, Math.round((pendiente / limiteCosta) * 100)) : 0;
-    return { entregado, facturado, pendiente, pctEntregado, pctFacturado, pctPendiente };
-  }, [facturas, entregasCosta]);
+    return { entregado, facturado, pendiente, enCajaZona, pctEntregado, pctFacturado, pctPendiente };
+  }, [facturas, entregasCosta, envios]);
 
   const usuariosBogota = useMemo(() => tecnicosPorSector.filter((u) => u.sector === "Bogota").length, [tecnicosPorSector]);
   const usuariosCosta = useMemo(() => tecnicosPorSector.filter((u) => u.sector === "Costa Caribe").length, [tecnicosPorSector]);
   const facturasPendientes = useMemo(() => facturas.filter((f) => estadoFacturaCaja(f) === "pendiente").length, [facturas]);
   const reportesPendientesFirma = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }).length, [reportes]);
-
-  const ultimasFacturas = useMemo(() => {
-    return [...facturas].sort((a, b) => {
-      const ta = parseSheetDate(facturaFecha(a))?.getTime() ?? 0;
-      const tb = parseSheetDate(facturaFecha(b))?.getTime() ?? 0;
-      return tb - ta;
-    }).slice(0, 10);
-  }, [facturas]);
-
+  const ultimasFacturas = useMemo(() => [...facturas].sort((a, b) => { const ta = parseSheetDate(facturaFecha(a))?.getTime() ?? 0; const tb = parseSheetDate(facturaFecha(b))?.getTime() ?? 0; return tb - ta; }).slice(0, 10), [facturas]);
   const reportesPendientes = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }), [reportes]);
 
   return (
@@ -198,67 +206,18 @@ export function AdminDashboardClient() {
         <p className="text-sm text-[#8892A4]">Resumen MiCaja · todas las zonas</p>
       </div>
 
-      {/* ── MÉTRICAS GLOBALES ── */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {loading ? (
-          [0,1,2,3].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-[#001035]" />)
-        ) : (
-          <>
-            <MetricaCard icon="💸" label="Entregado" valor={formatCOP(totalEntregado)} sub="Total enviado a técnicos" color="text-white" />
-            <MetricaCard icon="🧾" label="Facturado" valor={formatCOP(totalFacturado)} sub="Total en facturas" color="text-[#08DDBC]" />
-            <MetricaCard icon="⚠️" label="Pendiente legalizar" valor={formatCOP(pendienteLegalizar)} sub="Entregado − Facturado" color="text-yellow-400" />
-            <MetricaCard icon="🏦" label="En caja" valor={formatCOP(enCaja)} sub="Reportado a FX" color="text-emerald-400" />
-          </>
-        )}
-      </div>
-
       {/* ── POR ZONA ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {loading ? (
-          [0,1].map((i) => <div key={i} className="h-48 animate-pulse rounded-xl bg-[#001035]" />)
+          [0, 1].map((i) => <div key={i} className="h-48 animate-pulse rounded-xl bg-[#001035]" />)
         ) : (
           <>
-            {/* Bogotá */}
-            <div className="rounded-xl bg-[#001035] p-5 border border-white/5">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-white">Zona Bogotá</h3>
-                  <p className="text-xs text-[#8892A4]">Límite {formatCOP(limiteBogota)} · {usuariosBogota} técnicos</p>
-                </div>
-                <span className="text-lg font-bold text-[#08DDBC]">{bogota.pctEntregado}%</span>
-              </div>
-              <BarraProgreso pctFacturado={bogota.pctFacturado} pctPendiente={bogota.pctPendiente} />
-              <div className="mt-1 flex gap-3 text-xs text-[#525A72]">
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#08DDBC] inline-block" />Facturado</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-400 inline-block" />Pendiente</span>
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div><p className="text-xs text-[#8892A4]">💸 Entregado</p><p className="font-bold text-white text-sm">{formatCOP(bogota.entregado)}</p></div>
-                <div><p className="text-xs text-[#8892A4]">🧾 Facturado</p><p className="font-bold text-[#08DDBC] text-sm">{formatCOP(bogota.facturado)}</p></div>
-                <div><p className="text-xs text-[#8892A4]">⚠️ Pendiente</p><p className="font-bold text-yellow-400 text-sm">{formatCOP(bogota.pendiente)}</p></div>
-              </div>
-            </div>
-
-            {/* Costa Caribe */}
-            <div className="rounded-xl bg-[#001035] p-5 border border-white/5">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-white">Zona Costa Caribe</h3>
-                  <p className="text-xs text-[#8892A4]">Límite {formatCOP(limiteCosta)} · {usuariosCosta} técnicos</p>
-                </div>
-                <span className="text-lg font-bold text-[#08DDBC]">{costa.pctEntregado}%</span>
-              </div>
-              <BarraProgreso pctFacturado={costa.pctFacturado} pctPendiente={costa.pctPendiente} />
-              <div className="mt-1 flex gap-3 text-xs text-[#525A72]">
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#08DDBC] inline-block" />Facturado</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-400 inline-block" />Pendiente</span>
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div><p className="text-xs text-[#8892A4]">💸 Entregado</p><p className="font-bold text-white text-sm">{formatCOP(costa.entregado)}</p></div>
-                <div><p className="text-xs text-[#8892A4]">🧾 Facturado</p><p className="font-bold text-[#08DDBC] text-sm">{formatCOP(costa.facturado)}</p></div>
-                <div><p className="text-xs text-[#8892A4]">⚠️ Pendiente</p><p className="font-bold text-yellow-400 text-sm">{formatCOP(costa.pendiente)}</p></div>
-              </div>
-            </div>
+            <ZonaCard titulo="Zona Bogotá" limite={limiteBogota} tecnicos={usuariosBogota}
+              entregado={bogota.entregado} facturado={bogota.facturado} pendiente={bogota.pendiente} enCaja={bogota.enCajaZona}
+              pctEntregado={bogota.pctEntregado} pctFacturado={bogota.pctFacturado} pctPendiente={bogota.pctPendiente} />
+            <ZonaCard titulo="Zona Costa Caribe" limite={limiteCosta} tecnicos={usuariosCosta}
+              entregado={costa.entregado} facturado={costa.facturado} pendiente={costa.pendiente} enCaja={costa.enCajaZona}
+              pctEntregado={costa.pctEntregado} pctFacturado={costa.pctFacturado} pctPendiente={costa.pctPendiente} />
           </>
         )}
       </div>

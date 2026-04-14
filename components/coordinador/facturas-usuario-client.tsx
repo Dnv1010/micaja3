@@ -195,7 +195,7 @@ export function FacturasUsuarioClient() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {(estadoLower === "pendiente" || estadoLower === "rechazada") && fid ? (
+                          {fid ? (
                             <Button
                               type="button"
                               variant="outline"

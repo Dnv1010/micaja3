@@ -22,6 +22,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { FacturaImagenModal } from "@/components/factura-imagen-modal";
+import { FacturaEditDialog } from "@/components/coordinador/factura-edit-dialog";
 import { etiquetaZona } from "@/lib/coordinador-zona";
 import { facturaImageUrlForDisplay } from "@/lib/drive-image-url";
 import { formatCOP, parseCOPString, parseSheetDate } from "@/lib/format";
@@ -52,9 +53,9 @@ export function AdminFacturasClient() {
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [imagenModal, setImagenModal] = useState<string | null>(null);
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
-  const [usuariosOpciones, setUsuariosOpciones] = useState<{ responsable: string; email: string }[]>(
-    []
-  );
+  const [usuariosOpciones, setUsuariosOpciones] = useState<{ responsable: string; email: string }[]>([]);
+  const [editar, setEditar] = useState<FacturaRow | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -160,6 +161,15 @@ export function AdminFacturasClient() {
 
   return (
     <div className="space-y-4">
+      <FacturaEditDialog
+        factura={editar}
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o);
+          if (!o) setEditar(null);
+        }}
+        onSaved={() => void load()}
+      />
       <FacturaImagenModal src={imagenModal} onClose={() => setImagenModal(null)} />
       {confirmEliminarId ? (
         <BiaConfirm
@@ -350,6 +360,18 @@ export function AdminFacturasClient() {
                               </Button>
                             </>
                           ) : null}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 border-bia-gray/30 px-2 text-xs"
+                            onClick={() => {
+                              setEditar(f);
+                              setDialogOpen(true);
+                            }}
+                          >
+                            ✏️ Editar
+                          </Button>
                           <Button
                             type="button"
                             size="sm"

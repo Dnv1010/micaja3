@@ -7,13 +7,21 @@ import { normalizeSector } from "@/lib/sector-normalize";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 
 type FacturaRow = Record<string, unknown>;
+type EntregaRow = Record<string, unknown>;
 type EnvioRow = Record<string, unknown>;
 
 function estadoFacturaZona(f: FacturaRow): string {
-  return String(getCellCaseInsensitive(f, "Verificado", "Legalizado", "Estado") || "").toLowerCase().trim();
+  return String(getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || "").toLowerCase().trim();
+}
+function facturaGastado(f: FacturaRow): boolean {
+  const e = estadoFacturaZona(f);
+  return e === "aprobada" || e === "completada" || e === "pendiente";
 }
 function montoFactura(f: FacturaRow): number {
   return parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"));
+}
+function montoEntrega(e: EntregaRow): number {
+  return parseMonto(String(getCellCaseInsensitive(e, "Monto_Entregado", "Monto") || "0"));
 }
 function montoEnvio(e: EnvioRow): number {
   return parseMonto(String(getCellCaseInsensitive(e, "Monto", "Valor") || "0"));
@@ -35,6 +43,7 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
 
   const [tecnicosZona, setTecnicosZona] = useState<{ responsable: string }[]>([]);
   const [facturas, setFacturas] = useState<FacturaRow[]>([]);
+  const [entregas, setEntregas] = useState<EntregaRow[]>([]);
   const [envios, setEnvios] = useState<EnvioRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -63,18 +72,21 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     async function load() {
       const enc = encodeURIComponent(sectorQuery);
       try {
-        const [fRes, eRes] = await Promise.all([
+        const [fRes, eRes, envRes] = await Promise.all([
           fetch(`/api/facturas?zonaSector=${enc}`),
+          fetch(`/api/entregas?zonaSector=${enc}`),
           fetch(`/api/envios?sector=${enc}`),
         ]);
         const fJson = await fRes.json().catch(() => ({ data: [] })) as { data?: FacturaRow[] };
-        const eJson = await eRes.json().catch(() => ({ data: [] })) as { data?: EnvioRow[] };
+        const eJson = await eRes.json().catch(() => ({ data: [] })) as { data?: EntregaRow[] };
+        const envJson = await envRes.json().catch(() => ({ data: [] })) as { data?: EnvioRow[] };
         if (!mounted) return;
         setFacturas(Array.isArray(fJson.data) ? fJson.data : []);
-        setEnvios(Array.isArray(eJson.data) ? eJson.data : []);
+        setEntregas(Array.isArray(eJson.data) ? eJson.data : []);
+        setEnvios(Array.isArray(envJson.data) ? envJson.data : []);
       } catch {
         if (!mounted) return;
-        setFacturas([]); setEnvios([]);
+        setFacturas([]); setEntregas([]); setEnvios([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -83,33 +95,55 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     return () => { mounted = false; };
   }, [sectorQuery]);
 
-  // ── MÉTRICAS con fórmula correcta ──────────────────────────────
-  // Entregado = Total enviado (Envios)
+  // Entregado = Total envíos (para métrica principal y En caja)
   const totalEntregado = useMemo(
     () => envios.reduce((s, e) => s + montoEnvio(e), 0),
     [envios]
   );
 
-  // Facturado = Total Facturas
+  // Facturado = Total facturas (pendiente + aprobada + completada)
   const totalFacturado = useMemo(
-    () => facturas.reduce((s, f) => s + montoFactura(f), 0),
+    () => facturas.filter(facturaGastado).reduce((s, f) => s + montoFactura(f), 0),
     [facturas]
   );
 
-  // Pendiente por legalizar = Entregado - Facturado
-  const pendienteLegalizar = useMemo(
-    () => Math.max(0, totalEntregado - totalFacturado),
-    [totalEntregado, totalFacturado]
-  );
+  // Pendiente legalizar = suma saldos POSITIVOS por técnico usando Entregas
+  const pendienteLegalizar = useMemo(() => {
+    const responsables = new Set([
+      ...entregas.map((e) => String(getCellCaseInsensitive(e, "Responsable") || "").trim().toLowerCase()),
+      ...facturas.map((f) => String(getCellCaseInsensitive(f, "Responsable") || "").trim().toLowerCase()),
+    ]);
+    let total = 0;
+    for (const resp of responsables) {
+      if (!resp) continue;
+      const recibido = entregas
+        .filter((e) => String(getCellCaseInsensitive(e, "Responsable") || "").trim().toLowerCase() === resp)
+        .reduce((s, e) => s + montoEntrega(e), 0);
+      const gastado = facturas
+        .filter((f) => {
+          const esResp = String(getCellCaseInsensitive(f, "Responsable") || "").trim().toLowerCase() === resp;
+          return esResp && facturaGastado(f);
+        })
+        .reduce((s, f) => s + montoFactura(f), 0);
+      const saldo = recibido - gastado;
+      if (saldo > 0) total += saldo;
+    }
+    return total;
+  }, [entregas, facturas]);
 
-  // Caja = Reportado a FX - Pendiente por legalizar
+  // Reportado a FX = facturas completadas/aprobadas
   const totalReportadoFX = useMemo(
     () => facturas
       .filter((f) => { const e = estadoFacturaZona(f); return e === "completada" || e === "aprobada"; })
       .reduce((s, f) => s + montoFactura(f), 0),
     [facturas]
   );
-  const enCaja = useMemo(() => Math.max(0, totalReportadoFX - pendienteLegalizar), [totalReportadoFX, pendienteLegalizar]);
+
+  // En caja = Envíos - Reportado a FX
+  const enCaja = useMemo(
+    () => Math.max(0, totalEntregado - totalReportadoFX),
+    [totalEntregado, totalReportadoFX]
+  );
 
   const pctEntregado = limite > 0 ? Math.min(100, Math.round((totalEntregado / limite) * 100)) : 0;
   const pctFacturado = limite > 0 ? Math.min(100, Math.round((totalFacturado / limite) * 100)) : 0;
@@ -129,15 +163,13 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
         <p className="text-sm text-[#8892A4]">Límite de caja menor: {formatCOP(limite)}</p>
       </div>
 
-      {/* ── 4 MÉTRICAS PRINCIPALES ── */}
       <div className="grid grid-cols-2 gap-3">
         <MetricaBox icon="💸" label="Entregado" valor={formatCOP(totalEntregado)} sub={`${pctEntregado}% del límite`} color="text-white" />
         <MetricaBox icon="🧾" label="Facturado" valor={formatCOP(totalFacturado)} sub={`${pctFacturado}% del límite`} color="text-[#08DDBC]" />
-        <MetricaBox icon="⚠️" label="Pendiente legalizar" valor={formatCOP(pendienteLegalizar)} sub="Entregado − Facturado" color="text-yellow-400" />
-        <MetricaBox icon="🏦" label="En caja" valor={formatCOP(enCaja)} sub="Reportado a FX" color="text-emerald-400" />
+        <MetricaBox icon="⚠️" label="Pendiente legalizar" valor={formatCOP(pendienteLegalizar)} sub="Suma saldos en mano técnicos" color="text-yellow-400" />
+        <MetricaBox icon="🏦" label="En caja" valor={formatCOP(enCaja)} sub="Entregado − Reportado FX" color="text-emerald-400" />
       </div>
 
-      {/* ── BARRA DE PROGRESO ── */}
       <div className="rounded-2xl border border-white/5 bg-[#0A1B4D] p-5">
         <div className="mb-2 flex justify-between text-xs text-[#8892A4]">
           <span>Uso de la caja menor</span>
@@ -157,7 +189,6 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
         </div>
       </div>
 
-      {/* ── CONTADORES ── */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-white/5 bg-[#0A1B4D] p-4 text-center">
           <p className="text-2xl font-bold text-white">{tecnicosZona.length}</p>

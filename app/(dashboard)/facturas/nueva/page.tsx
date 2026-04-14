@@ -152,6 +152,7 @@ export default function NuevaFacturaPage() {
   const [servicioDeclarado, setServicioDeclarado] = useState("");
   const [tipoOperacion, setTipoOperacion] = useState("");
   const [ciudad, setCiudad] = useState("");
+  const [ciudadPersonalizada, setCiudadPersonalizada] = useState(false);
   const [sectorForm, setSectorForm] = useState("");
   const [aNombreBia, setANombreBia] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -702,18 +703,51 @@ export default function NuevaFacturaPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Ciudad</Label>
-            <Select value={ciudad} onValueChange={(value) => setCiudad(value || "")}>
-              <SelectTrigger className="bg-bia-blue border-bia-gray/40">
-                <SelectValue placeholder="Seleccionar" />
-              </SelectTrigger>
-              <SelectContent>
-                {CIUDADES_FACTURA.map((c) => (
-                  <SelectItem value={c} key={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {ciudadPersonalizada ? (
+              <div className="flex gap-2">
+                <Input
+                  value={ciudad}
+                  onChange={(e) => setCiudad(e.target.value)}
+                  placeholder="Escribir ciudad..."
+                  className="bg-bia-blue border-bia-gray/40"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-bia-gray/40"
+                  onClick={() => {
+                    setCiudadPersonalizada(false);
+                    setCiudad("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <Select
+                value={ciudad}
+                onValueChange={(value) => {
+                  if (value === "OTRA") {
+                    setCiudadPersonalizada(true);
+                  } else {
+                    setCiudad(value || "");
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-bia-blue border-bia-gray/40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CIUDADES_FACTURA.map((c) => (
+                    <SelectItem value={c} key={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="OTRA">✏️ Otra ciudad...</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-2 sm:col-span-2">

@@ -103,6 +103,8 @@ export function FacturaForm({
   };
 
   const adminVerif = session?.user?.rol && canEditVerificado(session.user.rol);
+  const ciudadesLista = catalogos?.ciudades || [];
+  const ciudadEsOtra = form.Ciudad !== "" && !ciudadesLista.includes(form.Ciudad);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -217,9 +219,7 @@ export function FacturaForm({
             </SelectTrigger>
             <SelectContent>
               {(catalogos?.servicios || []).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -235,28 +235,45 @@ export function FacturaForm({
             </SelectTrigger>
             <SelectContent>
               {(catalogos?.tiposFactura || []).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+
+        {/* ── CIUDAD con opción "Otra" ── */}
         <div className="space-y-2 sm:col-span-2">
           <Label>Ciudad</Label>
-          <Select value={form.Ciudad} onValueChange={(v) => setForm({ ...form, Ciudad: v ?? "" })}>
+          <Select
+            value={ciudadEsOtra ? "otra" : form.Ciudad}
+            onValueChange={(v) => {
+              if (v === "otra") setForm({ ...form, Ciudad: "" });
+              else setForm({ ...form, Ciudad: v ?? "" });
+            }}
+          >
             <SelectTrigger className="min-h-11">
               <SelectValue placeholder="Seleccione" />
             </SelectTrigger>
             <SelectContent>
-              {(catalogos?.ciudades || []).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
+              {ciudadesLista.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
+              <SelectItem value="otra">✏️ Otra ciudad...</SelectItem>
             </SelectContent>
           </Select>
+          {ciudadEsOtra || (form.Ciudad === "" && catalogos !== null && ciudadesLista.length > 0 && !ciudadesLista.includes(form.Ciudad)) ? (
+            ciudadEsOtra ? (
+              <Input
+                placeholder="Escribe la ciudad"
+                value={form.Ciudad}
+                onChange={(e) => setForm({ ...form, Ciudad: e.target.value })}
+                className="mt-2 min-h-11"
+                autoFocus
+              />
+            ) : null
+          ) : null}
         </div>
+
         <div className="space-y-2">
           <Label>Sector</Label>
           <Select
@@ -268,9 +285,7 @@ export function FacturaForm({
             </SelectTrigger>
             <SelectContent>
               {SECTORES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -286,9 +301,7 @@ export function FacturaForm({
             </SelectTrigger>
             <SelectContent>
               {CENTROS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
