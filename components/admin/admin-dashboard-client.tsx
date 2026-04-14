@@ -58,7 +58,7 @@ function BarraProgreso({ pctFacturado, pctPendiente }: { pctFacturado: number; p
 function calcularPendientePorUsuario(entregas: EntregaRow[], facturas: FacturaRow[]): number {
   const responsables = new Set([...entregas.map(respKey), ...facturas.map(respKey)]);
   let total = 0;
-  for (const resp of responsables) {
+  for (const resp of Array.from(responsables)) {
     if (!resp) continue;
     const recibido = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntregaRow(e), 0);
     const gastado = facturas.filter((f) => respKey(f) === resp && facturaGastado(f)).reduce((s, f) => s + montoFacturaRow(f), 0);
