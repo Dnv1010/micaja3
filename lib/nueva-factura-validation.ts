@@ -11,9 +11,14 @@ export function parseFechaFacturaDDMMYYYY(s: string): Date | null {
 }
 
 export function isFechaFacturaFutura(fecha: Date): boolean {
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  return fecha.getTime() > today.getTime();
+  // Colombia es UTC-5 sin DST. Comparamos por string YYYY-MM-DD en Colombia
+  // para que no dependa del timezone del server (Vercel corre en UTC).
+  const COLOMBIA_OFFSET_MS = 5 * 60 * 60 * 1000;
+  const nowCO = new Date(Date.now() - COLOMBIA_OFFSET_MS);
+  const todayCO = nowCO.toISOString().slice(0, 10);
+  const fechaStr =
+    `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+  return fechaStr > todayCO;
 }
 
 /** NIT declarado corresponde a BIA Energy (901.588.413-x). */

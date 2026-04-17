@@ -18,14 +18,14 @@ function spreadsheetId(): string {
   return id;
 }
 
-/** Facturas que cuentan como facturado/gastado: pendiente, aprobada, completada. No rechazadas ni vacío. */
+/** Facturas que cuentan como facturado/gastado: aprobada, completada. Pendiente aún no cuenta. */
 function facturaGastado(f: Record<string, string>): boolean {
   const v = String(
     getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || ""
   )
     .toLowerCase()
     .trim();
-  return v === "aprobada" || v === "completada" || v === "pendiente";
+  return v === "aprobada" || v === "completada";
 }
 
 /** Agrega montos por responsable desde Entregas y Facturas (hojas MiCaja). */

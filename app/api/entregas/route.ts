@@ -10,6 +10,7 @@ import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import { uniqueSheetKey } from "@/lib/ids";
+import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 
 function micajaSpreadsheetId(): string {
   const id = SPREADSHEET_IDS.MICAJA.trim();
@@ -109,6 +110,16 @@ export async function POST(req: NextRequest) {
     const monto = String(body.Monto_Entregado || body.Monto || "0").replace(/[^\d]/g, "");
     if (!responsable || !monto) {
       return NextResponse.json({ error: "Responsable y monto son obligatorios" }, { status: 400 });
+    }
+
+    if (rol === "coordinador") {
+      const limite = limiteAprobacionZona(String(session.user.sector || ""));
+      if (Number(monto) > limite) {
+        return NextResponse.json(
+          { error: `El monto excede el límite de la zona (${limite.toLocaleString("es-CO")})` },
+          { status: 400 }
+        );
+      }
     }
 
     const fila = [

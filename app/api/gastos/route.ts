@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSheetsClient } from "@/lib/google-sheets";
+import { sectorsEquivalent } from "@/lib/sector-normalize";
 
 const SHEET_ID =
   process.env.PETTY_CASH_SPREADSHEET_ID || "1sVDPDsDRL9MiiTrzp6YID7k9h9ZaayE50WAEyodZF1k";
@@ -39,7 +40,7 @@ export async function GET() {
       const { getUsuariosFromSheet } = await import("@/lib/usuarios-sheet");
       const usuarios = await getUsuariosFromSheet();
       const responsablesZona = usuarios
-        .filter((u) => u.sector === sector)
+        .filter((u) => sectorsEquivalent(u.sector, sector))
         .map((u) => u.responsable.toLowerCase().trim());
       const filtered = data.filter((d) =>
         responsablesZona.includes((d.Responsable || "").toLowerCase().trim())

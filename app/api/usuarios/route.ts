@@ -123,6 +123,7 @@ export async function POST(req: Request) {
       pin,
       telegramChatId: telegramChatId || undefined,
     });
+    invalidarCacheUsuarios();
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("usuarios POST:", e);

@@ -20,6 +20,38 @@ const ALLOWED = new Map([
 const MAX_BYTES = 10 * 1024 * 1024;
 const UPLOAD_TIMEOUT_MS = 30_000;
 
+/** Detecta el tipo real del archivo por firma binaria; null si no reconocido. */
+function detectFileKind(buf: Buffer): "jpg" | "png" | "webp" | "pdf" | "heic" | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
+  if (
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) return "png";
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) return "webp";
+  if (buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46 && buf[4] === 0x2d) return "pdf";
+  if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) {
+    const brand = buf.slice(8, 12).toString("ascii").toLowerCase();
+    if (brand.startsWith("heic") || brand.startsWith("heix") || brand.startsWith("hevc") ||
+        brand.startsWith("hevx") || brand.startsWith("mif1") || brand.startsWith("msf1") ||
+        brand.startsWith("heim") || brand.startsWith("heis") || brand.startsWith("hevm") ||
+        brand.startsWith("hevs")) return "heic";
+  }
+  return null;
+}
+
+const EXT_TO_KIND: Record<string, "jpg" | "png" | "webp" | "pdf" | "heic"> = {
+  jpg: "jpg",
+  png: "png",
+  webp: "webp",
+  pdf: "pdf",
+  heic: "heic",
+  heif: "heic",
+};
+
 const VALID_SECTORS = new Set(["Bogota", "Costa Caribe"]);
 
 function folderYearMonth(fecha: string | null): string {
@@ -66,21 +98,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  console.log("[upload] ENV CHECK:", { hasEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL, hasKey: !!process.env.GOOGLE_PRIVATE_KEY, keyLength: process.env.GOOGLE_PRIVATE_KEY?.length, keyStart: process.env.GOOGLE_PRIVATE_KEY?.slice(0,27) });
-  try { assertSheetsConfigured();
+  try {
+    assertSheetsConfigured();
   } catch {
     return NextResponse.json(
       { error: "Servicio de almacenamiento no disponible. Contacta al administrador." },
       { status: 503 }
     );
   }
-
-  console.log("[upload] ENV CHECK:", {
-    hasEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    hasKey: !!process.env.GOOGLE_PRIVATE_KEY,
-    keyLength: process.env.GOOGLE_PRIVATE_KEY?.length,
-    keyHasRealNewlines: process.env.GOOGLE_PRIVATE_KEY?.includes("\n"),
-  });
 
   try {
     const rootFolderId = getDriveFacturasRootFolderId();
@@ -145,6 +170,14 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    const detected = detectFileKind(buffer);
+    const expectedKind = EXT_TO_KIND[ext];
+    if (!detected || detected !== expectedKind) {
+      return NextResponse.json(
+        { error: "El contenido del archivo no coincide con su tipo declarado." },
+        { status: 400 }
+      );
+    }
     const yyyyMm = folderYearMonth(fecha || null);
     const drive = getDriveClient();
     const parentId = isReportes

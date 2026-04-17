@@ -21,8 +21,14 @@ function spreadsheetId(): string {
 }
 
 function columnLetter(index: number): string {
-  if (index < 0 || index > 25) return "A";
-  return String.fromCharCode(65 + index);
+  if (index < 0) return "A";
+  let s = "";
+  let i = index;
+  while (i >= 0) {
+    s = String.fromCharCode(65 + (i % 26)) + s;
+    i = Math.floor(i / 26) - 1;
+  }
+  return s;
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

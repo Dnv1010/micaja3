@@ -1,6 +1,11 @@
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import type { FacturaRow } from "@/types/models";
 
+/** NIT sin espacios/guiones/caracteres para comparar entre formatos distintos. */
+function normalizeNit(s: string): string {
+  return s.replace(/\D/g, "");
+}
+
 /** Duplicado si coinciden NIT, número de factura y responsable (comparación case-insensitive en número y responsable). */
 export function findFacturaDuplicadaPorNitNumResponsable(
   facturas: FacturaRow[],
@@ -11,7 +16,7 @@ export function findFacturaDuplicadaPorNitNumResponsable(
     excludeFacturaId?: string;
   }
 ): FacturaRow | undefined {
-  const nit = opts.nit.trim();
+  const nit = normalizeNit(opts.nit);
   const num = opts.numFactura.trim().toLowerCase();
   const resp = opts.responsable.trim().toLowerCase();
   if (!nit || !num) return undefined;
@@ -20,7 +25,7 @@ export function findFacturaDuplicadaPorNitNumResponsable(
     const idF = String(getCellCaseInsensitive(f, "ID_Factura", "ID") || "").trim();
     if (opts.excludeFacturaId && idF === opts.excludeFacturaId) return false;
 
-    const nitF = String(getCellCaseInsensitive(f, "Nit_Factura", "NIT") || "").trim();
+    const nitF = normalizeNit(String(getCellCaseInsensitive(f, "Nit_Factura", "NIT") || ""));
     const numF = String(getCellCaseInsensitive(f, "Num_Factura", "NumFactura") || "")
       .trim()
       .toLowerCase();

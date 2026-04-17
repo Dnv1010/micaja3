@@ -312,6 +312,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: true });
   }
 
+  if (!estadoEdicionPermitido(found)) {
+    return NextResponse.json(
+      { error: "La factura ya fue incluida en un reporte y no puede editarse" },
+      { status: 400 }
+    );
+  }
+
   if (typeof body.tipoOperacion === "string" && body.tipoOperacion.trim()) {
     if ((await puedeCoordinadorEditar(session, found)) || (await puedeEditarContenido(session, found))) {
       const opsPatch = mapFacturaUpdateBodyToSheetPatch(headers, {

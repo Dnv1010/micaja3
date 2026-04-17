@@ -161,6 +161,36 @@ export async function POST(req: NextRequest) {
       console.error("legalizaciones POST resumen IA:", e);
     }
 
+    // Marcar facturas como Completada ANTES de insertar el reporte, para evitar
+    // reportes huérfanos si falla alguna actualización. Si falla alguna, se revierten
+    // las ya aplicadas y se aborta sin crear el reporte.
+    assertSheetsConfigured();
+    const updateResults = await Promise.all(
+      facturasIds.map(async (fid) => {
+        try {
+          const r = await applyFacturaEstadoById(fid, "Completada", "");
+          return { fid, ok: r.ok, error: r.ok ? null : r.error };
+        } catch (e) {
+          return { fid, ok: false, error: String(e) };
+        }
+      })
+    );
+    const fallidas = updateResults.filter((r) => !r.ok);
+    if (fallidas.length) {
+      const exitosas = updateResults.filter((r) => r.ok);
+      await Promise.allSettled(
+        exitosas.map((s) => applyFacturaEstadoById(s.fid, "Aprobada", ""))
+      );
+      console.error(
+        "legalizaciones POST: rollback por fallo al marcar Completada",
+        fallidas
+      );
+      return NextResponse.json(
+        { error: "No se pudieron marcar todas las facturas como Completada. Intenta nuevamente." },
+        { status: 500 }
+      );
+    }
+
     const id = `REP-${Date.now()}`;
     const fila = [
       id,
@@ -179,19 +209,22 @@ export async function POST(req: NextRequest) {
       resumenIA,
     ];
 
-    assertSheetsConfigured();
-    await getSheetsClient().spreadsheets.values.append({
-      spreadsheetId: spreadsheetId(),
-      range: RANGE,
-      valueInputOption: "RAW",
-      requestBody: { values: [fila] },
-    });
-
-    for (const fid of facturasIds) {
-      const r = await applyFacturaEstadoById(fid, "Completada", "");
-      if (!r.ok) {
-        console.error("legalizaciones POST: no se pudo marcar Completada", fid, r);
-      }
+    try {
+      await getSheetsClient().spreadsheets.values.append({
+        spreadsheetId: spreadsheetId(),
+        range: RANGE,
+        valueInputOption: "RAW",
+        requestBody: { values: [fila] },
+      });
+    } catch (e) {
+      await Promise.allSettled(
+        facturasIds.map((fid) => applyFacturaEstadoById(fid, "Aprobada", ""))
+      );
+      console.error("legalizaciones POST: rollback por fallo al insertar reporte", e);
+      return NextResponse.json(
+        { error: "No se pudo insertar el reporte. Se revirtieron las facturas." },
+        { status: 500 }
+      );
     }
 
     const base = appPublicBaseUrl();

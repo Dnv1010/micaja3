@@ -9,6 +9,7 @@ import { sectorsEquivalent } from "@/lib/sector-normalize";
 import { formatCOP } from "@/lib/format";
 import { appPublicBaseUrl, escHtml, notificarUsuario } from "@/lib/notificaciones";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
+import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 
 function micajaSpreadsheetId(): string {
   const id = SPREADSHEET_IDS.MICAJA.trim();
@@ -103,6 +104,13 @@ export async function POST(req: NextRequest) {
       if (!set.has(responsable.toLowerCase())) {
         return NextResponse.json({ error: "Usuario fuera de su zona" }, { status: 403 });
       }
+      const limite = limiteAprobacionZona(String(session.user.sector || ""));
+      if (Number(montoNum) > limite) {
+        return NextResponse.json(
+          { error: `El monto excede el límite de la zona (${limite.toLocaleString("es-CO")})` },
+          { status: 400 }
+        );
+      }
     }
 
     const ts = Date.now();
@@ -180,6 +188,16 @@ export async function DELETE(req: NextRequest) {
 
     if (envioRowIdx === -1) {
       return NextResponse.json({ error: "Envio no encontrado" }, { status: 404 });
+    }
+
+    if (rol === "coordinador") {
+      const respEnvio = String(envioRows[envioRowIdx][3] || "").trim().toLowerCase();
+      const set = await responsablesEnZonaSheetSet(String(session.user.sector || ""));
+      const yo = String(session.user.responsable || session.user.name || "").trim().toLowerCase();
+      if (yo) set.add(yo);
+      if (!respEnvio || !set.has(respEnvio)) {
+        return NextResponse.json({ error: "Envio fuera de su zona" }, { status: 403 });
+      }
     }
 
     // Obtener sheetId del tab Envio
