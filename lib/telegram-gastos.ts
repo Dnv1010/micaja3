@@ -3,7 +3,6 @@ import { enviarTelegram, escHtml } from "@/lib/notificaciones";
 import { formatCOP } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
-import { insertFactura } from "@/lib/facturas-supabase";
 import { Resend } from "resend";
 
 async function leerSesion(chatId: string): Promise<any | null> {
@@ -342,35 +341,6 @@ async function guardarGastosEnSupabase(s: any): Promise<void> {
   }));
   const { error } = await getSupabase().from("gastos_generales").insert(rows);
   if (error) console.error("guardarGastosEnSupabase:", error);
-
-  // Además, crear cada factura en la tabla facturas (caja menor) para que aparezcan
-  // en /facturas de la app.
-  for (let i = 0; i < s.facturas.length; i++) {
-    const f = s.facturas[i];
-    const valor = Number(String(f.valor).replace(/[^0-9]/g, "")) || 0;
-    try {
-      await insertFactura({
-        idFactura: `GG-${Date.now()}-${i}`,
-        fecha: String(f.fecha || new Date().toLocaleDateString("es-CO")),
-        responsable: s.nombre,
-        sector: sectorCanon,
-        ciudad: s.ciudad || "Bogota",
-        proveedor: f.concepto || "Gasto general",
-        nit: f.nit || "",
-        concepto: f.concepto || "Gasto general",
-        valor,
-        tipoFactura: "POS",
-        servicioDeclarado: "Otro",
-        tipoOperacion: f.centroCostos === "Ops-Retention" ? "OPS - Retención" : "OPS - Activaciones",
-        aNombreBia: false,
-        estado: "Aprobada",
-        imagenUrl: f.urlImagen || "",
-        fechaCreacion,
-      });
-    } catch (e) {
-      console.error(`[gastos->facturas] fila ${i}:`, e);
-    }
-  }
 }
 
 async function enviarReporteGastos(chatId: string, s: any, correo: string): Promise<void> {
