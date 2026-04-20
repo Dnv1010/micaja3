@@ -290,7 +290,7 @@ async function confirmarYGuardarFactura(chatId: string, base: string, internalKe
   );
 }
 
-export async function POST(req: NextRequest) {
+async function handleUpdate(req: NextRequest): Promise<NextResponse> {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
   if (secret && req.headers.get("x-telegram-bot-api-secret-token") !== secret) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -741,4 +741,17 @@ export async function POST(req: NextRequest) {
     "\ud83d\udcf8 Env\u00eda una <b>foto</b> de tu factura para registrarla.\n\nComandos: /start \u00b7 /help \u00b7 /saldo \u00b7 /equipo \u00b7 <code>/registro Tu Nombre</code>"
   );
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Envoltura global: Telegram reintenta si devolvemos 5xx. Atrapamos TODO
+ * para devolver 200 siempre y loguear el error real en Vercel.
+ */
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  try {
+    return await handleUpdate(req);
+  } catch (err) {
+    console.error("[telegram webhook] unhandled:", err);
+    return NextResponse.json({ ok: true, handled: false });
+  }
 }
