@@ -142,19 +142,15 @@ function extractMonto(text: string): number | null {
     // SUBTOTAL (último recurso)
     /SUBTOTAL\s*[:\s]*(?:COP|\$)?\s*([\d.,]+)/i,
   ];
-  let best = 0;
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
       const num = parseCOPAmount(m[1].trim());
-      if (!isNaN(num) && num > 0) {
-        // Tomamos el primer patrón que matchee (está ordenado por prioridad).
-        // Si nada matchea antes, seguimos bajando en prioridad.
-        return num;
-      }
+      // Primer patrón con match válido gana (están ordenados por prioridad).
+      if (!isNaN(num) && num > 0) return num;
     }
   }
-  return best > 0 ? best : null;
+  return null;
 }
 
 /** Parsea montos colombianos: puntos y comas son miles, centavos se ignoran */
