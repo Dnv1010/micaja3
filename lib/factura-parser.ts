@@ -124,23 +124,37 @@ function extractFecha(text: string): string | null {
 }
 
 // ─── MONTO ────────────────────────────────────────────────────────────────────
+// Prioridad: sinónimos de "total a pagar" > "total" genérico > COP > "subtotal" (fallback)
 function extractMonto(text: string): number | null {
   const patterns = [
-    /(?:TOTAL\s*A\s*PAGAR|GRAN\s*TOTAL|VALOR\s*TOTAL|TOTAL\s*FACTURA|NETO\s*A\s*PAGAR|VALOR\s*A\s*PAGAR)\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/i,
-    /(?:TARIFA|TARIFA\s*TOTAL)\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/i,
-    /(?:^|\s)TOTAL\s*[:\s]*(?:COP|\$)?\s*([\d.,]+)/im,
-    /SUBTOTAL\s*[:\s]*(?:COP|\$)?\s*([\d.,]+)/i,
+    // Total a pagar / Gran total / Total general / Valor total / Total factura / Neto a pagar / Valor a pagar / Pago total / Suma total
+    /(?:TOTAL\s*A\s*PAGAR|GRAN\s*TOTAL|TOTAL\s*GENERAL|VALOR\s*TOTAL|TOTAL\s*FACTURA|NETO\s*A\s*PAGAR|VALOR\s*A\s*PAGAR|PAGO\s*TOTAL|SUMA\s*TOTAL|TOTAL\s*VENTA|TOTAL\s*OPERACI[OÓ]N)\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/i,
+    // Pago / Pagar / A pagar (en línea propia, sin SUB)
+    /(?:^|\s)(?:PAGO|PAGAR|A\s*PAGAR)\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/im,
+    // Tarifa
+    /(?:TARIFA\s*TOTAL|TARIFA)\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/i,
+    // TOTAL genérico (no SUBTOTAL): exige no estar precedido de "SUB"
+    /(?:^|[^A-Z])TOTAL\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/im,
+    // VALOR a secas
+    /(?:^|\s)VALOR\s*[:\s]*(?:COP|\$)?\s*\$?\s*([\d.,]+)/im,
+    // COP explícito
     /COP\s*\$?\s*([\d.,]+)/i,
+    // SUBTOTAL (último recurso)
+    /SUBTOTAL\s*[:\s]*(?:COP|\$)?\s*([\d.,]+)/i,
   ];
+  let best = 0;
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const raw = m[1].trim();
-      const num = parseCOPAmount(raw);
-      if (!isNaN(num) && num > 0) return num;
+      const num = parseCOPAmount(m[1].trim());
+      if (!isNaN(num) && num > 0) {
+        // Tomamos el primer patrón que matchee (está ordenado por prioridad).
+        // Si nada matchea antes, seguimos bajando en prioridad.
+        return num;
+      }
     }
   }
-  return null;
+  return best > 0 ? best : null;
 }
 
 /** Parsea montos colombianos: puntos y comas son miles, centavos se ignoran */
@@ -216,7 +230,7 @@ function extractDescripcion(lines: string[], text: string): string | null {
     line.toLowerCase().startsWith("cufe") ||
     line.toLowerCase().startsWith("cude");
 
-  const keywords = ["CONCEPTO", "DESCRIPCI", "SERVICIO", "DETALLE", "PRODUCTO"];
+  const keywords = ["CONCEPTO", "DESCRIPCI", "DETALLE", "PRODUCTO", "ARTICULO", "ARTÍCULO", "ITEM", "ÍTEM", "SERVICIO"];
   for (let i = 0; i < lines.length; i++) {
     const upper = lines[i].toUpperCase();
     if (keywords.some((k) => upper.includes(k))) {
@@ -377,9 +391,14 @@ function extractCiudad(text: string): string | null {
 
 
 /** Convierte el JSON de Gemini al tipo FacturaData. Lanza error si el JSON no es valido. */
+/**
+ * Acepta ambos formatos JSON que puede devolver Gemini:
+ *  - corto: { proveedor, nit, numero_factura, valor, fecha, a_nombre_de_bia, servicio, ... }
+ *  - largo: { razon_social, nit_factura, num_factura, monto_factura, fecha_factura, nombre_bia, servicio_declarado, ... }
+ */
 export function parseGeminiJson(raw: string): FacturaData {
-  const obj = JSON.parse(raw);
-  const valorRaw = obj.valor;
+  const obj = JSON.parse(raw) as Record<string, unknown>;
+  const valorRaw = obj.valor ?? obj.monto_factura ?? obj.total ?? obj.monto;
   let monto = 0;
   if (typeof valorRaw === "number") {
     monto = valorRaw;
@@ -389,16 +408,31 @@ export function parseGeminiJson(raw: string): FacturaData {
     s = s.replace(/[.,]/g, "");
     monto = parseInt(s, 10) || 0;
   }
+  const pick = (...keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = obj[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return null;
+  };
+  const pickBool = (...keys: string[]): boolean => {
+    for (const k of keys) {
+      const v = obj[k];
+      if (typeof v === "boolean") return v;
+      if (typeof v === "string") return v.toLowerCase() === "true";
+    }
+    return false;
+  };
   return {
-    num_factura: obj.numero_factura || null,
-    fecha_factura: obj.fecha || null,
+    num_factura: pick("numero_factura", "num_factura"),
+    fecha_factura: pick("fecha", "fecha_factura"),
     monto_factura: monto > 0 ? monto : null,
-    nit_factura: obj.nit || null,
-    razon_social: obj.proveedor || null,
-    nombre_bia: Boolean(obj.a_nombre_de_bia),
-    ciudad: obj.ciudad || null,
-    descripcion: obj.descripcion || null,
-    tipo_factura: obj.tipo_factura || null,
-    servicio_declarado: obj.servicio || null,
+    nit_factura: pick("nit", "nit_factura"),
+    razon_social: pick("proveedor", "razon_social"),
+    nombre_bia: pickBool("a_nombre_de_bia", "nombre_bia"),
+    ciudad: pick("ciudad"),
+    descripcion: pick("descripcion", "concepto"),
+    tipo_factura: pick("tipo_factura"),
+    servicio_declarado: pick("servicio", "servicio_declarado"),
   };
 }

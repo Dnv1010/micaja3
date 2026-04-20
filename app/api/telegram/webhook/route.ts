@@ -19,6 +19,7 @@ import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { patchUsuarioTelegramChatId } from "@/lib/usuarios-micaja-crud";
 import { inferirCategoria, TOPES_COP } from "@/lib/auditor-facturas";
 import { getSupabase } from "@/lib/supabase";
+import { GEMINI_FACTURA_PROMPT_CORE } from "@/lib/gemini-factura-prompt";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 
@@ -45,6 +46,17 @@ function mimeFromDownload(header: string | null, filePath: string): string {
 
 // ── Sesión de factura pendiente (preview antes de guardar) ──
 const CONFIRM_STATE = "confirmar_factura";
+const EDIT_STATE_PREFIX = "edit_factura:";
+
+type EditField = "valor" | "proveedor" | "nit" | "fecha" | "numFactura" | "concepto";
+const EDIT_FIELD_LABELS: Record<EditField, string> = {
+  valor: "Valor",
+  proveedor: "Proveedor",
+  nit: "NIT del proveedor",
+  fecha: "Fecha",
+  numFactura: "N° de factura",
+  concepto: "Concepto",
+};
 
 type PendingFactura = {
   fecha: string;
@@ -84,15 +96,42 @@ async function guardarPendingFactura(chatId: string, responsable: string, data: 
   );
 }
 
-async function leerPendingFactura(chatId: string): Promise<PendingFactura | null> {
+async function leerSesionFactura(
+  chatId: string
+): Promise<{ estado: string; data: PendingFactura } | null> {
   const { data, error } = await getSupabase()
     .from("sesiones_bot")
     .select("estado, datos_temp")
     .eq("chat_id", chatId)
     .limit(1);
   if (error || !data?.length) return null;
-  if (data[0].estado !== CONFIRM_STATE) return null;
-  return (data[0].datos_temp as PendingFactura) ?? null;
+  const estado = String(data[0].estado || "");
+  if (estado !== CONFIRM_STATE && !estado.startsWith(EDIT_STATE_PREFIX)) return null;
+  const dt = data[0].datos_temp as PendingFactura | null;
+  if (!dt) return null;
+  return { estado, data: dt };
+}
+
+async function leerPendingFactura(chatId: string): Promise<PendingFactura | null> {
+  const s = await leerSesionFactura(chatId);
+  if (!s || s.estado !== CONFIRM_STATE) return null;
+  return s.data;
+}
+
+async function actualizarEstadoSesion(chatId: string, estado: string, data: PendingFactura) {
+  await getSupabase()
+    .from("sesiones_bot")
+    .upsert(
+      {
+        chat_id: chatId,
+        responsable: data.responsable,
+        estado,
+        datos_temp: data,
+        ultimo_mensaje: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "chat_id" }
+    );
 }
 
 async function borrarPendingFactura(chatId: string) {
@@ -107,6 +146,77 @@ function botonesFactura() {
       { text: "❌ Cancelar", callback_data: "fact:cancel" },
     ]],
   };
+}
+
+function botonesEditar() {
+  return {
+    inline_keyboard: [
+      [
+        { text: "💰 Valor", callback_data: "fact:editf:valor" },
+        { text: "🏪 Proveedor", callback_data: "fact:editf:proveedor" },
+      ],
+      [
+        { text: "🔢 NIT", callback_data: "fact:editf:nit" },
+        { text: "📅 Fecha", callback_data: "fact:editf:fecha" },
+      ],
+      [
+        { text: "🧾 N° Factura", callback_data: "fact:editf:numFactura" },
+        { text: "📝 Concepto", callback_data: "fact:editf:concepto" },
+      ],
+      [{ text: "⬅️ Volver", callback_data: "fact:back" }],
+    ],
+  };
+}
+
+function normalizarFechaInput(raw: string): string {
+  const t = raw.trim();
+  const m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    let y = +m[3];
+    if (y < 100) y += 2000;
+    return `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${y}`;
+  }
+  return t;
+}
+
+function parseValorInput(raw: string): number | null {
+  const s = raw.replace(/[^\d.,]/g, "").replace(/[.,]\d{1,2}$/, "").replace(/[.,]/g, "");
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function recalcularCategoriaYTope(p: PendingFactura): PendingFactura {
+  const categoria = inferirCategoria({
+    idFactura: "",
+    valor: p.valor,
+    concepto: p.concepto,
+    tipoServicio: p.servicioDeclarado,
+    proveedor: p.proveedor,
+  });
+  const tope = TOPES_COP[categoria];
+  const excedente = tope != null && p.valor > tope ? p.valor - tope : 0;
+  return { ...p, categoria, tope, excedente };
+}
+
+/**
+ * Aplica el texto al campo indicado y devuelve el PendingFactura actualizado.
+ */
+function aplicarEdicion(p: PendingFactura, campo: EditField, texto: string): { ok: boolean; nuevo: PendingFactura; error?: string } {
+  const trimmed = texto.trim();
+  if (!trimmed) return { ok: false, nuevo: p, error: "Valor vacío" };
+  if (campo === "valor") {
+    const n = parseValorInput(trimmed);
+    if (n == null) return { ok: false, nuevo: p, error: "No entendí el valor. Escribe el monto en pesos, ej: 26500" };
+    return { ok: true, nuevo: recalcularCategoriaYTope({ ...p, valor: n }) };
+  }
+  if (campo === "fecha") {
+    return { ok: true, nuevo: { ...p, fecha: normalizarFechaInput(trimmed) } };
+  }
+  if (campo === "concepto" || campo === "proveedor") {
+    return { ok: true, nuevo: recalcularCategoriaYTope({ ...p, [campo]: trimmed.slice(0, 200) }) };
+  }
+  // nit, numFactura
+  return { ok: true, nuevo: { ...p, [campo]: trimmed.slice(0, 40) } };
 }
 
 function mensajePreview(p: PendingFactura): string {
@@ -230,12 +340,39 @@ export async function POST(req: NextRequest) {
         await enviarTelegram(chatId, "❌ Factura cancelada.");
       }
     } else if (dataCq === "fact:edit") {
-      await enviarTelegram(
-        chatId,
-        "✏️ <b>Editar factura</b>\n\nPor favor edítala desde la app:\n" +
-          `${escHtml(base)}/facturas\n\n` +
-          "La factura se guardará como está si le das <b>✅ Confirmar</b>. Para no guardarla, usa <b>❌ Cancelar</b>."
-      );
+      const p = await leerPendingFactura(chatId);
+      if (!p) {
+        await enviarTelegram(chatId, "ℹ️ No hay factura pendiente.");
+      } else if (messageId) {
+        await editarMensajeTelegram(chatId, messageId, mensajePreview(p) + "\n\n<i>¿Qué quieres cambiar?</i>", {
+          reply_markup: botonesEditar(),
+        });
+      }
+    } else if (dataCq === "fact:back") {
+      const p = await leerPendingFactura(chatId);
+      if (p && messageId) {
+        await editarMensajeTelegram(chatId, messageId, mensajePreview(p), { reply_markup: botonesFactura() });
+      }
+    } else if (dataCq.startsWith("fact:editf:")) {
+      const campo = dataCq.slice("fact:editf:".length) as EditField;
+      const p = await leerPendingFactura(chatId);
+      if (!p) {
+        await enviarTelegram(chatId, "ℹ️ No hay factura pendiente.");
+      } else if (EDIT_FIELD_LABELS[campo]) {
+        await actualizarEstadoSesion(chatId, `${EDIT_STATE_PREFIX}${campo}`, p);
+        const ejemplo =
+          campo === "valor"
+            ? "Ej: 26500"
+            : campo === "fecha"
+              ? "Ej: 20/04/2026"
+              : campo === "nit"
+                ? "Ej: 900.123.456-7"
+                : "";
+        await enviarTelegram(
+          chatId,
+          `✏️ Escribe el <b>nuevo ${escHtml(EDIT_FIELD_LABELS[campo].toLowerCase())}</b>${ejemplo ? `\n<i>${ejemplo}</i>` : ""}\n\n(o /cancelar para salir de la edición)`
+        );
+      }
     }
     return NextResponse.json({ ok: true });
   }
@@ -302,10 +439,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // ── Edición inline de factura pendiente (texto) ──
+
+  const sesionFactura = await leerSesionFactura(chatId);
+  if (sesionFactura && sesionFactura.estado.startsWith(EDIT_STATE_PREFIX) && texto && !texto.startsWith("/")) {
+    const campo = sesionFactura.estado.slice(EDIT_STATE_PREFIX.length) as EditField;
+    if (EDIT_FIELD_LABELS[campo]) {
+      const res = aplicarEdicion(sesionFactura.data, campo, texto);
+      if (!res.ok) {
+        await enviarTelegram(chatId, `❌ ${escHtml(res.error || "No entendí el valor.")}`);
+        return NextResponse.json({ ok: true });
+      }
+      await actualizarEstadoSesion(chatId, CONFIRM_STATE, res.nuevo);
+      await enviarTelegram(
+        chatId,
+        `✅ <b>${escHtml(EDIT_FIELD_LABELS[campo])}</b> actualizado.\n\n${mensajePreview(res.nuevo)}`,
+        { reply_markup: botonesFactura() }
+      );
+      return NextResponse.json({ ok: true });
+    }
+  }
+
   // ── Sesion de gastos activa (texto) ──
 
   const sesionActiva = await getSesionGastos(chatId);
-  if (sesionActiva && texto && !texto.startsWith("/")) {
+  if (sesionActiva && sesionActiva.paso && texto && !texto.startsWith("/")) {
     const responsePromise = procesarMensajeGastos(chatId, texto);
     if (sesionActiva.paso === "mas_facturas" && texto === "2") {
       responsePromise.catch(e => console.error("gastos bg:", e));
@@ -406,7 +564,7 @@ export async function POST(req: NextRequest) {
                 contents: [{
                   parts: [
                     { inline_data: { mime_type: mimeType, data: base64 } },
-                    { text: "Analiza esta factura colombiana y devuelve JSON.\n\nIMPORTANTE: En una factura hay DOS partes:\n1. PROVEEDOR/VENDEDOR: aparece ARRIBA, cerca del logo, con su nombre grande y su NIT. Es quien VENDE.\n2. CLIENTE/COMPRADOR: aparece en campos como Senores, Cliente, Razon Social del cliente. En este caso SIEMPRE es BIA Energy.\n\nBIA ENERGY S.A.S. ESP (NIT 901588412 o 901588413) es SIEMPRE el CLIENTE, NUNCA el proveedor.\n\nCampos:\n- proveedor: Nombre/razon social del VENDEDOR (arriba, logo). NUNCA BIA Energy.\n- nit: NIT del VENDEDOR (cerca de su nombre arriba). NUNCA 901588412 ni 901588413.\n- numero_factura: Numero de factura (FE, FV, Venta, No., N).\n- fecha: DD/MM/YYYY\n- valor: Total a pagar en pesos enteros. Puntos y comas son miles (7.200=7200).\n- a_nombre_de_bia: true si BIA Energy aparece como cliente.\n- ciudad: Ciudad visible.\n- tipo_factura: Electronica/POS/Equivalente/Talonario/null\n- servicio: Parqueadero/Peajes/Gasolina/Alimentacion/Hospedaje/Transporte/Lavadero/Llantera/Papeleria/Pago a proveedores/null\n- descripcion: Concepto.\n\nJSON: {\"proveedor\":\"\",\"nit\":\"\",\"numero_factura\":\"\",\"fecha\":\"\",\"valor\":0,\"a_nombre_de_bia\":false,\"ciudad\":\"\",\"tipo_factura\":\"\",\"servicio\":\"\",\"descripcion\":\"\"}" },
+                    { text: GEMINI_FACTURA_PROMPT_CORE },
                   ],
                 }],
                 generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
