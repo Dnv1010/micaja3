@@ -327,9 +327,9 @@ async function handleUpdate(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true });
       }
 
-      // >>> PRIORIDAD: Si hay sesion de gastos activa, va a gastos <
+      // >>> PRIORIDAD: solo si el flujo /gastos está esperando una foto
       const sesionGastos2 = await getSesionGastos(chatId);
-      if (sesionGastos2) {
+      if (sesionGastos2 && sesionGastos2.paso === "esperando_foto") {
         await procesarFotoGasto(chatId, datos, imagenUrl);
         return NextResponse.json({ ok: true });
       }
