@@ -277,6 +277,7 @@ async function confirmarYGuardarFactura(chatId: string, base: string, internalKe
   const saveJson = (await saveRes.json().catch(() => ({}))) as { ok?: boolean; error?: string; duplicada?: boolean };
   await borrarPendingFactura(chatId);
   if (!saveRes.ok || !saveJson.ok) {
+    console.error("[telegram confirm save]", saveRes.status, saveJson, "body:", body);
     await enviarTelegram(
       chatId,
       `❌ No se pudo guardar: ${escHtml(saveJson.error || "error")}${saveJson.duplicada ? " (posible duplicado)" : ""}`
@@ -666,22 +667,42 @@ export async function POST(req: NextRequest) {
       const ciudadDefault = usuario.sector === "Bogota" ? "Bogot\u00e1" : "Barranquilla";
       const ciudad = datos.ciudad?.trim() || ciudadDefault;
 
+      // Normalizar fecha a DD/MM/YYYY (la validación del backend la exige estricta).
+      const fechaCruda = datos.fecha_factura?.trim() || "";
+      let fechaFinal = "";
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(fechaCruda)) {
+        const [d, m, y] = fechaCruda.split("/");
+        fechaFinal = `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(fechaCruda)) {
+        const [y, m, d] = fechaCruda.split("-");
+        fechaFinal = `${d}/${m}/${y}`;
+      } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(fechaCruda)) {
+        const [d, m, y] = fechaCruda.split("-");
+        fechaFinal = `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+      } else {
+        const hoy = new Date();
+        fechaFinal = `${String(hoy.getDate()).padStart(2, "0")}/${String(hoy.getMonth() + 1).padStart(2, "0")}/${hoy.getFullYear()}`;
+      }
+
+      const proveedor = (datos.razon_social || "").trim() || "Proveedor sin identificar";
+      const concepto = (datos.descripcion || "").trim() || (datos.servicio_declarado || "").trim() || "Gasto operativo";
+
       const categoria = inferirCategoria({
         idFactura: "",
         valor: valorRedondo,
-        concepto: datos.descripcion ?? "",
+        concepto,
         tipoServicio: datos.servicio_declarado ?? "",
-        proveedor: datos.razon_social ?? "",
+        proveedor,
       });
       const tope = TOPES_COP[categoria];
       const excedente = tope != null && valorRedondo > tope ? valorRedondo - tope : 0;
 
       const pending: PendingFactura = {
-        fecha: datos.fecha_factura || new Date().toLocaleDateString("es-CO"),
-        proveedor: datos.razon_social || "Por confirmar",
+        fecha: fechaFinal,
+        proveedor,
         nit: datos.nit_factura || "",
         numFactura: datos.num_factura || "",
-        concepto: datos.descripcion || "",
+        concepto,
         valor: valorRedondo,
         tipoFactura: datos.tipo_factura || "POS",
         servicioDeclarado: datos.servicio_declarado || "Otro",

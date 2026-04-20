@@ -37,9 +37,16 @@ CÓMO LEER LOS CAMPOS (usa cualquier sinónimo/etiqueta):
    - Formato salida: "DD/MM/YYYY".
 
 5. VALOR TOTAL (monto_factura):
-   - Es el MAYOR de los valores numéricos: busca "Total", "Total a pagar", "Valor total", "Gran total", "Neto a pagar", "Pago", "Valor a pagar", "Total general", "Total factura", "Suma total".
-   - NO confundir con "Subtotal", "Base gravable", "IVA", "Descuento" (esos son parciales).
-   - Entero en pesos colombianos. Ignora separadores: 7.200 = 7200; 1.234.567 = 1234567.
+   - Es el total final que el cliente paga. Busca SIEMPRE estas etiquetas (cualquier variante case-insensitive):
+     "Total a pagar", "Total pagar", "Total factura", "Total general", "Total operación", "Total venta",
+     "Gran total", "Valor total", "Valor a pagar", "Neto a pagar", "Suma total", "Total" (al final de la
+     tabla de valores, normalmente el valor más grande en negrita), "Pago", "Pago total", "A pagar".
+   - REGLA CRÍTICA: si aparecen varios (Subtotal, Base, IVA, Total), elige el MÁS GRANDE que corresponda
+     a "Total a pagar" (nunca el Subtotal ni la Base ni el IVA por sí solos).
+   - NO uses: "Subtotal", "Base gravable", "Base imponible", "IVA", "Descuento", "Cambio", "Vuelto",
+     "Propina", "Sugerida", "Forma de pago", "Efectivo", "Tarjeta" (son parciales).
+   - Entero en pesos colombianos. Ignora separadores de miles: 7.200 = 7200; 1.234.567 = 1234567.
+   - Si en la factura hay una línea tipo "7.200 COP" o "$ 7.200" al final junto a "Total", ese es el valor.
 
 6. DESCRIPCIÓN / CONCEPTO (descripcion):
    - Busca: "Concepto", "Descripción", "Detalle", "Detalle producto", "Item", "Ítem", "Producto/Servicio", "Servicio", "Artículo".
