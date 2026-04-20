@@ -30,20 +30,6 @@ Font.register({
   ],
 });
 
-/** Rayo turquesa BIA — mismo polígono del manual, fill `#08DDBC` (Aqua Green). */
-const RAYO_SVG_BASE64 =
-  "data:image/svg+xml;base64," +
-  "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMiAyMCI+PHBvbHlnb24gcG9pbnRzPSI3LDAgMSwxMSA2LDExIDUsMjAgMTIsOCA3LDgiIGZpbGw9IiMwOEREQkMiLz48L3N2Zz4=";
-
-/**
- * Respaldo si el SVG no se dibuja: en `LegalizacionPdf` cambiar `src={RAYO_LOGO_SRC}` a `src={RAYO_PNG_BASE64}`.
- * (react-pdf documenta JPG/PNG en data URI; el SVG suele funcionar en la mayoría de casos.)
- */
-export const RAYO_PNG_BASE64 =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAUCAYAAACkK5/bAAAACXBIWXMAAAsTAAALEwEAmpwYAAAApklEQVQoz5WSMQ6DMAxFHYTEzsDQkzAzc4fuUKkjF2HnJFygEqJ/SxMIiSoReZL9bT8nxph/MLMHgBvJC8kJwAXACmABsAI4F+4A9gT3QvKWVXFVbgDuJFckByRnID8AO4AdwA3ACeBR+ASwAzgR3AucSM4kf4ALgAfAHeAFcAN4ArgAOBI8Ac4AVgT3IucTM4kXwAXADeAA8AN4AbgCuAA4AjgSeIf6QHICcAN4A3gA/AFMA0qoJwAAAABJRU5ErkJggg==";
-
-const RAYO_LOGO_SRC = RAYO_SVG_BASE64;
-
 export type FacturaPdf = {
   id: string;
   fecha: string;
