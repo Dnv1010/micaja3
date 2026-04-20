@@ -224,6 +224,8 @@ export default function NuevaAgrupacionModal({
 
       const formData = new FormData();
       formData.append("file", new File([blob], `Gastos_${createJson.id}.pdf`, { type: "application/pdf" }));
+      formData.append("responsable", responsable);
+      formData.append("sector", sector || "Bogota");
       const uploadRes = await fetch("/api/facturas/upload", { method: "POST", body: formData });
       const uploadJson = (await uploadRes.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!uploadRes.ok || !uploadJson.url) { alert(uploadJson.error || "No se pudo subir PDF"); return; }
@@ -311,12 +313,15 @@ export default function NuevaAgrupacionModal({
 
           <div className="space-y-2 border-t border-white/10 pt-4">
             <h3 className="text-sm font-semibold text-gray-300">Sección 2: Subir facturas nuevas con OCR</h3>
-            <div className="border-2 border-dashed border-white/20 rounded-lg p-4 text-center">
+            <div className="border-2 border-dashed border-cyan-500/40 bg-cyan-500/5 hover:border-cyan-400 hover:bg-cyan-500/10 transition-colors rounded-xl p-8 text-center">
               <label className="cursor-pointer block">
-                <div className="flex flex-col items-center gap-2">
-                  <Upload className="h-6 w-6 text-gray-400" />
-                  <p className="text-xs font-medium text-gray-300">Selecciona imágenes o PDFs</p>
-                  <p className="text-xs text-gray-500">Soporta: JPG, PNG, PDF (máx. 10MB por archivo)</p>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/20">
+                    <Upload className="h-8 w-8 text-cyan-300" />
+                  </div>
+                  <p className="text-base font-semibold text-white">Sube tus facturas aquí</p>
+                  <p className="text-sm text-gray-300">Haz click o arrastra imágenes / PDFs</p>
+                  <p className="text-xs text-gray-500">JPG, PNG o PDF — máx. 10MB por archivo · puedes subir varias a la vez</p>
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,application/pdf" multiple onChange={(e) => void procesarArchivos(e.target.files)} className="hidden" />
               </label>

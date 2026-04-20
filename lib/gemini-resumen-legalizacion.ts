@@ -64,36 +64,37 @@ Instrucciones:
 - Tono profesional y directo
 - Solo texto plano, sin markdown ni asteriscos`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 300,
-          },
-        }),
+  const modelos = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite"];
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 300 },
+  });
+
+  let ultimoError = "";
+  for (const modelo of modelos) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body }
+      );
+      const data = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        ultimoError = data?.error?.message || `HTTP ${res.status}`;
+        console.error(`Gemini resumen (${modelo}):`, ultimoError);
+        const overloaded = /overloaded|high demand|UNAVAILABLE|503/i.test(ultimoError) || res.status === 503;
+        const quota = /quota|rate.?limit|429/i.test(ultimoError) || res.status === 429;
+        if (overloaded || quota) continue; // probar siguiente modelo
+        break; // otro tipo de error: no reintentar
       }
-    );
-
-    const data = (await res.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      error?: { message?: string };
-    };
-
-    if (!res.ok) {
-      console.error("Gemini resumen:", data?.error?.message || res.status);
-      return "No se pudo generar el resumen.";
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (text) return text;
+    } catch (e) {
+      ultimoError = e instanceof Error ? e.message : String(e);
+      console.error(`Gemini resumen fetch (${modelo}):`, ultimoError);
     }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return text || "No se pudo generar el resumen.";
-  } catch (e) {
-    console.error("Gemini resumen fetch:", e);
-    return "Error al conectar con el servicio de IA.";
   }
+  return "No se pudo generar el resumen.";
 }

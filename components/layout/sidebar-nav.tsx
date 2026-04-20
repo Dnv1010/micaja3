@@ -117,7 +117,7 @@ export function SidebarNav({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-white">{nombre}</p>
-            <p className="truncate text-xs text-bia-gray-light">{cargo || "â€”"}</p>
+            <p className="truncate text-xs text-bia-gray-light">{cargo || "—"}</p>
           </div>
           <button
             type="button"

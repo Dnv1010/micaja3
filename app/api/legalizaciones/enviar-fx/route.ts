@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
-import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
-import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { parseCOPString } from "@/lib/format";
 import { appPublicBaseUrl } from "@/lib/notificaciones";
+import { findLegalizacionByReporteId } from "@/lib/legalizaciones-supabase";
 import { Resend } from "resend";
-
-const RANGE = `${quoteSheetTitleForRange(SHEET_NAMES.LEGALIZACIONES)}!A:N`;
-
-function spreadsheetId(): string {
-  const id = SPREADSHEET_IDS.MICAJA.trim();
-  if (!id) throw new Error("MICAJA_SPREADSHEET_ID no configurada");
-  return id;
-}
 
 function escAttr(s: string): string {
   return s
@@ -23,8 +13,6 @@ function escAttr(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
-
-type SheetRow = Record<string, string>;
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -55,48 +43,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    assertSheetsConfigured();
-    const sheets = getSheetsClient();
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: spreadsheetId(),
-      range: RANGE,
-    });
-
-    const rows = res.data.values ?? [];
-    const registros = sheetValuesToRecords(rows) as SheetRow[];
-    const rowData = registros.find((r) => {
-      const id = String(getCellCaseInsensitive(r, "ID_Reporte", "ID") || "").trim();
-      return id === reporteId;
-    });
-
-    if (!rowData) {
+    const row = await findLegalizacionByReporteId(reporteId);
+    if (!row) {
       return NextResponse.json({ error: "Reporte no encontrado" }, { status: 404 });
     }
 
-    const coordinadorSheet = String(getCellCaseInsensitive(rowData, "Coordinador") || "").trim();
+    const coordinadorRow = (row.coordinador ?? "").trim();
     const sessionCoord = String(session.user.responsable || session.user.name || "").trim();
-    if (rol === "coordinador" && coordinadorSheet.toLowerCase() !== sessionCoord.toLowerCase()) {
-      return NextResponse.json({ error: "No puedes enviar reportes de otro coordinador" }, { status: 403 });
+    if (rol === "coordinador" && coordinadorRow.toLowerCase() !== sessionCoord.toLowerCase()) {
+      return NextResponse.json(
+        { error: "No puedes enviar reportes de otro coordinador" },
+        { status: 403 }
+      );
     }
 
-    const estado = String(getCellCaseInsensitive(rowData, "Estado") || "").toLowerCase();
+    const estado = (row.estado ?? "").toLowerCase();
     if (!estado.includes("firmado")) {
       return NextResponse.json({ error: "El reporte aún no está firmado" }, { status: 400 });
     }
 
-    const coordinador = coordinadorSheet || sessionCoord;
-    const sector = String(getCellCaseInsensitive(rowData, "Sector") || "").trim();
-    const periodoDe = String(
-      getCellCaseInsensitive(rowData, "Periodo_Desde", "Periodo") || ""
-    ).trim();
-    const periodoHasta = String(getCellCaseInsensitive(rowData, "Periodo_Hasta") || "").trim();
-    const totalRaw = String(getCellCaseInsensitive(rowData, "Total", "TotalAprobado") || "0");
-    const totalNum = parseCOPString(totalRaw) || Number(totalRaw.replace(/[^\d.-]/g, "")) || 0;
-    const resumenIA = String(getCellCaseInsensitive(rowData, "Resumen_IA", "ResumenIA") || "").trim();
+    const coordinador = coordinadorRow || sessionCoord;
+    const sector = (row.sector ?? "").trim();
+    const periodoDe = row.periodo_desde ?? "";
+    const periodoHasta = row.periodo_hasta ?? "";
+    const totalRaw = row.total != null ? String(row.total) : "0";
+    const totalNum =
+      parseCOPString(totalRaw) || Number(totalRaw.replace(/[^\d.-]/g, "")) || 0;
+    const resumenIA = (row.resumen_ia ?? "").trim();
 
-    const facturasRaw = String(
-      getCellCaseInsensitive(rowData, "Facturas_IDs", "FacturasIds") || ""
-    );
+    const facturasRaw = row.facturas_ids ?? "";
     let numFacturas = 0;
     try {
       let parsed: unknown = JSON.parse(facturasRaw);
@@ -109,7 +84,7 @@ export async function POST(req: NextRequest) {
     const totalFormato = `$${Math.round(totalNum).toLocaleString("es-CO")}`;
     const zonaLabel = sector === "Costa Caribe" ? "Costa Caribe" : "Bogotá";
 
-    const pdfUrl = String(body.pdfUrl || getCellCaseInsensitive(rowData, "PDF_URL", "PdfURL") || "").trim();
+    const pdfUrl = String(body.pdfUrl || row.url_reporte || "").trim();
     let pdfBase64 = body.pdfBase64?.replace(/^data:application\/pdf;base64,/i, "").trim() || "";
 
     if (!pdfBase64 && pdfUrl) {
@@ -223,6 +198,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Error enviando email" }, { status: 500 });
     }
 
+    void req;
     return NextResponse.json({ ok: true, emailId: sendResult.data?.id });
   } catch (e) {
     console.error("[enviar-fx]", e);

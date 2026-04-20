@@ -1,51 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { validateFacturaNegocio, type FacturaMutateFields } from "@/lib/factura-mutate-validation";
+import {
+  validateFacturaNegocio,
+  type FacturaMutateFields,
+} from "@/lib/factura-mutate-validation";
 import { parseCOPString } from "@/lib/format";
 import {
-  legacyFacturaFormBodyToPatch,
-  loadMicajaFacturasSheetRows,
-  mapEstadoPatchToSheet,
-  mapFacturaUpdateBodyToSheetPatch,
-  type FacturaApiUpdateBody,
-} from "@/lib/micaja-facturas-sheet";
-import { mergeUpdateRow } from "@/lib/sheet-row";
+  deleteFactura,
+  findFacturaById,
+  loadFacturas,
+  updateFactura,
+  updateFacturaEstado,
+  type FacturaUpdateFields,
+} from "@/lib/facturas-supabase";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
-import { deleteSheetRow, getSheetId, rowsToObjects } from "@/lib/sheets-helpers";
-import { SHEET_NAMES } from "@/lib/google-sheets";
-import { parseFechaFacturaDDMMYYYY, sheetANombreBiaTrue } from "@/lib/nueva-factura-validation";
+import {
+  parseFechaFacturaDDMMYYYY,
+  sheetANombreBiaTrue,
+} from "@/lib/nueva-factura-validation";
 import { findFacturaDuplicadaPorNitNumResponsable } from "@/lib/factura-duplicada-micaja";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import { appPublicBaseUrl, escHtml, notificarUsuario } from "@/lib/notificaciones";
 import type { FacturaRow } from "@/types/models";
 
-function facturaIdCell(f: FacturaRow): string {
-  return getCellCaseInsensitive(f, "ID_Factura", "ID");
+function facturaEstadoRow(f: FacturaRow): string {
+  return getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
 }
 
 function jsonDuplicadaEdicion(): NextResponse {
   return NextResponse.json(
     {
-      error: "Ya existe otra factura con ese NIT y número de factura para este responsable.",
+      error:
+        "Ya existe otra factura con ese NIT y número de factura para este responsable.",
       duplicada: true,
     },
     { status: 409 }
   );
 }
 
-/** Si hay duplicado (otra fila con mismo NIT + número + responsable), respuesta 409. */
-function duplicateEditIfAny(
-  rows: string[][],
+async function duplicateEditIfAny(
   currentId: string,
   nit: string,
   numFactura: string,
   responsable: string
-): NextResponse | null {
+): Promise<NextResponse | null> {
   const n = nit.trim();
   const num = numFactura.trim();
   if (!n || !num) return null;
-  const list = rowsToObjects<FacturaRow>(rows);
+  const list = await loadFacturas();
   const dup = findFacturaDuplicadaPorNitNumResponsable(list, {
     nit: n,
     numFactura: num,
@@ -53,20 +56,6 @@ function duplicateEditIfAny(
     excludeFacturaId: currentId,
   });
   return dup ? jsonDuplicadaEdicion() : null;
-}
-
-function facturaEstadoRow(f: FacturaRow): string {
-  return getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
-}
-
-async function getFacturaById(id: string): Promise<FacturaRow | null> {
-  try {
-    const rows = await loadMicajaFacturasSheetRows();
-    const list = rowsToObjects<FacturaRow>(rows);
-    return list.find((f) => facturaIdCell(f) === id) ?? null;
-  } catch {
-    return null;
-  }
 }
 
 async function puedeCoordinadorEditar(
@@ -89,7 +78,14 @@ function estadoEdicionPermitido(row: FacturaRow): boolean {
 }
 
 async function puedeEditarContenido(
-  session: { user?: { rol?: string; sector?: string; responsable?: string | null; name?: string | null } },
+  session: {
+    user?: {
+      rol?: string;
+      sector?: string;
+      responsable?: string | null;
+      name?: string | null;
+    };
+  },
   row: FacturaRow
 ): Promise<boolean> {
   if (!estadoEdicionPermitido(row)) return false;
@@ -124,12 +120,14 @@ function rowToMutateFields(f: FacturaRow): FacturaMutateFields {
     sector: getCellCaseInsensitive(f, "Sector"),
     nit: getCellCaseInsensitive(f, "NIT", "Nit_Factura"),
     valorRaw: getCellCaseInsensitive(f, "Valor", "Monto_Factura"),
-    aNombreBia: sheetANombreBiaTrue(getCellCaseInsensitive(f, "ANombreBia", "Nombre_bia")),
+    aNombreBia: sheetANombreBiaTrue(
+      getCellCaseInsensitive(f, "ANombreBia", "Nombre_bia")
+    ),
   };
 }
 
-function extractNuevaUpdates(body: Record<string, unknown>): FacturaApiUpdateBody {
-  const u: FacturaApiUpdateBody = {};
+function extractNuevaUpdates(body: Record<string, unknown>): FacturaUpdateFields {
+  const u: FacturaUpdateFields = {};
   if (body.fecha !== undefined) u.fecha = String(body.fecha);
   if (body.proveedor !== undefined) u.proveedor = String(body.proveedor);
   if (body.nit !== undefined) u.nit = String(body.nit);
@@ -137,7 +135,8 @@ function extractNuevaUpdates(body: Record<string, unknown>): FacturaApiUpdateBod
   if (body.concepto !== undefined) u.concepto = String(body.concepto);
   if (body.valor !== undefined) u.valor = String(body.valor);
   if (body.tipoFactura !== undefined) u.tipoFactura = String(body.tipoFactura);
-  if (body.servicioDeclarado !== undefined) u.servicioDeclarado = String(body.servicioDeclarado);
+  if (body.servicioDeclarado !== undefined)
+    u.servicioDeclarado = String(body.servicioDeclarado);
   if (body.tipoOperacion !== undefined) u.tipoOperacion = String(body.tipoOperacion);
   if (body.aNombreBia !== undefined) u.aNombreBia = Boolean(body.aNombreBia);
   if (body.ciudad !== undefined) u.ciudad = String(body.ciudad);
@@ -147,14 +146,49 @@ function extractNuevaUpdates(body: Record<string, unknown>): FacturaApiUpdateBod
   return u;
 }
 
-function applyNuevaUpdates(base: FacturaMutateFields, u: FacturaApiUpdateBody): FacturaMutateFields {
+/** Body legacy (claves Sheet-style como Fecha_Factura/Razon_Social) → FacturaUpdateFields. */
+function legacyBodyToUpdates(body: Record<string, unknown>): FacturaUpdateFields {
+  const u: FacturaUpdateFields = {};
+  if (body.Fecha_Factura !== undefined) u.fecha = String(body.Fecha_Factura);
+  if (body.Razon_Social !== undefined) u.proveedor = String(body.Razon_Social);
+  if (body.Nit_Factura !== undefined) u.nit = String(body.Nit_Factura);
+  if (body.Num_Factura !== undefined) u.numFactura = String(body.Num_Factura);
+  if (body.Observacion !== undefined) u.concepto = String(body.Observacion);
+  if (body.Monto_Factura !== undefined) u.valor = String(body.Monto_Factura);
+  if (body.Tipo_Factura !== undefined) u.tipoFactura = String(body.Tipo_Factura);
+  if (body.Tipo_servicio !== undefined) u.servicioDeclarado = String(body.Tipo_servicio);
+  if (body.TipoOperacion !== undefined) u.tipoOperacion = String(body.TipoOperacion);
+  if (body.Ciudad !== undefined) u.ciudad = String(body.Ciudad);
+  if (body.Sector !== undefined) u.sector = String(body.Sector);
+  if (body.Adjuntar_Factura !== undefined) u.imagenUrl = String(body.Adjuntar_Factura);
+  if (body.Nombre_bia !== undefined) {
+    const s = String(body.Nombre_bia).toLowerCase();
+    u.aNombreBia = s === "sí" || s === "si" || s === "true" || s === "1";
+  }
+  return u;
+}
+
+function isLegacyFormBody(body: Record<string, unknown>): boolean {
+  return (
+    body.Fecha_Factura !== undefined ||
+    body.Razon_Social !== undefined ||
+    body.Monto_Factura !== undefined
+  );
+}
+
+function applyNuevaUpdates(
+  base: FacturaMutateFields,
+  u: FacturaUpdateFields
+): FacturaMutateFields {
   return {
-    fecha: u.fecha !== undefined ? u.fecha.trim() : base.fecha,
+    fecha: u.fecha !== undefined ? String(u.fecha).trim() : base.fecha,
     proveedor: u.proveedor !== undefined ? u.proveedor.trim() : base.proveedor,
     concepto: u.concepto !== undefined ? u.concepto.trim() : base.concepto,
     tipoFactura: u.tipoFactura !== undefined ? u.tipoFactura.trim() : base.tipoFactura,
-    servicioDeclarado: u.servicioDeclarado !== undefined ? u.servicioDeclarado.trim() : base.servicioDeclarado,
-    tipoOperacion: u.tipoOperacion !== undefined ? u.tipoOperacion.trim() : base.tipoOperacion,
+    servicioDeclarado:
+      u.servicioDeclarado !== undefined ? u.servicioDeclarado.trim() : base.servicioDeclarado,
+    tipoOperacion:
+      u.tipoOperacion !== undefined ? u.tipoOperacion.trim() : base.tipoOperacion,
     ciudad: u.ciudad !== undefined ? u.ciudad.trim() : base.ciudad,
     sector: u.sector !== undefined ? u.sector.trim() : base.sector,
     nit: u.nit !== undefined ? u.nit.trim() : base.nit,
@@ -163,57 +197,29 @@ function applyNuevaUpdates(base: FacturaMutateFields, u: FacturaApiUpdateBody): 
   };
 }
 
-function isLegacyFormBody(body: Record<string, unknown>): boolean {
-  return body.Fecha_Factura !== undefined || body.Razon_Social !== undefined || body.Monto_Factura !== undefined;
-}
-
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const found = await getFacturaById(id);
+  const found = await findFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
   return NextResponse.json({ data: found });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
-  const found = await getFacturaById(id);
-  if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
-
-  if (!(await puedeEditarContenido(session, found))) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
-  const body = (await req.json()) as Record<string, unknown>;
-  const rows = await loadMicajaFacturasSheetRows();
-  const headers = rows[0] || [];
-
-  if (isLegacyFormBody(body)) {
-    const legacyPatch = legacyFacturaFormBodyToPatch(headers, body);
-    if (!Object.keys(legacyPatch).length) {
-      return NextResponse.json({ error: "Sin campos reconocidos" }, { status: 400 });
-    }
-    const nitEff =
-      body.Nit_Factura !== undefined && body.Nit_Factura !== null
-        ? String(body.Nit_Factura).trim()
-        : String(getCellCaseInsensitive(found, "Nit_Factura", "NIT") || "").trim();
-    const numEff =
-      body.Num_Factura !== undefined && body.Num_Factura !== null
-        ? String(body.Num_Factura).trim()
-        : String(getCellCaseInsensitive(found, "Num_Factura", "NumFactura") || "").trim();
-    const respEff = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
-    const dupPutLegacy = duplicateEditIfAny(rows, id, nitEff, numEff, respEff);
-    if (dupPutLegacy) return dupPutLegacy;
-    await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, legacyPatch);
-    return NextResponse.json({ ok: true });
-  }
-
-  const updates = extractNuevaUpdates(body);
+async function runUpdate(
+  req: NextRequest,
+  id: string,
+  found: FacturaRow,
+  body: Record<string, unknown>
+): Promise<NextResponse> {
+  const updates = isLegacyFormBody(body)
+    ? legacyBodyToUpdates(body)
+    : extractNuevaUpdates(body);
   if (!Object.keys(updates).length) {
     return NextResponse.json({ error: "Sin datos para actualizar" }, { status: 400 });
   }
@@ -225,23 +231,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const imagenUrl =
     updates.imagenUrl !== undefined
-      ? String(updates.imagenUrl).trim()
+      ? updates.imagenUrl.trim()
       : getCellCaseInsensitive(found, "ImagenURL", "URL", "Adjuntar_Factura");
   if (!imagenUrl) {
-    return NextResponse.json({ error: "La factura debe incluir imagenUrl" }, { status: 400 });
+    return NextResponse.json(
+      { error: "La factura debe incluir imagenUrl" },
+      { status: 400 }
+    );
   }
 
   const numFactura =
     updates.numFactura !== undefined
-      ? String(updates.numFactura).trim()
+      ? updates.numFactura.trim()
       : getCellCaseInsensitive(found, "Num_Factura", "NumFactura");
 
-  const driveFileId =
-    updates.driveFileId !== undefined
-      ? String(updates.driveFileId).trim()
-      : getCellCaseInsensitive(found, "DriveFileId");
+  const respRow = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
+  const dup = await duplicateEditIfAny(id, merged.nit, numFactura, respRow);
+  if (dup) {
+    void req;
+    return dup;
+  }
 
-  const patch = mapFacturaUpdateBodyToSheetPatch(headers, {
+  await updateFactura(id, {
     fecha: merged.fecha,
     proveedor: merged.proveedor,
     nit: merged.nit,
@@ -255,45 +266,66 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     ciudad: merged.ciudad,
     sector: merged.sector,
     imagenUrl,
-    driveFileId: driveFileId || undefined,
+    driveFileId: updates.driveFileId,
   });
-
-  const respRow = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
-  const dupPutNueva = duplicateEditIfAny(rows, id, merged.nit, numFactura, respRow);
-  if (dupPutNueva) return dupPutNueva;
-
-  await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
   return NextResponse.json({ ok: true });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const found = await getFacturaById(id);
+  const found = await findFacturaById(id);
+  if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+
+  if (!(await puedeEditarContenido(session, found))) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const body = (await req.json()) as Record<string, unknown>;
+  return runUpdate(req, id, found, body);
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const found = await findFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
   const body = (await req.json()) as Record<string, unknown>;
   const estadoIn = typeof body.estado === "string" ? body.estado.trim() : "";
   const isApproval = estadoIn === "Aprobada" || estadoIn === "Rechazada";
 
-  const rows = await loadMicajaFacturasSheetRows();
-  const headers = rows[0] || [];
-
   if (isApproval) {
     if (facturaEstadoRow(found).toLowerCase() === "completada") {
-      return NextResponse.json({ error: "La factura ya fue incluida en un reporte (Completada)" }, { status: 400 });
+      return NextResponse.json(
+        { error: "La factura ya fue incluida en un reporte (Completada)" },
+        { status: 400 }
+      );
     }
     if (!(await puedeCoordinadorEditar(session, found))) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
-    const motivo = estadoIn === "Rechazada" ? String(body.motivoRechazo || "").trim() : "";
+    const motivo =
+      estadoIn === "Rechazada" ? String(body.motivoRechazo || "").trim() : "";
     if (estadoIn === "Rechazada" && !motivo) {
-      return NextResponse.json({ error: "Motivo de rechazo obligatorio" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Motivo de rechazo obligatorio" },
+        { status: 400 }
+      );
     }
-    const patch = mapEstadoPatchToSheet(headers, estadoIn, estadoIn === "Rechazada" ? motivo : "");
-    await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
+    await updateFacturaEstado(id, estadoIn, estadoIn === "Rechazada" ? motivo : undefined);
     if (estadoIn === "Rechazada") {
       const responsableFactura = getCellCaseInsensitive(found, "Responsable");
       const proveedorFactura = getCellCaseInsensitive(found, "Razon_Social", "Proveedor");
@@ -319,16 +351,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     );
   }
 
+  // Caso especial: coordinador puede editar solo tipoOperacion aun sin estar sobre el responsable
   if (typeof body.tipoOperacion === "string" && body.tipoOperacion.trim()) {
-    if ((await puedeCoordinadorEditar(session, found)) || (await puedeEditarContenido(session, found))) {
-      const opsPatch = mapFacturaUpdateBodyToSheetPatch(headers, {
-        tipoOperacion: body.tipoOperacion.trim(),
-      });
-      if (Object.keys(opsPatch).length) {
-        await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, opsPatch);
-        const soloOps = Object.keys(body).length === 1 && "tipoOperacion" in body;
-        if (soloOps) return NextResponse.json({ ok: true });
-      }
+    const puedeCoord = await puedeCoordinadorEditar(session, found);
+    const puedeContenido = await puedeEditarContenido(session, found);
+    if (puedeCoord || puedeContenido) {
+      await updateFactura(id, { tipoOperacion: body.tipoOperacion.trim() });
+      const soloOps =
+        Object.keys(body).length === 1 && "tipoOperacion" in body;
+      if (soloOps) return NextResponse.json({ ok: true });
     }
   }
 
@@ -336,100 +367,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  if (isLegacyFormBody(body)) {
-    const legacyPatch = legacyFacturaFormBodyToPatch(headers, body);
-    if (!Object.keys(legacyPatch).length) {
-      return NextResponse.json({ error: "Sin campos reconocidos" }, { status: 400 });
-    }
-    const nitEff =
-      body.Nit_Factura !== undefined && body.Nit_Factura !== null
-        ? String(body.Nit_Factura).trim()
-        : String(getCellCaseInsensitive(found, "Nit_Factura", "NIT") || "").trim();
-    const numEff =
-      body.Num_Factura !== undefined && body.Num_Factura !== null
-        ? String(body.Num_Factura).trim()
-        : String(getCellCaseInsensitive(found, "Num_Factura", "NumFactura") || "").trim();
-    const respEff = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
-    const dupPatchLegacy = duplicateEditIfAny(rows, id, nitEff, numEff, respEff);
-    if (dupPatchLegacy) return dupPatchLegacy;
-    await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, legacyPatch);
-    return NextResponse.json({ ok: true });
-  }
-
-  const updates = extractNuevaUpdates(body);
-  if (!Object.keys(updates).length) {
-    return NextResponse.json({ error: "Sin datos para actualizar" }, { status: 400 });
-  }
-
-  const base = rowToMutateFields(found);
-  const merged = applyNuevaUpdates(base, updates);
-  const err = validateFacturaNegocio(merged);
-  if (err) return NextResponse.json({ error: err }, { status: 400 });
-
-  const imagenUrl =
-    updates.imagenUrl !== undefined
-      ? String(updates.imagenUrl).trim()
-      : getCellCaseInsensitive(found, "ImagenURL", "URL", "Adjuntar_Factura");
-  if (!imagenUrl) {
-    return NextResponse.json({ error: "La factura debe incluir imagenUrl" }, { status: 400 });
-  }
-
-  const numFactura =
-    updates.numFactura !== undefined
-      ? String(updates.numFactura).trim()
-      : getCellCaseInsensitive(found, "Num_Factura", "NumFactura");
-
-  const driveFileId =
-    updates.driveFileId !== undefined
-      ? String(updates.driveFileId).trim()
-      : getCellCaseInsensitive(found, "DriveFileId");
-
-  const patch = mapFacturaUpdateBodyToSheetPatch(headers, {
-    fecha: merged.fecha,
-    proveedor: merged.proveedor,
-    nit: merged.nit,
-    numFactura,
-    concepto: merged.concepto,
-    valor: String(Math.round(parseCOPString(merged.valorRaw))),
-    tipoFactura: merged.tipoFactura,
-    servicioDeclarado: merged.servicioDeclarado,
-    tipoOperacion: merged.tipoOperacion,
-    aNombreBia: merged.aNombreBia,
-    ciudad: merged.ciudad,
-    sector: merged.sector,
-    imagenUrl,
-    driveFileId: driveFileId || undefined,
-  });
-
-  const respRowPatch = String(getCellCaseInsensitive(found, "Responsable") || "").trim();
-  const dupPatchNueva = duplicateEditIfAny(rows, id, merged.nit, numFactura, respRowPatch);
-  if (dupPatchNueva) return dupPatchNueva;
-
-  await mergeUpdateRow("MICAJA", SHEET_NAMES.FACTURAS, found._rowIndex, patch);
-  return NextResponse.json({ ok: true });
+  return runUpdate(req, id, found, body);
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const rol = String(session.user.rol || "user").toLowerCase();
   if (rol !== "admin" && rol !== "coordinador") {
     return NextResponse.json({ error: "Sin permiso para eliminar" }, { status: 403 });
   }
 
-  const found = await getFacturaById(id);
+  const found = await findFacturaById(id);
   if (!found) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
   if (rol === "coordinador" && !(await puedeCoordinadorEditar(session, found))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const sheetId = await getSheetId("MICAJA", SHEET_NAMES.FACTURAS);
-  if (sheetId == null) {
-    return NextResponse.json({ error: "No se pudo obtener sheetId" }, { status: 500 });
-  }
-  await deleteSheetRow("MICAJA", SHEET_NAMES.FACTURAS, sheetId, found._rowIndex - 1);
+  const ok = await deleteFactura(id);
+  if (!ok) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

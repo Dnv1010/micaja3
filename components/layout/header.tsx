@@ -17,10 +17,11 @@ export function Header({ serverSession }: { serverSession: Session }) {
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-bia-gray/20 bg-bia-blue px-4 backdrop-blur supports-[backdrop-filter]:bg-bia-blue/95">
       <div className="flex items-center gap-2 md:hidden">
         <Sheet>
-          <SheetTrigger className="inline-flex">
-            <Button variant="ghost" size="icon" className="shrink-0 text-bia-gray-light hover:text-white" aria-label="Abrir menÃº" type="button">
-              <Menu className="h-5 w-5" />
-            </Button>
+          <SheetTrigger
+            aria-label="Abrir menú"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-bia-gray-light transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <Menu className="h-5 w-5" />
           </SheetTrigger>
           <SheetContent side="left" className="w-72 border-bia-gray/20 bg-bia-blue p-0">
             <SidebarNav session={serverSession} className="min-h-screen border-0" />
@@ -28,9 +29,9 @@ export function Header({ serverSession }: { serverSession: Session }) {
         </Sheet>
         <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-white">
           <span className="text-bia-aqua" aria-hidden>
-            âš¡
+            ⚡
           </span>
-          Bia Â· {process.env.NEXT_PUBLIC_APP_NAME || "MiCaja"}
+          Bia · {process.env.NEXT_PUBLIC_APP_NAME || "MiCaja"}
         </span>
       </div>
 
@@ -52,7 +53,7 @@ export function Header({ serverSession }: { serverSession: Session }) {
 
       <div className="flex items-center gap-2 md:hidden">
         <RoleBadge rol={rol} />
-        <Button variant="ghost" size="icon" className="text-bia-gray-light hover:text-bia-aqua" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesiÃ³n">
+        <Button variant="ghost" size="icon" className="text-bia-gray-light hover:text-bia-aqua" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesión">
           <LogOut className="h-5 w-5" />
         </Button>
       </div>

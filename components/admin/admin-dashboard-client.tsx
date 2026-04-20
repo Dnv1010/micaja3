@@ -191,7 +191,15 @@ export function AdminDashboardClient() {
   // ✅ facturasPendientes usa todasFacturas para no perder ninguna
   const facturasPendientes = useMemo(() => todasFacturas.filter((f) => facturaEstado(f).toLowerCase() === "pendiente").length, [todasFacturas]);
   const reportesPendientesFirma = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }).length, [reportes]);
-  const ultimasFacturas = useMemo(() => [...todasFacturas].sort((a, b) => { const ta = parseSheetDate(facturaFecha(a))?.getTime() ?? 0; const tb = parseSheetDate(facturaFecha(b))?.getTime() ?? 0; return tb - ta; }).slice(0, 10), [todasFacturas]);
+  const ultimasFacturas = useMemo(() => {
+    const keyFecha = (f: FacturaRow): number => {
+      const fc = String(getCellCaseInsensitive(f, "FechaCreacion", "Fecha_ISO") || "");
+      const tFc = fc ? new Date(fc).getTime() : NaN;
+      if (Number.isFinite(tFc)) return tFc;
+      return parseSheetDate(facturaFecha(f))?.getTime() ?? 0;
+    };
+    return [...todasFacturas].sort((a, b) => keyFecha(b) - keyFecha(a)).slice(0, 10);
+  }, [todasFacturas]);
   const reportesPendientes = useMemo(() => reportes.filter((r) => { const e = String(r.Estado || "").toLowerCase(); return e.includes("pendiente") || e === "enviado"; }), [reportes]);
 
   return (

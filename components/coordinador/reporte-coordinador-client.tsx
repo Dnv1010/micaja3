@@ -18,6 +18,7 @@ import { formatCOP, formatDateDDMMYYYY, parseCOPString } from "@/lib/format";
 import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { cn } from "@/lib/utils";
+import { AuditorFacturasPanel, type PanelFactura } from "@/components/shared/auditor-facturas-panel";
 
 type FacturaRow = Record<string, unknown>;
 type ReporteRow = Record<string, string>;
@@ -430,6 +431,22 @@ export function ReporteCoordinadorClient() {
                     <p className="text-xs italic text-[#525A72]">Selecciona facturas para ver el análisis.</p>
                   ) : null}
                 </div>
+
+                <AuditorFacturasPanel
+                  facturas={selectedRows.map<PanelFactura>((f) => ({
+                    idFactura: String(getCellCaseInsensitive(f, "ID_Factura", "ID")),
+                    numFactura: String(getCellCaseInsensitive(f, "Num_Factura", "NumFactura") || ""),
+                    nit: String(getCellCaseInsensitive(f, "NIT", "Nit_Factura") || ""),
+                    proveedor: String(getCellCaseInsensitive(f, "Proveedor", "Razon_Social") || ""),
+                    concepto: String(getCellCaseInsensitive(f, "Concepto", "Observacion") || ""),
+                    tipoServicio: String(getCellCaseInsensitive(f, "Tipo_servicio", "ServicioDeclarado") || ""),
+                    responsable: String(getCellCaseInsensitive(f, "Responsable") || ""),
+                    fecha: String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || ""),
+                    valor: parseCOPString(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0")),
+                  }))}
+                  coordinador={coordinador}
+                  sector={sector}
+                />
 
                 <Button
                   type="button"

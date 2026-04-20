@@ -66,8 +66,23 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
   // negativo = excedido (gastó de más)
   const saldo = totalRecibido - totalFacturado;
 
-  const ultimasEntregas = useMemo(() => [...entregas].slice(-3).reverse(), [entregas]);
-  const ultimasFacturas = useMemo(() => [...facturas].slice(-3).reverse(), [facturas]);
+  const ultimasEntregas = useMemo(() => {
+    const key = (e: EntregaItem) => {
+      const f = String(getCellCaseInsensitive(e, "Fecha_Entrega", "Fecha") || "");
+      return parseMonto(f.replace(/\D/g, "")) || new Date(f).getTime() || 0;
+    };
+    return [...entregas].sort((a, b) => key(b) - key(a)).slice(0, 3);
+  }, [entregas]);
+  const ultimasFacturas = useMemo(() => {
+    const key = (f: FacturaItem) => {
+      const fc = String(getCellCaseInsensitive(f, "FechaCreacion", "Fecha_ISO") || "");
+      const tFc = fc ? new Date(fc).getTime() : NaN;
+      if (Number.isFinite(tFc)) return tFc;
+      const fd = String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || "");
+      return new Date(fd).getTime() || 0;
+    };
+    return [...facturas].sort((a, b) => key(b) - key(a)).slice(0, 3);
+  }, [facturas]);
 
   return (
     <div className="space-y-4">

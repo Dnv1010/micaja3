@@ -1,15 +1,18 @@
-import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, Polygon, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
   page: { padding: 28, fontFamily: "Helvetica", backgroundColor: "#fff" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
     paddingBottom: 10,
   },
+  brand: { flexDirection: "row", alignItems: "center", gap: 6 },
+  brandText: { flexDirection: "column" },
   title: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#0f1729" },
   small: { fontSize: 8, color: "#6b7280" },
   infoGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 14 },
@@ -28,8 +31,11 @@ const styles = StyleSheet.create({
   v: { width: "15%", textAlign: "right" },
   total: { marginTop: 8, flexDirection: "row", justifyContent: "flex-end" },
   totalText: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#111827" },
-  firmaBox: { marginTop: 20, width: "48%" },
+  firmasRow: { marginTop: 28, flexDirection: "row", justifyContent: "space-between", gap: 20 },
+  firmaBox: { width: "48%" },
   firmaImg: { width: 120, height: 48, objectFit: "contain" },
+  firmaPlaceholder: { height: 48 },
+  firmaCaption: { fontSize: 7, color: "#6b7280", fontFamily: "Helvetica-Bold", marginBottom: 2 },
   line: { borderTopWidth: 0.5, borderTopColor: "#374151", marginTop: 4, marginBottom: 3 },
   adjPage: { padding: 28, backgroundColor: "#fff" },
   adjTitle: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#0f1729", marginBottom: 10 },
@@ -80,9 +86,14 @@ export function GastosGruposPdf({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>BIA ENERGY SAS ESP</Text>
-            <Text style={styles.small}>REPORTE DE GASTOS GENERALES</Text>
+          <View style={styles.brand}>
+            <Svg width={14} height={18} viewBox="0 0 14 18">
+              <Polygon points="8,0 0,10 5,10 3,18 14,7 8,7 10,0" fill="#08DDBC" />
+            </Svg>
+            <View style={styles.brandText}>
+              <Text style={styles.title}>BIA ENERGY SAS ESP</Text>
+              <Text style={styles.small}>REPORTE DE GASTOS GENERALES</Text>
+            </View>
           </View>
           <View>
             <Text style={styles.small}>{grupo.ID_Grupo}</Text>
@@ -126,15 +137,27 @@ export function GastosGruposPdf({
         <View style={styles.total}>
           <Text style={styles.totalText}>TOTAL: {formatCOPpdf(total)}</Text>
         </View>
-        {firma ? (
+        <View style={styles.firmasRow}>
           <View style={styles.firmaBox}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            <Image style={styles.firmaImg} src={firma} />
+            <Text style={styles.firmaCaption}>FIRMA DEL RESPONSABLE</Text>
+            {firma ? (
+              /* eslint-disable-next-line jsx-a11y/alt-text */
+              <Image style={styles.firmaImg} src={firma} />
+            ) : (
+              <View style={styles.firmaPlaceholder} />
+            )}
             <View style={styles.line} />
             <Text style={styles.infoValue}>{grupo.Responsable}</Text>
             <Text style={styles.small}>{grupo.Cargo}</Text>
           </View>
-        ) : null}
+          <View style={styles.firmaBox}>
+            <Text style={styles.firmaCaption}>FIRMA DE AUTORIZACIÓN</Text>
+            <View style={styles.firmaPlaceholder} />
+            <View style={styles.line} />
+            <Text style={styles.infoValue}>Nombre</Text>
+            <Text style={styles.small}>Cargo</Text>
+          </View>
+        </View>
       </Page>
       {gastos
         .filter((g) => !!g.imagenBase64)

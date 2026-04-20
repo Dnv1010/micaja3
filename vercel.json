@@ -1,5 +1,10 @@
 {
   "env": {
     "NODE_OPTIONS": "--disable-warning=DEP0169"
+  },
+  "functions": {
+    "app/api/**/route.ts": {
+      "maxDuration": 90
+    }
   }
 }

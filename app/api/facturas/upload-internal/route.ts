@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Readable } from "stream";
-import { assertSheetsConfigured, getDriveClient } from "@/lib/google-sheets";
-import { getDriveFacturasRootFolderId } from "@/lib/drive-env";
-import { resolveFacturaUploadFolder } from "@/lib/drive-folders";
 import { verifyInternalApiKey } from "@/lib/internal-api";
+import { uploadToStorage } from "@/lib/storage-supabase";
 
 const ALLOWED = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
   ["image/webp", "webp"],
   ["image/heic", "heic"],
-  ["image/heif", "heif"],
+  ["image/heif", "heic"],
   ["application/pdf", "pdf"],
 ]);
 
 const MAX_BYTES = 10 * 1024 * 1024;
-const UPLOAD_TIMEOUT_MS = 30_000;
 const VALID_SECTORS = new Set(["Bogota", "Costa Caribe"]);
 
 function folderYearMonth(fecha: string | null): string {
@@ -28,42 +24,12 @@ function folderYearMonth(fecha: string | null): string {
   return new Date().toISOString().slice(0, 7);
 }
 
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("Timeout al subir a Drive (30s)")), ms);
-    p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      }
-    );
-  });
-}
-
 export async function POST(req: NextRequest) {
   if (!verifyInternalApiKey(req)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   try {
-    assertSheetsConfigured();
-  } catch {
-    return NextResponse.json({ error: "Almacenamiento no disponible" }, { status: 503 });
-  }
-
-  try {
-    const rootFolderId = getDriveFacturasRootFolderId();
-    if (!rootFolderId) {
-      return NextResponse.json(
-        { error: "Falta GOOGLE_DRIVE_FOLDER_ID (o GOOGLE_DRIVE_FACTURAS_FOLDER_ID)" },
-        { status: 500 }
-      );
-    }
-
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     if (!file || !(file instanceof File)) {
@@ -72,7 +38,10 @@ export async function POST(req: NextRequest) {
 
     const sector = String(formData.get("sector") || "").trim();
     if (!VALID_SECTORS.has(sector)) {
-      return NextResponse.json({ error: 'sector debe ser "Bogota" o "Costa Caribe"' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'sector debe ser "Bogota" o "Costa Caribe"' },
+        { status: 400 }
+      );
     }
 
     const responsable = String(formData.get("responsable") || "").trim();
@@ -89,64 +58,35 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
     if (file.size > MAX_BYTES) {
       return NextResponse.json({ error: "El archivo supera 10MB" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const yyyyMm = folderYearMonth(fecha || null);
-    const drive = getDriveClient();
-    const parentId = await resolveFacturaUploadFolder(drive, rootFolderId, sector, yyyyMm);
-
     const now = new Date();
-    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
+      now.getDate()
+    ).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(
+      2,
+      "0"
+    )}${String(now.getSeconds()).padStart(2, "0")}`;
     const safeName = responsable.replace(/\s+/g, "_").slice(0, 120) || "usuario";
-    const driveFileName = `${stamp}_${safeName}.${ext}`;
+    const fileName = `${stamp}_${safeName}.${ext}`;
+    const storagePath = `facturas/${sector}/${yyyyMm}/${fileName}`;
 
-    const uploadOp = (async () => {
-      const driveResponse = await drive.files.create({
-        requestBody: {
-          name: driveFileName,
-          parents: [parentId],
-        },
-        media: {
-          mimeType: mime || "application/octet-stream",
-          body: Readable.from(buffer),
-        },
-        fields: "id",
-        supportsAllDrives: true,
-      });
-
-      const fileId = driveResponse.data.id;
-      if (!fileId) throw new Error("Drive no devolvió id de archivo");
-
-      await drive.permissions.create({
-        fileId,
-        requestBody: { role: "reader", type: "anyone" },
-        supportsAllDrives: true,
-      });
-
-      return { fileId, driveFileName };
-    })();
-
-    const { fileId, driveFileName: finalName } = await withTimeout(uploadOp, UPLOAD_TIMEOUT_MS);
-
-    const isPdf = mime === "application/pdf";
-    const url = isPdf
-      ? `https://drive.google.com/file/d/${fileId}/view`
-      : `https://drive.google.com/uc?id=${fileId}`;
+    const { path, publicUrl } = await uploadToStorage(storagePath, buffer, mime);
 
     return NextResponse.json({
-      fileId,
-      url,
-      fileName: finalName,
+      fileId: path,
+      url: publicUrl,
+      fileName,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al subir";
     console.error("facturas/upload-internal:", e);
     return NextResponse.json(
-      { error: message.includes("Timeout") ? message : "Error al subir imagen. Intenta de nuevo." },
+      { error: message || "Error al subir imagen. Intenta de nuevo." },
       { status: 500 }
     );
   }

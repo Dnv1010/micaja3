@@ -1,8 +1,5 @@
-import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
-import { quoteSheetTitleForRange, sheetValuesToRecords } from "@/lib/sheets-helpers";
-import { parseMonto } from "@/lib/format";
+import { getSupabase } from "@/lib/supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
-import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 
 export type MicajaBalanceRow = {
@@ -12,76 +9,82 @@ export type MicajaBalanceRow = {
   balance: number;
 };
 
-function spreadsheetId(): string {
-  const id = SPREADSHEET_IDS.MICAJA.trim();
-  if (!id) throw new Error("MICAJA_SPREADSHEET_ID no configurada");
-  return id;
-}
+/** Facturas que cuentan como gastado: Aprobada o Completada. */
+const ESTADOS_GASTADO = new Set(["Aprobada", "Completada"]);
 
-/** Facturas que cuentan como facturado/gastado: aprobada, completada. Pendiente aún no cuenta. */
-function facturaGastado(f: Record<string, string>): boolean {
-  const v = String(
-    getCellCaseInsensitive(f, "Verificado", "Estado", "Legalizado") || ""
-  )
-    .toLowerCase()
-    .trim();
-  return v === "aprobada" || v === "completada";
-}
-
-/** Agrega montos por responsable desde Entregas y Facturas (hojas MiCaja). */
+/** Agrega montos por responsable desde entregas y facturas en Supabase. */
 export async function loadMicajaBalancesByResponsable(opts?: {
-  /** Si se indica, solo entregas y facturas (no rechazadas) de la zona. */
   sectorRaw?: string;
 }): Promise<Map<string, { recibido: number; gastado: number }>> {
-  assertSheetsConfigured();
-  const sheets = getSheetsClient();
-  const sid = spreadsheetId();
+  const sb = getSupabase();
   const sectorRaw = opts?.sectorRaw?.trim();
   const zonaSet = sectorRaw ? await responsablesEnZonaSheetSet(sectorRaw) : null;
   const wantSec = sectorRaw ? normalizeSector(sectorRaw) : null;
 
-  const [entRes, facRes] = await Promise.all([
-    sheets.spreadsheets.values.get({
-      spreadsheetId: sid,
-      range: `${quoteSheetTitleForRange(SHEET_NAMES.ENTREGAS)}!A:H`,
-    }),
-    sheets.spreadsheets.values.get({
-      spreadsheetId: sid,
-      range: `${quoteSheetTitleForRange(SHEET_NAMES.FACTURAS)}!A:S`,
-    }),
+  async function fetchAll<T>(
+    build: () => ReturnType<typeof sb.from>,
+    cols: string
+  ): Promise<T[]> {
+    const PAGE = 1000;
+    const out: T[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await build()
+        .select(cols)
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const batch = (data ?? []) as unknown as T[];
+      out.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+    return out;
+  }
+
+  const [entData, facData] = await Promise.all([
+    fetchAll<{ responsable: string | null; monto_entregado: number | string | null }>(
+      () => sb.from("entregas"),
+      "responsable, monto_entregado"
+    ),
+    fetchAll<{
+      responsable: string | null;
+      monto_factura: number | string | null;
+      estado: string | null;
+      sector: string | null;
+    }>(
+      () => sb.from("facturas"),
+      "responsable, monto_factura, estado, sector"
+    ),
   ]);
 
-  const entRows = entRes.data.values ?? [];
-  const facRows = facRes.data.values ?? [];
-  const entregas = sheetValuesToRecords(entRows);
-  const facturas = sheetValuesToRecords(facRows);
-
   const map = new Map<string, { recibido: number; gastado: number }>();
-
-  const bump = (resp: string, key: "recibido" | "gastado", amount: number) => {
+  const bump = (
+    resp: string,
+    key: "recibido" | "gastado",
+    amount: number
+  ) => {
     const k = resp.trim();
-    if (!k) return;
+    if (!k || !amount) return;
     const cur = map.get(k) || { recibido: 0, gastado: 0 };
     cur[key] += amount;
     map.set(k, cur);
   };
 
-  for (const row of entregas) {
-    const r = String(row.Responsable || "").trim();
+  for (const row of entData) {
+    const r = String(row.responsable ?? "").trim();
     if (zonaSet && !zonaSet.has(r.toLowerCase())) continue;
-    const m = parseMonto(row.Monto_Entregado || row.Monto);
-    bump(r, "recibido", m);
+    const m = Number(row.monto_entregado ?? 0);
+    if (Number.isFinite(m)) bump(r, "recibido", m);
   }
 
-  for (const row of facturas) {
-    if (!facturaGastado(row)) continue;
-    const r = String(row.Responsable || "").trim();
-    const rowSec = normalizeSector(getCellCaseInsensitive(row, "Sector") || "");
+  for (const row of facData) {
+    const estado = String(row.estado ?? "").trim();
+    if (!ESTADOS_GASTADO.has(estado)) continue;
+    const r = String(row.responsable ?? "").trim();
+    const rowSec = normalizeSector(String(row.sector ?? ""));
     if (zonaSet && !zonaSet.has(r.toLowerCase())) {
       if (wantSec === null || rowSec !== wantSec) continue;
     }
-    const m = parseMonto(row.Monto_Factura || row.Valor);
-    bump(r, "gastado", m);
+    const m = Number(row.monto_factura ?? 0);
+    if (Number.isFinite(m)) bump(r, "gastado", m);
   }
 
   return map;

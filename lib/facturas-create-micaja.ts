@@ -3,15 +3,12 @@ import { evaluarAutoAprobacion } from "@/lib/auto-aprobacion";
 import { validateFacturaNegocio, type FacturaMutateFields } from "@/lib/factura-mutate-validation";
 import { parseCOPString } from "@/lib/format";
 import {
-  appendFacturaRowLegacyAS,
-  buildMicajaFacturasLegacyRowAS,
-  loadMicajaFacturasSheetRows,
-} from "@/lib/micaja-facturas-sheet";
-import { rowsToObjects } from "@/lib/sheets-helpers";
-import { findFacturaDuplicadaPorNitNumResponsable, estadoFacturaDuplicadaMensaje } from "@/lib/factura-duplicada-micaja";
+  findFacturaDuplicadaPorNitNumResponsable,
+  estadoFacturaDuplicadaMensaje,
+} from "@/lib/factura-duplicada-micaja";
+import { insertFactura, loadFacturas } from "@/lib/facturas-supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
-import type { FacturaRow } from "@/types/models";
 
 export type FacturaCreateBody = {
   fecha?: string;
@@ -40,10 +37,17 @@ type AuthMode =
   | { kind: "session"; session: Session }
   | { kind: "internal" };
 
-export async function crearFacturaMicaja(body: FacturaCreateBody, auth: AuthMode): Promise<CrearFacturaResult> {
+export async function crearFacturaMicaja(
+  body: FacturaCreateBody,
+  auth: AuthMode
+): Promise<CrearFacturaResult> {
   const imagenUrl = String(body.imagenUrl || "").trim();
   if (!imagenUrl) {
-    return { ok: false, status: 400, error: "La factura debe incluir la imagen en Drive (imagenUrl)" };
+    return {
+      ok: false,
+      status: 400,
+      error: "La factura debe incluir la imagen en Drive (imagenUrl)",
+    };
   }
 
   const fecha = String(body.fecha || "").trim();
@@ -78,7 +82,6 @@ export async function crearFacturaMicaja(body: FacturaCreateBody, auth: AuthMode
   }
 
   let responsable = "";
-
   if (auth.kind === "session") {
     const s = auth.session;
     const rolPost = String(s.user?.rol || "user").toLowerCase();
@@ -103,11 +106,10 @@ export async function crearFacturaMicaja(body: FacturaCreateBody, auth: AuthMode
     }
   }
 
-  const sheetRows = await loadMicajaFacturasSheetRows();
-  const facturasObjs = rowsToObjects<FacturaRow>(sheetRows);
+  const facturas = await loadFacturas();
 
   if (nit && numFactura) {
-    const duplicada = findFacturaDuplicadaPorNitNumResponsable(facturasObjs, {
+    const duplicada = findFacturaDuplicadaPorNitNumResponsable(facturas, {
       nit,
       numFactura,
       responsable,
@@ -135,7 +137,7 @@ export async function crearFacturaMicaja(body: FacturaCreateBody, auth: AuthMode
     Fecha_Factura: fecha,
   };
 
-  const resultado = evaluarAutoAprobacion(facturaParaEvaluar, facturasObjs);
+  const resultado = evaluarAutoAprobacion(facturaParaEvaluar, facturas);
   const estadoInicial = resultado.aprobar ? "Aprobada" : "Pendiente";
   const observacionFinal = resultado.aprobar
     ? `${concepto.trim() ? `${concepto.trim()} · ` : ""}[AUTO] ${resultado.motivo}`
@@ -149,27 +151,26 @@ export async function crearFacturaMicaja(body: FacturaCreateBody, auth: AuthMode
   const sectorFinal =
     normalizeSector(sector || sessionSector) ?? (sector || sessionSector || "Bogota");
 
-  const fila = buildMicajaFacturasLegacyRowAS({
-    id,
+  await insertFactura({
+    idFactura: id,
     numFactura,
     fecha,
-    valor: String(Math.round(valorNum)),
+    valor: Math.round(valorNum),
     responsable,
     servicioDeclarado,
     tipoFactura,
     nit,
-    razonSocial: proveedor,
+    proveedor,
     aNombreBia,
-    concepto,
+    concepto: observacionFinal,
+    observacion: observacionFinal,
     imagenUrl,
+    driveFileId: String(body.driveFileId || "").trim() || undefined,
     ciudad,
     sector: sectorFinal,
     tipoOperacion,
-    estadoLegalizadoVerificado: estadoInicial,
-    observacion: observacionFinal,
+    estado: estadoInicial,
   });
-
-  await appendFacturaRowLegacyAS(fila);
 
   return { ok: true, id, estadoInicial };
 }

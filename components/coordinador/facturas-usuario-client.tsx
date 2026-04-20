@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FacturaEditDialog } from "@/components/coordinador/factura-edit-dialog";
 import { FacturaImagenModal } from "@/components/factura-imagen-modal";
@@ -33,6 +35,8 @@ export function FacturasUsuarioClient() {
   const [editar, setEditar] = useState<FacturaItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [imagenModal, setImagenModal] = useState<string | null>(null);
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
 
   const loadFacturas = useCallback(async () => {
     if (!responsable) {
@@ -42,7 +46,10 @@ export function FacturasUsuarioClient() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/facturas?responsable=${encodeURIComponent(responsable)}`);
+      const q = new URLSearchParams({ responsable });
+      if (desde) q.set("desde", desde);
+      if (hasta) q.set("hasta", hasta);
+      const res = await fetch(`/api/facturas?${q}`);
       const json = await res.json().catch(() => ({ data: [] }));
       setFacturas(Array.isArray(json.data) ? json.data : []);
     } catch {
@@ -50,11 +57,22 @@ export function FacturasUsuarioClient() {
     } finally {
       setLoading(false);
     }
-  }, [responsable]);
+  }, [responsable, desde, hasta]);
 
   useEffect(() => {
     void loadFacturas();
   }, [loadFacturas]);
+
+  const facturasOrdenadas = useMemo(() => {
+    const key = (f: FacturaItem) => {
+      const fc = String(getCellCaseInsensitive(f, "FechaCreacion", "Fecha_ISO") || "");
+      const tFc = fc ? new Date(fc).getTime() : NaN;
+      if (Number.isFinite(tFc)) return tFc;
+      const fd = String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || "");
+      return new Date(fd).getTime() || 0;
+    };
+    return [...facturas].sort((a, b) => key(b) - key(a));
+  }, [facturas]);
 
   const bannerGuardado = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -94,6 +112,39 @@ export function FacturasUsuarioClient() {
           ) : null}
         </CardHeader>
         <CardContent>
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div className="flex flex-col">
+              <Label className="mb-1 text-xs text-bia-gray">Desde</Label>
+              <Input
+                type="date"
+                value={desde}
+                onChange={(e) => setDesde(e.target.value)}
+                className="bg-bia-blue border-bia-gray/40 [color-scheme:dark]"
+              />
+            </div>
+            <div className="flex flex-col">
+              <Label className="mb-1 text-xs text-bia-gray">Hasta</Label>
+              <Input
+                type="date"
+                value={hasta}
+                onChange={(e) => setHasta(e.target.value)}
+                className="bg-bia-blue border-bia-gray/40 [color-scheme:dark]"
+              />
+            </div>
+            {(desde || hasta) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setDesde(""); setHasta(""); }}
+                className="border-white/20 text-gray-300"
+              >
+                Limpiar
+              </Button>
+            )}
+            <div className="ml-auto text-xs text-bia-gray">
+              {loading ? "Cargando..." : `${facturasOrdenadas.length} factura${facturasOrdenadas.length === 1 ? "" : "s"}`}
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -121,8 +172,8 @@ export function FacturasUsuarioClient() {
                       </TableCell>
                     </TableRow>
                   ))
-                ) : facturas.length ? (
-                  facturas.map((f, i) => {
+                ) : facturasOrdenadas.length ? (
+                  facturasOrdenadas.map((f, i) => {
                     const estado =
                       getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente";
                     const estadoLower = estado.toLowerCase();

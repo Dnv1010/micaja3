@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Mail } from "lucide-react";
 import NuevaAgrupacionModal from "@/components/gastos/NuevaAgrupacionModal";
 
 interface GrupoRow {
@@ -42,6 +46,37 @@ export default function GastosAgrupacionesTab({ rol }: { rol: string; sector: st
   const [gastos, setGastos] = useState<GastoBase[]>([]);
   const [loading, setLoading] = useState(true);
   const [openNew, setOpenNew] = useState(false);
+  const [emailGrupo, setEmailGrupo] = useState<GrupoRow | null>(null);
+  const [emailDestino, setEmailDestino] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [emailEnviando, setEmailEnviando] = useState(false);
+
+  async function enviarEmail() {
+    if (!emailGrupo) return;
+    const destinos = emailDestino.split(/[,;]/).map((e) => e.trim()).filter(Boolean);
+    if (!destinos.length) {
+      setEmailError("Ingresa al menos un email");
+      return;
+    }
+    setEmailError("");
+    setEmailEnviando(true);
+    try {
+      const res = await fetch(`/api/gastos-grupos/${encodeURIComponent(emailGrupo.ID_Grupo)}/enviar-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: destinos }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setEmailError(json.error || "Error enviando email");
+        return;
+      }
+      setEmailGrupo(null);
+      setEmailDestino("");
+    } finally {
+      setEmailEnviando(false);
+    }
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -129,9 +164,20 @@ export default function GastosAgrupacionesTab({ rol }: { rol: string; sector: st
                   <td className="px-3 py-2 text-right">
                     <div className="inline-flex items-center gap-2">
                       {g.PDF_URL ? (
-                        <a href={g.PDF_URL} target="_blank" rel="noreferrer" className="rounded-md border border-cyan-500/30 px-2 py-1 text-xs text-cyan-300">
-                          Ver PDF
-                        </a>
+                        <>
+                          <a href={g.PDF_URL} target="_blank" rel="noreferrer" className="rounded-md border border-cyan-500/30 px-2 py-1 text-xs text-cyan-300">
+                            Ver PDF
+                          </a>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setEmailGrupo(g); setEmailDestino(""); setEmailError(""); }}
+                            className="border-emerald-500/30 text-emerald-300 gap-1"
+                          >
+                            <Mail className="h-3 w-3" />
+                            Enviar email
+                          </Button>
+                        </>
                       ) : null}
                       {rol === "admin" || String(g.Estado || "").toLowerCase() === "borrador" ? (
                         <Button size="sm" variant="outline" onClick={() => void eliminar(g)} className="border-red-500/30 text-red-400">
@@ -156,6 +202,46 @@ export default function GastosAgrupacionesTab({ rol }: { rol: string; sector: st
         gastos={disponible}
         onCreated={() => void cargar()}
       />
+
+      <Dialog open={!!emailGrupo} onOpenChange={(v) => { if (!v) { setEmailGrupo(null); setEmailDestino(""); setEmailError(""); } }}>
+        <DialogContent className="border-white/10 bg-[#0f1729] text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar PDF por email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-400">
+              Agrupación <span className="font-semibold text-cyan-300">{emailGrupo?.ID_Grupo}</span>
+            </p>
+            <div>
+              <Label className="text-xs">Destinatario(s)</Label>
+              <Input
+                type="email"
+                value={emailDestino}
+                onChange={(e) => setEmailDestino(e.target.value)}
+                placeholder="correo@empresa.com"
+                className="mt-1 bg-white/5 text-sm"
+                autoFocus
+              />
+              <p className="mt-1 text-xs text-gray-500">Separa varios emails con coma o punto y coma.</p>
+            </div>
+            {emailError && (
+              <div className="rounded bg-red-500/20 border border-red-500/50 p-2 text-xs text-red-300">
+                {emailError}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setEmailGrupo(null)} className="border-white/20 text-gray-300">Cancelar</Button>
+            <Button
+              onClick={() => void enviarEmail()}
+              disabled={emailEnviando || !emailDestino.trim()}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {emailEnviando ? "Enviando..." : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

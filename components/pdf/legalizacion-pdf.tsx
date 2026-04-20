@@ -1,6 +1,6 @@
 "use client";
 
-import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Image, Page, Polygon, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { normalizeFirmaDataUrlForPdf } from "@/lib/drive-image-url";
 
 Font.register({
@@ -21,6 +21,11 @@ Font.register({
     {
       src: "https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold-webfont.ttf",
       fontWeight: 700,
+    },
+    {
+      src: "https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-italic-webfont.ttf",
+      fontWeight: 400,
+      fontStyle: "italic",
     },
   ],
 });
@@ -102,7 +107,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
     marginBottom: 14,
     paddingBottom: 8,
     borderBottomWidth: 0.5,
@@ -114,10 +119,6 @@ const styles = StyleSheet.create({
     color: "#001035",
     fontFamily: "Roboto",
     letterSpacing: 0.5,
-  },
-  logoRayo: {
-    width: 16,
-    height: 26,
   },
   infoGrid: { flexDirection: "row", marginBottom: 14, gap: 20 },
   infoCol: { flex: 1 },
@@ -169,9 +170,10 @@ export function LegalizacionPdf({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.logoContainer}>
+          <Svg width={18} height={24} viewBox="0 0 14 18">
+            <Polygon points="8,0 0,10 5,10 3,18 14,7 8,7 10,0" fill="#08DDBC" />
+          </Svg>
           <Text style={styles.logoTexto}>Bia</Text>
-          {/* eslint-disable-next-line jsx-a11y/alt-text -- Image de @react-pdf/renderer (PDF, no HTML) */}
-          <Image style={styles.logoRayo} src={RAYO_LOGO_SRC} />
         </View>
         <Text style={styles.title}>LEGALIZACION DE CAJA MENOR GASTOS</Text>
 
@@ -287,7 +289,8 @@ export function LegalizacionPdf({
           <Text style={{ fontSize: 9, color: "#999" }}>Sin facturas en este reporte.</Text>
         ) : (
           facturas.map((f, i) => {
-            const imgSrc = f.imagenUrl?.startsWith("data:") ? f.imagenUrl : null;
+            const raw = f.imagenUrl?.trim() || "";
+            const imgSrc = raw.startsWith("data:") || raw.startsWith("http://") || raw.startsWith("https://") ? raw : null;
             return (
               <View key={f.id || `a-${i}`} style={styles.adjBlockWrap} wrap={false}>
                 <Text style={styles.adjHeading}>

@@ -27,6 +27,7 @@ import {
   parseFacturasPdfFromReporteCell,
 } from "@/lib/legalizacion-factura-pdf-map";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
+import { AuditorFacturasPanel, type PanelFactura } from "@/components/shared/auditor-facturas-panel";
 
 type ReporteRow = Record<string, string>;
 type FacturaRow = Record<string, unknown>;
@@ -533,6 +534,26 @@ export function AdminReportesClient() {
                   ) : (
                     <p className="text-sm leading-relaxed text-[#DEDEF9]">{resumenIA}</p>
                   )}
+                </div>
+              )}
+
+              {facturasReporte.length > 0 && (
+                <div className="my-4">
+                  <AuditorFacturasPanel
+                    facturas={facturasReporte.map<PanelFactura>((f) => ({
+                      idFactura: String(f.id || ""),
+                      numFactura: String((f as unknown as { numFactura?: string }).numFactura || ""),
+                      nit: String((f as unknown as { nit?: string }).nit || ""),
+                      proveedor: String(f.proveedor || ""),
+                      concepto: String(f.concepto || ""),
+                      tipoServicio: String((f as unknown as { tipoServicio?: string }).tipoServicio || ""),
+                      responsable: String(activo.Coordinador || ""),
+                      fecha: String(f.fecha || ""),
+                      valor: Number(f.valor || 0),
+                    }))}
+                    coordinador={String(activo.Coordinador || "")}
+                    sector={String(activo.Sector || "")}
+                  />
                 </div>
               )}
 

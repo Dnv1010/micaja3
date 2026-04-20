@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { assertSheetsConfigured, getSheetsClient, SHEET_NAMES, SPREADSHEET_IDS } from "@/lib/google-sheets";
 import { applyFacturaEstadoById } from "@/lib/factura-estado-server";
-import { quoteSheetTitleForRange, rowsToObjects, sheetValuesToRecords } from "@/lib/sheets-helpers";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 import { formatCOP, parseCOPString } from "@/lib/format";
@@ -11,16 +9,13 @@ import { appPublicBaseUrl, escHtml, notificarAdmins } from "@/lib/notificaciones
 import { generarResumenLegalizacionGemini } from "@/lib/gemini-resumen-legalizacion";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import { facturaRowToFacturaPdfForLegalizacion } from "@/lib/legalizacion-factura-pdf-map";
-import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
+import { loadFacturas } from "@/lib/facturas-supabase";
+import {
+  insertLegalizacion,
+  legalizacionDbToApi,
+  loadLegalizaciones,
+} from "@/lib/legalizaciones-supabase";
 import type { FacturaRow } from "@/types/models";
-
-const RANGE = `${quoteSheetTitleForRange(SHEET_NAMES.LEGALIZACIONES)}!A:N`;
-
-function spreadsheetId(): string {
-  const id = SPREADSHEET_IDS.MICAJA.trim();
-  if (!id) throw new Error("MICAJA_SPREADSHEET_ID no configurada");
-  return id;
-}
 
 function facturaIdCell(f: FacturaRow): string {
   return getCellCaseInsensitive(f, "ID_Factura", "ID");
@@ -32,16 +27,12 @@ function facturaEstadoCell(f: FacturaRow): string {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    assertSheetsConfigured();
-    const res = await getSheetsClient().spreadsheets.values.get({
-      spreadsheetId: spreadsheetId(),
-      range: RANGE,
-    });
-    const rows = res.data.values ?? [];
-    let data = sheetValuesToRecords(rows);
+    const rows = await loadLegalizaciones();
+    let data = rows.map(legalizacionDbToApi);
 
     const rol = String(session.user.rol || "").toLowerCase();
     const coordinador = String(session.user.responsable || session.user.name || "").trim();
@@ -52,14 +43,16 @@ export async function GET() {
 
     data.reverse();
     return NextResponse.json({ data });
-  } catch {
+  } catch (e) {
+    console.error("legalizaciones GET:", e);
     return NextResponse.json({ data: [] });
   }
 }
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const rol = String(session.user.rol || "user").toLowerCase();
   if (rol !== "coordinador" && rol !== "admin") {
@@ -83,7 +76,9 @@ export async function POST(req: NextRequest) {
     const firmaCoordinador = String(body.firmaCoordinador || "").trim().slice(0, 45000);
     const pdfUrl = String(body.pdfUrl || "").trim();
     const totalStr = String(
-      typeof body.total === "number" && Number.isFinite(body.total) ? Math.round(body.total) : body.total || "0"
+      typeof body.total === "number" && Number.isFinite(body.total)
+        ? Math.round(body.total)
+        : body.total || "0"
     );
 
     if (!periodoDe || !periodoHasta || !facturasIds.length || !firmaCoordinador) {
@@ -99,8 +94,7 @@ export async function POST(req: NextRequest) {
     const zonaSet = rol === "coordinador" ? await responsablesEnZonaSheetSet(sector) : null;
     const mine = coordinadorNombre.toLowerCase();
 
-    const factRows = await loadMicajaFacturasSheetRows();
-    const facturas = rowsToObjects<FacturaRow>(factRows);
+    const facturas = await loadFacturas();
     const byId = new Map(facturas.map((f) => [facturaIdCell(f), f]));
 
     for (const fid of facturasIds) {
@@ -110,15 +104,24 @@ export async function POST(req: NextRequest) {
       }
       const est = facturaEstadoCell(f).toLowerCase();
       if (est === "completada") {
-        return NextResponse.json({ error: `La factura ${fid} ya está completada` }, { status: 400 });
+        return NextResponse.json(
+          { error: `La factura ${fid} ya está completada` },
+          { status: 400 }
+        );
       }
       if (est !== "aprobada") {
-        return NextResponse.json({ error: `La factura ${fid} no está aprobada` }, { status: 400 });
+        return NextResponse.json(
+          { error: `La factura ${fid} no está aprobada` },
+          { status: 400 }
+        );
       }
       if (zonaSet) {
         const resp = getCellCaseInsensitive(f, "Responsable").toLowerCase();
         if (!zonaSet.has(resp) && resp !== mine) {
-          return NextResponse.json({ error: `Factura fuera de zona: ${fid}` }, { status: 403 });
+          return NextResponse.json(
+            { error: `Factura fuera de zona: ${fid}` },
+            { status: 403 }
+          );
         }
       }
     }
@@ -161,10 +164,7 @@ export async function POST(req: NextRequest) {
       console.error("legalizaciones POST resumen IA:", e);
     }
 
-    // Marcar facturas como Completada ANTES de insertar el reporte, para evitar
-    // reportes huérfanos si falla alguna actualización. Si falla alguna, se revierten
-    // las ya aplicadas y se aborta sin crear el reporte.
-    assertSheetsConfigured();
+    // Marcar facturas Completada antes del insert; si falla alguna, revertir y abortar.
     const updateResults = await Promise.all(
       facturasIds.map(async (fid) => {
         try {
@@ -192,29 +192,19 @@ export async function POST(req: NextRequest) {
     }
 
     const id = `REP-${Date.now()}`;
-    const fila = [
-      id,
-      new Date().toLocaleDateString("es-CO"),
-      coordinadorNombre,
-      sector,
-      periodoDe,
-      periodoHasta,
-      totalStr,
-      "Pendiente Admin",
-      facturasJson,
-      firmaCoordinador,
-      "",
-      pdfUrl,
-      new Date().toISOString(),
-      resumenIA,
-    ];
 
     try {
-      await getSheetsClient().spreadsheets.values.append({
-        spreadsheetId: spreadsheetId(),
-        range: RANGE,
-        valueInputOption: "RAW",
-        requestBody: { values: [fila] },
+      await insertLegalizacion({
+        idReporte: id,
+        coordinador: coordinadorNombre,
+        sector,
+        periodoDe,
+        periodoHasta,
+        total: totalNum,
+        facturasIds: facturasJson,
+        firmaCoordinador,
+        pdfUrl,
+        resumenIA,
       });
     } catch (e) {
       await Promise.allSettled(
@@ -245,6 +235,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, id, pdfUrl });
   } catch (e) {
     console.error("legalizaciones POST:", e);
-    return NextResponse.json({ ok: false, error: "No se pudo crear el reporte" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "No se pudo crear el reporte" },
+      { status: 500 }
+    );
   }
 }

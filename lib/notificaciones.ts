@@ -26,13 +26,15 @@ export function appPublicBaseUrl(): string {
 }
 
 export type TelegramParseMode = "HTML" | "Markdown";
+export type TelegramInlineButton = { text: string; callback_data: string };
+export type TelegramInlineKeyboard = TelegramInlineButton[][];
 
 export async function enviarTelegram(
   chatId: string,
   mensaje: string,
-  opts?: { parse_mode?: TelegramParseMode }
-): Promise<boolean> {
-  if (!TELEGRAM_TOKEN || !chatId) return false;
+  opts?: { parse_mode?: TelegramParseMode; reply_markup?: { inline_keyboard: TelegramInlineKeyboard } }
+): Promise<{ ok: boolean; messageId?: number }> {
+  if (!TELEGRAM_TOKEN || !chatId) return { ok: false };
   const parse_mode = opts?.parse_mode ?? "HTML";
   try {
     const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
@@ -43,7 +45,53 @@ export async function enviarTelegram(
         text: mensaje,
         parse_mode,
         disable_web_page_preview: true,
+        ...(opts?.reply_markup ? { reply_markup: opts.reply_markup } : {}),
       }),
+    });
+    if (!res.ok) return { ok: false };
+    const j = (await res.json().catch(() => ({}))) as { result?: { message_id?: number } };
+    return { ok: true, messageId: j.result?.message_id };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function editarMensajeTelegram(
+  chatId: string,
+  messageId: number,
+  mensaje: string,
+  opts?: { parse_mode?: TelegramParseMode; reply_markup?: { inline_keyboard: TelegramInlineKeyboard } }
+): Promise<boolean> {
+  if (!TELEGRAM_TOKEN || !chatId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/editMessageText`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        text: mensaje,
+        parse_mode: opts?.parse_mode ?? "HTML",
+        disable_web_page_preview: true,
+        ...(opts?.reply_markup ? { reply_markup: opts.reply_markup } : {}),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function responderCallbackTelegram(
+  callbackQueryId: string,
+  text?: string
+): Promise<boolean> {
+  if (!TELEGRAM_TOKEN) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: callbackQueryId, ...(text ? { text } : {}) }),
     });
     return res.ok;
   } catch {

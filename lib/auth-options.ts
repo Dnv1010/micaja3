@@ -2,7 +2,6 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { isBiaAppEmail, normalizeEmailForAuth } from "@/lib/email-normalize";
 import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
-import { findFallbackUser } from "@/lib/users-fallback";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,42 +18,20 @@ export const authOptions: NextAuthOptions = {
         if (!emailNorm || !pin) return null;
         if (!isBiaAppEmail(emailNorm)) return null;
 
-        try {
-          const usuarios = await getUsuariosFromSheet();
-          const user = usuarios.find((u) => u.email === emailNorm);
-          if (user) {
-            if (!user.userActive) return null;
-            if (user.pin !== pin) return null;
-            return {
-              id: emailNorm,
-              email: emailNorm,
-              name: user.responsable,
-              rol: user.rol,
-              sector: user.sector,
-              area: user.area,
-              cargo: user.cargo,
-              responsable: user.responsable,
-              cedula: user.cedula ?? "",
-              telefono: user.telefono ?? "",
-            };
-          }
-        } catch {
-          /* fallback */
-        }
-
-        const fb = findFallbackUser(emailNorm);
-        if (!fb || !fb.userActive || fb.pin !== pin) return null;
+        const usuarios = await getUsuariosFromSheet();
+        const user = usuarios.find((u) => u.email === emailNorm);
+        if (!user || !user.userActive || user.pin !== pin) return null;
         return {
           id: emailNorm,
           email: emailNorm,
-          name: fb.responsable,
-          rol: fb.rol,
-          sector: fb.sector,
-          area: fb.area,
-          cargo: fb.cargo,
-          responsable: fb.responsable,
-          cedula: fb.cedula ?? "",
-          telefono: fb.telefono ?? "",
+          name: user.responsable,
+          rol: user.rol,
+          sector: user.sector,
+          area: user.area,
+          cargo: user.cargo,
+          responsable: user.responsable,
+          cedula: user.cedula ?? "",
+          telefono: user.telefono ?? "",
         };
       },
     }),

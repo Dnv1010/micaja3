@@ -110,6 +110,7 @@ export function AdminUsuariosClient() {
   const [balances, setBalances] = useState<BalanceApi[]>([]);
   const [usuariosRecords, setUsuariosRecords] = useState<Record<string, unknown>[]>([]);
   const [activeFromSheet, setActiveFromSheet] = useState<Map<string, boolean>>(new Map());
+  const [ultimaActividad, setUltimaActividad] = useState<Map<string, number>>(new Map());
   const [filtroZona, setFiltroZona] = useState("");
   const [filtroRol, setFiltroRol] = useState("");
 
@@ -125,12 +126,14 @@ export function AdminUsuariosClient() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [bRes, uRes] = await Promise.all([
+      const [bRes, uRes, fRes] = await Promise.all([
         fetch("/api/balance"),
         fetch("/api/usuarios?todos=true"),
+        fetch("/api/facturas"),
       ]);
       const bJson = await bRes.json().catch(() => ({ data: [] }));
       const uJson = await uRes.json().catch(() => ({ data: [] }));
+      const fJson = await fRes.json().catch(() => ({ data: [] }));
       setBalances(Array.isArray(bJson.data) ? bJson.data : []);
       const rows = Array.isArray(uJson.data) ? uJson.data : [];
       setUsuariosRecords(rows as Record<string, unknown>[]);
@@ -142,10 +145,24 @@ export function AdminUsuariosClient() {
         m.set(em, isUserActiveInSheet(usuarioSheetUserActiveRaw(rec)));
       }
       setActiveFromSheet(m);
+      const act = new Map<string, number>();
+      const facs = Array.isArray(fJson.data) ? (fJson.data as Record<string, unknown>[]) : [];
+      for (const f of facs) {
+        const resp = String(getCellCaseInsensitive(f, "Responsable") || "").trim().toLowerCase();
+        if (!resp) continue;
+        const fc = String(getCellCaseInsensitive(f, "FechaCreacion", "Fecha_ISO") || "");
+        const fFact = String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || "");
+        const t = (fc && new Date(fc).getTime()) || (fFact && new Date(fFact).getTime()) || 0;
+        if (!Number.isFinite(t) || t <= 0) continue;
+        const prev = act.get(resp) ?? 0;
+        if (t > prev) act.set(resp, t);
+      }
+      setUltimaActividad(act);
     } catch {
       setBalances([]);
       setUsuariosRecords([]);
       setActiveFromSheet(new Map());
+      setUltimaActividad(new Map());
     } finally {
       setLoading(false);
     }
@@ -293,12 +310,19 @@ export function AdminUsuariosClient() {
   }, [usuariosRecords]);
 
   const filtrados = useMemo(() => {
-    return filasDisplay.filter((row) => {
+    const rows = filasDisplay.filter((row) => {
       if (filtroZona && row.sector !== filtroZona) return false;
       if (filtroRol && row.rol !== filtroRol) return false;
       return true;
     });
-  }, [filasDisplay, filtroZona, filtroRol]);
+    const key = (r: { responsable: string }) =>
+      ultimaActividad.get(r.responsable.trim().toLowerCase()) ?? 0;
+    return [...rows].sort((a, b) => {
+      const d = key(b) - key(a);
+      if (d !== 0) return d;
+      return a.responsable.localeCompare(b.responsable, "es");
+    });
+  }, [filasDisplay, filtroZona, filtroRol, ultimaActividad]);
 
   const resumen = useMemo(() => {
     let alDia = 0;

@@ -73,8 +73,17 @@ export function formatDateDDMMYYYY(isoOrSheet: string): string {
 export function parseSheetDate(s: string): Date | null {
   if (!s?.trim()) return null;
   const t = s.trim();
-  const iso = new Date(t);
-  if (!Number.isNaN(iso.getTime()) && t.includes("-")) return iso;
+  // YYYY-MM-DD → interpretar como fecha LOCAL (no UTC) para evitar desfase de zona horaria.
+  const isoDateOnly = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateOnly) {
+    const d = new Date(+isoDateOnly[1], +isoDateOnly[2] - 1, +isoDateOnly[3]);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  // Timestamp completo con hora/TZ → usar Date normal
+  if (t.includes("-") && (t.includes("T") || t.includes(":"))) {
+    const iso = new Date(t);
+    if (!Number.isNaN(iso.getTime())) return iso;
+  }
   const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (m) {
     let y = +m[3];

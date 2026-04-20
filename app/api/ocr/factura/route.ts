@@ -8,7 +8,7 @@ async function runGemini(imageBase64: string, mimeType: string) {
   if (!apiKey) throw new Error("Sin GEMINI_API_KEY");
   const prompt = `Extrae los datos de esta factura colombiana y responde SOLO con JSON valido sin markdown ni backticks:
 {"fecha_factura":"DD/MM/YYYY o null","razon_social":"nombre proveedor o null","nit_factura":"NIT formato 000.000.000-0 o null","num_factura":"numero factura o null","descripcion":"concepto o null","monto_factura":numero o null,"nombre_bia":true o false,"ciudad":"ciudad o null","tipo_factura":"tipo o null","servicio_declarado":"servicio o null"}`;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

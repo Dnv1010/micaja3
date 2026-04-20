@@ -2,7 +2,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { formatCOP } from "@/lib/format";
 import { parseFacturaText, parseGeminiJson } from "@/lib/factura-parser";
-import { appPublicBaseUrl, enviarTelegram, escHtml } from "@/lib/notificaciones";
+import {
+  appPublicBaseUrl,
+  enviarTelegram,
+  editarMensajeTelegram,
+  responderCallbackTelegram,
+  escHtml,
+} from "@/lib/notificaciones";
 import {
   handleComandoEquipo,
   handleComandoSaldo,
@@ -11,6 +17,8 @@ import {
 import { iniciarFlujGastos, procesarMensajeGastos, getSesionGastos, procesarFotoGasto, deleteSesionGastos } from "@/lib/telegram-gastos";
 import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { patchUsuarioTelegramChatId } from "@/lib/usuarios-micaja-crud";
+import { inferirCategoria, TOPES_COP } from "@/lib/auditor-facturas";
+import { getSupabase } from "@/lib/supabase";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 
@@ -35,6 +43,142 @@ function mimeFromDownload(header: string | null, filePath: string): string {
   return mimeFromTelegramPath(filePath);
 }
 
+// ── Sesión de factura pendiente (preview antes de guardar) ──
+const CONFIRM_STATE = "confirmar_factura";
+
+type PendingFactura = {
+  fecha: string;
+  proveedor: string;
+  nit: string;
+  numFactura: string;
+  concepto: string;
+  valor: number;
+  tipoFactura: string;
+  servicioDeclarado: string;
+  tipoOperacion: string;
+  aNombreBia: boolean;
+  ciudad: string;
+  sector: string;
+  responsable: string;
+  area: string;
+  imagenUrl: string;
+  driveFileId: string;
+  categoria: "desayuno" | "almuerzo" | "cena" | "hospedaje" | "otro";
+  tope: number | null;
+  excedente: number;
+  previewMessageId?: number;
+};
+
+async function guardarPendingFactura(chatId: string, responsable: string, data: PendingFactura) {
+  const sb = getSupabase();
+  await sb.from("sesiones_bot").upsert(
+    {
+      chat_id: chatId,
+      responsable,
+      estado: CONFIRM_STATE,
+      datos_temp: data,
+      ultimo_mensaje: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "chat_id" }
+  );
+}
+
+async function leerPendingFactura(chatId: string): Promise<PendingFactura | null> {
+  const { data, error } = await getSupabase()
+    .from("sesiones_bot")
+    .select("estado, datos_temp")
+    .eq("chat_id", chatId)
+    .limit(1);
+  if (error || !data?.length) return null;
+  if (data[0].estado !== CONFIRM_STATE) return null;
+  return (data[0].datos_temp as PendingFactura) ?? null;
+}
+
+async function borrarPendingFactura(chatId: string) {
+  await getSupabase().from("sesiones_bot").delete().eq("chat_id", chatId);
+}
+
+function botonesFactura() {
+  return {
+    inline_keyboard: [[
+      { text: "✅ Confirmar", callback_data: "fact:ok" },
+      { text: "✏️ Editar", callback_data: "fact:edit" },
+      { text: "❌ Cancelar", callback_data: "fact:cancel" },
+    ]],
+  };
+}
+
+function mensajePreview(p: PendingFactura): string {
+  const labelCat: Record<PendingFactura["categoria"], string> = {
+    desayuno: "Desayuno",
+    almuerzo: "Almuerzo",
+    cena: "Cena",
+    hospedaje: "Hospedaje",
+    otro: "Otro gasto",
+  };
+  const lines: string[] = [];
+  lines.push(`📸 <b>Recibido.</b> Veo que es <b>${labelCat[p.categoria]}</b> por ${escHtml(formatCOP(p.valor))}.`);
+  if (p.tope != null) {
+    if (p.excedente > 0) {
+      lines.push(`⚠️ Te pasaste por <b>${escHtml(formatCOP(p.excedente))}</b> del tope (${escHtml(formatCOP(p.tope))}).`);
+    } else {
+      lines.push(`✅ Dentro del tope (${escHtml(formatCOP(p.tope))}).`);
+    }
+  }
+  lines.push("");
+  lines.push(`🏪 ${escHtml(p.proveedor || "Proveedor por confirmar")}`);
+  if (p.nit) lines.push(`🔢 NIT: ${escHtml(p.nit)}`);
+  if (p.fecha) lines.push(`📅 ${escHtml(p.fecha)}`);
+  lines.push("");
+  lines.push("¿Quieres que lo registre así?");
+  return lines.join("\n");
+}
+
+async function confirmarYGuardarFactura(chatId: string, base: string, internalKey: string): Promise<void> {
+  const p = await leerPendingFactura(chatId);
+  if (!p) {
+    await enviarTelegram(chatId, "ℹ️ No hay factura pendiente.");
+    return;
+  }
+  const body = {
+    fecha: p.fecha,
+    proveedor: p.proveedor,
+    nit: p.nit,
+    numFactura: p.numFactura,
+    concepto: p.concepto,
+    valor: String(Math.max(0, Math.round(p.valor))),
+    tipoFactura: p.tipoFactura,
+    servicioDeclarado: p.servicioDeclarado,
+    tipoOperacion: p.tipoOperacion,
+    aNombreBia: p.aNombreBia,
+    ciudad: p.ciudad,
+    sector: p.sector,
+    responsable: p.responsable,
+    area: p.area,
+    imagenUrl: p.imagenUrl,
+    driveFileId: p.driveFileId,
+  };
+  const saveRes = await fetch(`${base}/api/facturas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
+    body: JSON.stringify(body),
+  });
+  const saveJson = (await saveRes.json().catch(() => ({}))) as { ok?: boolean; error?: string; duplicada?: boolean };
+  await borrarPendingFactura(chatId);
+  if (!saveRes.ok || !saveJson.ok) {
+    await enviarTelegram(
+      chatId,
+      `❌ No se pudo guardar: ${escHtml(saveJson.error || "error")}${saveJson.duplicada ? " (posible duplicado)" : ""}`
+    );
+    return;
+  }
+  await enviarTelegram(
+    chatId,
+    `✅ <b>Factura registrada.</b>\n\n🏪 ${escHtml(p.proveedor || "—")}\n💰 ${escHtml(formatCOP(p.valor))}`
+  );
+}
+
 export async function POST(req: NextRequest) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
   if (secret && req.headers.get("x-telegram-bot-api-secret-token") !== secret) {
@@ -52,10 +196,47 @@ export async function POST(req: NextRequest) {
       photo?: { file_id: string }[];
       document?: { file_id?: string; mime_type?: string };
     };
+    callback_query?: {
+      id: string;
+      from?: { id?: number };
+      message?: { chat?: { id?: number }; message_id?: number };
+      data?: string;
+    };
   };
   try {
     body = await req.json();
   } catch {
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Callback query (click en botones inline) ──
+  if (body.callback_query) {
+    const cq = body.callback_query;
+    const chatId = String(cq.message?.chat?.id ?? cq.from?.id ?? "");
+    const messageId = cq.message?.message_id;
+    const dataCq = String(cq.data || "");
+    await responderCallbackTelegram(cq.id);
+    const internalKey = process.env.INTERNAL_API_KEY?.trim() || "";
+    const base = serverBaseUrl();
+
+    if (dataCq === "fact:ok") {
+      if (messageId) await editarMensajeTelegram(chatId, messageId, "⏳ Registrando factura…");
+      await confirmarYGuardarFactura(chatId, base, internalKey);
+    } else if (dataCq === "fact:cancel") {
+      await borrarPendingFactura(chatId);
+      if (messageId) {
+        await editarMensajeTelegram(chatId, messageId, "❌ Factura cancelada. Si fue un error, vuelve a enviar la foto.");
+      } else {
+        await enviarTelegram(chatId, "❌ Factura cancelada.");
+      }
+    } else if (dataCq === "fact:edit") {
+      await enviarTelegram(
+        chatId,
+        "✏️ <b>Editar factura</b>\n\nPor favor edítala desde la app:\n" +
+          `${escHtml(base)}/facturas\n\n` +
+          "La factura se guardará como está si le das <b>✅ Confirmar</b>. Para no guardarla, usa <b>❌ Cancelar</b>."
+      );
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -217,7 +398,7 @@ export async function POST(req: NextRequest) {
       if (geminiKey) {
         try {
           const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -321,63 +502,46 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // >>> Flujo normal caja menor <
+      // >>> Flujo normal caja menor: mostrar preview + botones (no guardar todavía) <
       const monto = datos.monto_factura ?? 0;
+      const valorRedondo = Math.max(0, Math.round(monto));
       const ciudadDefault = usuario.sector === "Bogota" ? "Bogot\u00e1" : "Barranquilla";
       const ciudad = datos.ciudad?.trim() || ciudadDefault;
 
-      const facturaBody = {
+      const categoria = inferirCategoria({
+        idFactura: "",
+        valor: valorRedondo,
+        concepto: datos.descripcion ?? "",
+        tipoServicio: datos.servicio_declarado ?? "",
+        proveedor: datos.razon_social ?? "",
+      });
+      const tope = TOPES_COP[categoria];
+      const excedente = tope != null && valorRedondo > tope ? valorRedondo - tope : 0;
+
+      const pending: PendingFactura = {
         fecha: datos.fecha_factura || new Date().toLocaleDateString("es-CO"),
         proveedor: datos.razon_social || "Por confirmar",
         nit: datos.nit_factura || "",
         numFactura: datos.num_factura || "",
         concepto: datos.descripcion || "",
-        valor: String(Math.max(0, Math.round(monto))),
+        valor: valorRedondo,
         tipoFactura: datos.tipo_factura || "POS",
         servicioDeclarado: datos.servicio_declarado || "Otro",
         tipoOperacion: "OPS - Activaciones",
-        aNombreBia: datos.nombre_bia && !!datos.nit_factura,
+        aNombreBia: !!(datos.nombre_bia && datos.nit_factura),
         ciudad,
         sector: usuario.sector,
         responsable: usuario.responsable,
         area: usuario.area,
         imagenUrl,
         driveFileId,
+        categoria,
+        tope,
+        excedente,
       };
 
-      const saveRes = await fetch(`${base}/api/facturas`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-internal-key": internalKey,
-        },
-        body: JSON.stringify(facturaBody),
-      });
-      const saveJson = (await saveRes.json()) as { ok?: boolean; error?: string; duplicada?: boolean };
-
-      if (!saveRes.ok || !saveJson.ok) {
-        await enviarTelegram(
-          chatId,
-          `\u274c No se pudo guardar: ${escHtml(saveJson.error || "error")}${saveJson.duplicada ? " (posible duplicado)" : ""}`
-        );
-        return NextResponse.json({ ok: true });
-      }
-
-      const resumen = [
-        `\u2705 <b>Factura registrada</b>`,
-        ``,
-        `\ud83e\udd6b Proveedor: ${escHtml(datos.razon_social || "No detectado")}`,
-        `\ud83d\udd22 NIT: ${escHtml(datos.nit_factura || "No detectado")}`,
-        `\ud83e\uddfe N\u00b0 Factura: ${escHtml(datos.num_factura || "No detectado")}`,
-        `\ud83d\udcc5 Fecha: ${escHtml(datos.fecha_factura || "No detectada")}`,
-        `\ud83d\udcb0 Valor: ${escHtml(formatCOP(Math.max(0, Math.round(monto))))}`,
-        `\ud83c\udff7\ufe0f A nombre de BIA: ${datos.nombre_bia ? "\u2705 S\u00ed" : "\u274c No"}`,
-        ``,
-        `<i>Si algo est\u00e1 incorrecto, ed\u00edtala en la app.</i>`,
-        `${escHtml(serverBaseUrl())}/facturas`,
-      ].join("\n");
-
-      await enviarTelegram(chatId, resumen);
+      await guardarPendingFactura(chatId, usuario.responsable, pending);
+      await enviarTelegram(chatId, mensajePreview(pending), { reply_markup: botonesFactura() });
     } catch (e) {
       console.error("[telegram webhook]", e);
       await enviarTelegram(

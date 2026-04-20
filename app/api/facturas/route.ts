@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -6,9 +6,8 @@ import { authOptions } from "@/lib/auth-options";
 import { crearFacturaMicaja, type FacturaCreateBody } from "@/lib/facturas-create-micaja";
 import { verifyInternalApiKey } from "@/lib/internal-api";
 import { parseSheetDate } from "@/lib/format";
-import { loadMicajaFacturasSheetRows } from "@/lib/micaja-facturas-sheet";
+import { loadFacturas } from "@/lib/facturas-supabase";
 import { getCellCaseInsensitive } from "@/lib/sheet-cell";
-import { rowsToObjects } from "@/lib/sheets-helpers";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import type { FacturaRow } from "@/types/models";
@@ -33,7 +32,8 @@ function sortKeyFactura(f: FacturaRow): number {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
     const { searchParams } = new URL(req.url);
@@ -46,22 +46,23 @@ export async function GET(req: NextRequest) {
     const zonaSector = searchParams.get("zonaSector")?.trim() || "";
     const rol = String(session.user.rol || "").toLowerCase();
 
-    // Construir set de responsables de la zona (incluye activos e inactivos)
     let zonaSet: Set<string> | null = null;
     if (zonaSector) {
       if (rol === "admin") {
         zonaSet = await responsablesEnZonaSheetSet(zonaSector);
-      } else if (rol === "coordinador" && sectorsEquivalent(String(session.user.sector || ""), zonaSector)) {
+      } else if (
+        rol === "coordinador" &&
+        sectorsEquivalent(String(session.user.sector || ""), zonaSector)
+      ) {
         zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       } else if (rol === "user") {
-        // user ve solo sus propias facturas — se filtra por responsableQ abajo
+        // user solo ve sus propias facturas (filtro por responsableQ abajo)
       } else {
         return NextResponse.json({ data: [] });
       }
     }
 
-    const factRows = await loadMicajaFacturasSheetRows();
-    const facturas = rowsToObjects<FacturaRow>(factRows);
+    const facturas = await loadFacturas();
 
     const filtered = facturas.filter((f) => {
       const responsable = getCellCaseInsensitive(f, "Responsable");
@@ -69,11 +70,7 @@ export async function GET(req: NextRequest) {
       const fecha = facturaFechaCell(f);
       const fechaObj = parseSheetDate(fecha);
 
-      // Filtrar por responsable de la zona (activos + inactivos)
-      // Este filtro es el correcto: coincide con lo que muestra Sheets
-      // al filtrar por columna Responsable
       if (zonaSet && !zonaSet.has(responsable.toLowerCase())) return false;
-
       if (responsableQ && responsable.toLowerCase() !== responsableQ) return false;
       if (estadoQ && estado.toLowerCase() !== estadoQ) return false;
       if (desde && (!fechaObj || fechaObj < desde)) return false;
@@ -82,9 +79,9 @@ export async function GET(req: NextRequest) {
     });
 
     const sorted = [...filtered].sort((a, b) => sortKeyFactura(b) - sortKeyFactura(a));
-
     return NextResponse.json({ data: sorted });
-  } catch {
+  } catch (e) {
+    console.error("facturas GET:", e);
     return NextResponse.json({ data: [] });
   }
 }
@@ -114,7 +111,8 @@ export async function POST(req: NextRequest) {
   }
 
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user?.email)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const result = await crearFacturaMicaja(body, { kind: "session", session });
   if (!result.ok) {
