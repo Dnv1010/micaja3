@@ -73,7 +73,9 @@ export async function crearFacturaMicaja(
     ciudad,
     sector,
     nit,
-    valorRaw: String(body.valor || "0"),
+    // Bot (internal) tolera valor 0 porque OCR puede fallar y el usuario editará
+    // en la app. Flujo session (upload manual en UI) sigue exigiendo valor > 0.
+    valorRaw: auth.kind === "internal" && valorNum <= 0 ? "1" : String(body.valor || "0"),
     aNombreBia,
   };
   const vErr = validateFacturaNegocio(mutate);
