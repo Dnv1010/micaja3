@@ -332,7 +332,11 @@ export async function POST(req: NextRequest) {
 
     if (dataCq === "fact:ok") {
       if (messageId) await editarMensajeTelegram(chatId, messageId, "⏳ Registrando factura…");
-      await confirmarYGuardarFactura(chatId, base, internalKey);
+      // Fire-and-forget: evita que Vercel timeout congele el botón si loadFacturas es lento.
+      void confirmarYGuardarFactura(chatId, base, internalKey).catch((e) => {
+        console.error("[confirm bg]", e);
+      });
+      return NextResponse.json({ ok: true });
     } else if (dataCq === "fact:cancel") {
       await borrarPendingFactura(chatId);
       if (messageId) {
