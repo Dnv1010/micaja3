@@ -288,6 +288,20 @@ async function handleUpdate(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true });
       }
 
+      // Si el OCR extrajo datos parciales pero NO el valor, no intentar guardar (la validación backend rechaza).
+      if (!datos.monto_factura || datos.monto_factura <= 0) {
+        const appUrl = escHtml(`${serverBaseUrl()}/facturas/nueva`);
+        const partes: string[] = [];
+        if (datos.razon_social) partes.push(`\ud83e\udd6b Proveedor: ${escHtml(datos.razon_social)}`);
+        if (datos.nit_factura) partes.push(`\ud83d\udd22 NIT: ${escHtml(datos.nit_factura)}`);
+        if (datos.fecha_factura) partes.push(`\ud83d\udcc5 Fecha: ${escHtml(datos.fecha_factura)}`);
+        await enviarTelegram(
+          chatId,
+          `\u26a0\ufe0f Le\u00ed parte de la factura pero <b>no pude identificar el valor total</b>.\n\n${partes.join("\n")}\n\n\ud83d\udca1 Prueba con otra foto m\u00e1s n\u00edtida o s\u00fabela desde la app para completar los datos:\n${appUrl}`
+        );
+        return NextResponse.json({ ok: true });
+      }
+
 
       const ext =
         mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
