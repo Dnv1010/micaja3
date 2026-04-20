@@ -199,7 +199,7 @@ export async function procesarMensajeGastos(
     s.facturaActual.centroCostos = texto === "1" ? "Ops-Activacion" : "Ops-Retention";
     s.facturas.push({ ...s.facturaActual });
     s.facturaActual = undefined;
-    s.paso = "listo";
+    s.paso = "mas_facturas";
     const total = s.facturas.reduce(
       (acc: number, f: any) => acc + Number(String(f.valor).replace(/[^0-9]/g, "")),
       0

@@ -17,7 +17,7 @@ Campos a extraer (usa cualquier sinonimo/etiqueta que aparezca):
 - nit: NIT del VENDEDOR. Etiquetas posibles: NIT, NIT., N.I.T., Nit:, RUT, Identificacion. NUNCA 901588412 ni 901588413.
 - numero_factura: Numero de factura. Etiquetas: Factura, No., Numero, N°, Nº, Nro, FE, FV, FC, Consecutivo.
 - fecha: Fecha de emision. Etiquetas: Fecha, Fecha factura, Fecha emision, Fecha expedicion, Emitida. Formato DD/MM/YYYY.
-- valor: TOTAL A PAGAR en pesos enteros. Etiquetas posibles: Total, Total a pagar, Total factura, Total general, Total venta, Gran total, Valor total, Valor a pagar, Neto a pagar, Pago, Pago total, A pagar, Suma total. Si hay varios, elige el MAS GRANDE (nunca Subtotal, Base, IVA, Descuento, Cambio). Puntos y comas son miles: 7.200=7200; 1.234.567=1234567.
+- valor: TOTAL A PAGAR en pesos enteros. Etiquetas: Total, Total a pagar, Total factura, Total general, Total venta, Gran total, Valor total, Valor a pagar, Neto a pagar, Pago, Pago total, A pagar, Suma total, Total documento. Si hay tabla de items con cantidades y precios, suma los subtotales o toma el renglón "Total" al final. Si aparecen "Subtotal" + "IVA" + "Total", usa el TOTAL. Siempre elige el valor MÁS GRANDE entre las cifras candidatas como total final. Nunca el IVA por sí solo, ni Descuento, ni Cambio, ni Vuelto, ni Propina. Si no hay etiqueta "Total" pero hay un solo monto grande en la parte inferior/derecha de la factura (típico tiquetes POS), ese es el valor. Puntos y comas son separadores de miles: 7.200=7200; 1.234.567=1234567.
 - a_nombre_de_bia: true si BIA Energy aparece como cliente.
 - ciudad: Ciudad visible.
 - tipo_factura: Electronica/POS/Equivalente/Talonario/A Mano/null.
