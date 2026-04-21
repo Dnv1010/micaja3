@@ -131,7 +131,7 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
         if (!next) onClose();
       }}
     >
-      <DialogContent className="max-h-[95vh] w-[95vw] max-w-3xl overflow-y-auto border border-white/10 bg-[#0f1729] text-white">
+      <DialogContent className="max-h-[98vh] w-[98vw] max-w-5xl overflow-y-auto border border-white/10 bg-[#0f1729] text-white p-5 sm:p-6 text-[15px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
             <FileText className="h-5 w-5 shrink-0 text-cyan-400" />
