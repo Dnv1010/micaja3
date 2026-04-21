@@ -11,7 +11,7 @@ import {
 import { iniciarFlujGastos, procesarMensajeGastos, getSesionGastos, procesarFotoGasto, deleteSesionGastos } from "@/lib/telegram-gastos";
 import { getUsuariosFromSheet } from "@/lib/usuarios-sheet";
 import { patchUsuarioTelegramChatId } from "@/lib/usuarios-micaja-crud";
-import { GEMINI_FACTURA_PROMPT_CORE } from "@/lib/gemini-factura-prompt";
+import { runGeminiOcr } from "@/lib/gemini-factura-prompt";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 
@@ -223,40 +223,16 @@ async function handleUpdate(req: NextRequest): Promise<NextResponse> {
 
 
 
-      // --- OCR: Gemini JSON (primario) + OCR.Space texto (fallback) ---
+      // --- OCR: Gemini (cadena pro→flash→lite) + OCR.Space texto (fallback) ---
       let datos: ReturnType<typeof parseFacturaText> | null = null;
 
-      const geminiKey = process.env.GEMINI_API_KEY?.trim();
-      if (geminiKey) {
+      const geminiJson = await runGeminiOcr(base64, mimeType);
+      if (geminiJson) {
         try {
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { inline_data: { mime_type: mimeType, data: base64 } },
-                    { text: GEMINI_FACTURA_PROMPT_CORE },
-                  ],
-                }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
-              }),
-            }
-          );
-          const geminiData = (await geminiRes.json()) as {
-            candidates?: { content?: { parts?: { text?: string }[] } }[];
-          };
-          const geminiText = geminiData.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text?.trim() || "";
-          if (geminiText) {
-            // Limpiar markdown si Gemini lo envuelve en backticks
-            const cleanJson = geminiText.replace(/```json\n?/g, "").replace(/```/g, "").trim();
-            datos = parseGeminiJson(cleanJson);
-            console.log("[gemini] OK:", JSON.stringify(datos).slice(0, 200));
-          }
+          datos = parseGeminiJson(geminiJson);
+          console.log("[gemini] OK:", JSON.stringify(datos).slice(0, 200));
         } catch (gemErr) {
-          console.error("[gemini] Error:", gemErr);
+          console.error("[gemini] parse error:", gemErr);
           datos = null;
         }
       }

@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { runOcrSpace } from "@/lib/ocr-space";
-import { GEMINI_FACTURA_PROMPT_CORE } from "@/lib/gemini-factura-prompt";
+import { runGeminiOcr } from "@/lib/gemini-factura-prompt";
+import { parseGeminiJson } from "@/lib/factura-parser";
 
 type GastoOcr = {
   proveedor: string | null;
@@ -13,40 +14,6 @@ type GastoOcr = {
   valor: string | null;
   fecha: string | null;
 };
-
-async function runGemini(imageBase64: string, mimeType: string): Promise<GastoOcr | null> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return null;
-  const prompt = GEMINI_FACTURA_PROMPT_CORE;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [
-        { inline_data: { mime_type: mimeType, data: imageBase64 } },
-        { text: prompt },
-      ] }],
-    }),
-  });
-  if (!res.ok) return null;
-  const json = await res.json();
-  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const clean = text.replace(/```json|```/g, "").trim();
-  if (!clean) return null;
-  try {
-    const d = JSON.parse(clean) as Record<string, unknown>;
-    return {
-      proveedor: (d.razon_social as string | null) ?? null,
-      nit: (d.nit_factura as string | null) ?? null,
-      numFactura: (d.num_factura as string | null) ?? null,
-      concepto: (d.descripcion as string | null) ?? null,
-      valor: d.monto_factura != null ? String(Math.round(Number(d.monto_factura))) : null,
-      fecha: (d.fecha_factura as string | null) ?? null,
-    };
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -58,8 +25,23 @@ export async function POST(req: NextRequest) {
     const mimeType = String(body.mimeType || "image/jpeg");
     if (!imageBase64) return NextResponse.json({ error: "Envía imageBase64" }, { status: 400 });
 
-    const gem = await runGemini(imageBase64, mimeType);
-    if (gem) return NextResponse.json({ success: true, data: gem });
+    const jsonText = await runGeminiOcr(imageBase64, mimeType);
+    if (jsonText) {
+      try {
+        const d = parseGeminiJson(jsonText);
+        const data: GastoOcr = {
+          proveedor: d.razon_social,
+          nit: d.nit_factura,
+          numFactura: d.num_factura,
+          concepto: d.descripcion,
+          valor: d.monto_factura != null ? String(Math.round(d.monto_factura)) : null,
+          fecha: d.fecha_factura,
+        };
+        return NextResponse.json({ success: true, data });
+      } catch (e) {
+        console.error("[ia/ocr] parseGeminiJson fallo:", e);
+      }
+    }
 
     const result = await runOcrSpace({ imageBase64, mimeType });
     const e = result.extracted;
