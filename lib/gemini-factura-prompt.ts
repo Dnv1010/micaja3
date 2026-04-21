@@ -22,8 +22,13 @@ REGLA #2 — COMO EXTRAER CADA CAMPO:
   Formato de salida: 9 dígitos opcionalmente con DV: "900123456" o "900.123.456-7". Normaliza puntos y guiones.
   Ejemplos: "901637465", "800.103.052-1", "860.510.669-0".
 
-• numero_factura: Consecutivo. Etiquetas: "Factura", "Factura No.", "No.", "Número", "N°", "Nº", "Nro", "FE", "FV", "FC", "FA", "Consecutivo", "Orden de venta".
-  Puede ser alfanumérico. Ejemplos: "FE-12345", "FV001234", "VAB-123", "39821007", "1234567".
+• numero_factura: Consecutivo/identificador único. ES OBLIGATORIO EXTRAERLO — siempre aparece en la factura, aunque no tenga etiqueta clara.
+  Etiquetas que puede tener: "Factura", "Factura No.", "Factura N°", "No.", "Núm.", "Número", "N°", "Nº", "Nro", "Nro.", "FE", "FES", "FEV", "FV", "FC", "FA", "FACT", "FP", "Consecutivo", "Orden de venta", "Cta Cobro", "Recibo No.", "Ticket", "Documento".
+  Puede aparecer al tope de la factura, al lado del código QR, o cerca de "Fecha de emisión". A veces viene sin etiqueta junto a un código de barras.
+  Puede ser alfanumérico con prefijo (FE-), numérico largo, o corto.
+  Si hay un "CUFE" y un "Factura No."/"N°" — toma el "Factura No.", NO el CUFE (el CUFE es hash largo hex).
+  Si hay un número largo en formato 0987654321 al tope o cerca del logo, probablemente es el número de factura.
+  Ejemplos válidos: "FE-12345", "FES97000001", "FV001234", "VAB-123", "39821007", "1234567", "SETT970000045", "FC1-450", "45300002156".
 
 • fecha: Fecha de EMISIÓN (no vencimiento ni entrega). Etiquetas: "Fecha", "Fecha factura", "Fecha emisión", "Fecha expedición", "Emitida", "Fecha de venta".
   Formato salida: DD/MM/YYYY. Si está en otro formato, conviértelo.
@@ -33,7 +38,20 @@ REGLA #2 — COMO EXTRAER CADA CAMPO:
   "Total a pagar" > "Total factura" > "Total general" > "Gran total" > "Valor total" > "Neto a pagar" > "Total" (al final de la tabla de items).
   NUNCA uses: "Subtotal", "Base gravable", "IVA", "Descuento", "Cambio", "Vuelto", "Propina", "Sugerida", "Efectivo recibido", "Forma de pago".
   Si hay tabla de items, el total suele ser el valor MÁS GRANDE al final en negrita.
-  Puntos y comas son separadores de miles. Ejemplos: "7.200" → 7200, "1.234.567" → 1234567, "26,500" → 26500 (miles, NO centavos).
+
+  REGLA DE DECIMALES (crítica — no inflar el número):
+  En Colombia usan tanto formato europeo (7.200,00) como americano (7,200.00). El último grupo DE 1 O 2 DÍGITOS separado por coma/punto son CENTAVOS y se DESCARTAN.
+    "7.200"        → 7200   (miles, sin decimales)
+    "7.200,00"     → 7200   (miles + centavos .00, DESCARTAR los ,00)
+    "7.200,50"     → 7200   (miles + centavos ,50, DESCARTAR)
+    "7,200.00"     → 7200   (formato US, DESCARTAR el .00)
+    "7,200"        → 7200   (miles en formato US)
+    "1.234.567"    → 1234567 (solo miles)
+    "1.234.567,00" → 1234567 (miles + centavos ,00, DESCARTAR)
+    "1,234,567.50" → 1234567 (formato US, DESCARTAR el .50)
+    "26500"        → 26500  (sin separadores)
+    "26.500"       → 26500  (no es 26 con 500 decimales; son miles)
+  Regla mental: cuenta SOLO los dígitos ANTES del ÚLTIMO separador que tenga 1-2 dígitos detrás. Si ese último grupo tiene 3 dígitos, son miles, inclúyelo.
   Si no hay etiqueta "Total" (típico en POS) pero hay un solo monto grande abajo-derecha, ese es el valor.
 
 • a_nombre_de_bia: true si en la sección de CLIENTE aparece "BIA ENERGY" o el NIT 901588412 / 901588413. false en otro caso.
