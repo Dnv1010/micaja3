@@ -272,6 +272,25 @@ export async function deleteFactura(idFactura: string): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
+export async function updateFacturasEstadoMasivo(
+  idsFactura: string[],
+  estado: "Aprobada" | "Rechazada",
+  motivoRechazo?: string
+): Promise<void> {
+  if (idsFactura.length === 0) return;
+  const patch: Record<string, unknown> = {
+    estado,
+    verificado: estado === "Aprobada",
+    motivo_rechazo: estado === "Rechazada" ? motivoRechazo || null : null,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await getSupabase()
+    .from("facturas")
+    .update(patch)
+    .in("id_factura", idsFactura);
+  if (error) throw error;
+}
+
 export async function marcarFacturasCompletadas(idsFactura: string[]): Promise<void> {
   if (idsFactura.length === 0) return;
   const { error } = await getSupabase()

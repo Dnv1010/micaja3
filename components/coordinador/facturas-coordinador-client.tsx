@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,7 +38,7 @@ function estadoClass(estado: string): string {
   return "border-yellow-700 text-yellow-300";
 }
 
-const COLS = 13;
+const COLS = 14;
 
 export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const { data } = useSession();
@@ -87,6 +88,10 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
   const [imagenModal, setImagenModal] = useState<string | null>(null);
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
   const [biaAlert, setBiaAlert] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkRechazoOpen, setBulkRechazoOpen] = useState(false);
+  const [bulkMotivo, setBulkMotivo] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   async function filtrar() {
     setLoading(true);
@@ -100,10 +105,92 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
       const res = await fetch(`/api/facturas?${q}`);
       const json = await res.json().catch(() => ({ data: [] }));
       setFacturas(Array.isArray(json.data) ? json.data : []);
+      setSelected(new Set());
     } catch {
       setFacturas([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleAprobarMasivo() {
+    if (selected.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/facturas/bulk-estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected), estado: "Aprobada" }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        actualizadas?: number;
+        saltadas_completada?: number;
+        saltadas_permisos?: number;
+      };
+      if (!res.ok) throw new Error(j.error || "Error al aprobar masivamente");
+      const saltadas = (j.saltadas_completada || 0) + (j.saltadas_permisos || 0);
+      const msg = saltadas
+        ? `${j.actualizadas} aprobadas · ${saltadas} saltadas`
+        : `${j.actualizadas} facturas aprobadas`;
+      setBiaAlert({ type: "success", message: msg });
+      setSelected(new Set());
+      await filtrar();
+    } catch (e: unknown) {
+      setBiaAlert({
+        type: "error",
+        message: e instanceof Error ? e.message : "Error al aprobar",
+      });
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function confirmarRechazoMasivo() {
+    if (selected.size === 0 || !bulkMotivo.trim()) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/facturas/bulk-estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: Array.from(selected),
+          estado: "Rechazada",
+          motivoRechazo: bulkMotivo.trim(),
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        actualizadas?: number;
+        saltadas_completada?: number;
+        saltadas_permisos?: number;
+      };
+      if (!res.ok) throw new Error(j.error || "Error al rechazar masivamente");
+      const saltadas = (j.saltadas_completada || 0) + (j.saltadas_permisos || 0);
+      const msg = saltadas
+        ? `${j.actualizadas} rechazadas · ${saltadas} saltadas`
+        : `${j.actualizadas} facturas rechazadas`;
+      setBiaAlert({ type: "success", message: msg });
+      setBulkRechazoOpen(false);
+      setBulkMotivo("");
+      setSelected(new Set());
+      await filtrar();
+    } catch (e: unknown) {
+      setBiaAlert({
+        type: "error",
+        message: e instanceof Error ? e.message : "Error al rechazar",
+      });
+    } finally {
+      setBulkLoading(false);
     }
   }
 
@@ -190,6 +277,18 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
 
   const rolSesion = String(data?.user?.rol || "user").toLowerCase();
   const responsableSesion = String(data?.user?.responsable || "");
+  const puedeHacerBulk = rolSesion === "coordinador" || rolSesion === "admin";
+  const eligibleIds: string[] = puedeHacerBulk
+    ? facturas
+        .filter((f) => {
+          const est =
+            getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") ||
+            "Pendiente";
+          return est.toLowerCase() === "pendiente";
+        })
+        .map((f) => String(getCellCaseInsensitive(f, "ID_Factura", "ID") || ""))
+        .filter((id) => !!id)
+    : [];
 
   return (
     <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
@@ -245,6 +344,56 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
               disabled={!motivoRechazo.trim() || rechazando}
             >
               {rechazando ? "Rechazando..." : "Confirmar rechazo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bulkRechazoOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkRechazoOpen(false);
+            setBulkMotivo("");
+          }
+        }}
+      >
+        <DialogContent className="border-bia-gray/20 bg-bia-blue-mid text-white sm:max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>
+              Rechazar {selected.size} factura{selected.size === 1 ? "" : "s"}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-bia-gray-light">
+            El mismo motivo se aplica a todas las seleccionadas. Cada responsable recibe notificación.
+          </p>
+          <Textarea
+            value={bulkMotivo}
+            onChange={(e) => setBulkMotivo(e.target.value)}
+            className="min-h-24 resize-none bg-bia-blue border-bia-gray/40"
+            placeholder="Describe el motivo del rechazo..."
+            autoFocus
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-bia-gray/30"
+              onClick={() => {
+                setBulkRechazoOpen(false);
+                setBulkMotivo("");
+              }}
+              disabled={bulkLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => void confirmarRechazoMasivo()}
+              disabled={!bulkMotivo.trim() || bulkLoading}
+            >
+              {bulkLoading ? "Rechazando..." : "Confirmar rechazo"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -312,10 +461,70 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
           </div>
         </div>
 
+        {puedeHacerBulk && selected.size > 0 ? (
+          <div className="sticky top-0 z-30 flex flex-wrap items-center gap-2 rounded-md border border-bia-aqua/30 bg-bia-blue-mid/95 p-3 backdrop-blur">
+            <span className="text-sm font-semibold text-bia-aqua">
+              {selected.size} seleccionada{selected.size === 1 ? "" : "s"}
+            </span>
+            <div className="ml-auto flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="bg-emerald-700 text-white hover:bg-emerald-600"
+                disabled={bulkLoading}
+                onClick={() => void handleAprobarMasivo()}
+              >
+                ✓ Aprobar seleccionadas
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkLoading}
+                onClick={() => {
+                  setBulkMotivo("");
+                  setBulkRechazoOpen(true);
+                }}
+              >
+                ✗ Rechazar seleccionadas
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-bia-gray/30"
+                disabled={bulkLoading}
+                onClick={() => setSelected(new Set())}
+              >
+                Limpiar
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
+                {puedeHacerBulk ? (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        eligibleIds.length > 0 &&
+                        eligibleIds.every((id) => selected.has(id))
+                      }
+                      disabled={eligibleIds.length === 0}
+                      onCheckedChange={(c) => {
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          if (c) eligibleIds.forEach((id) => next.add(id));
+                          else eligibleIds.forEach((id) => next.delete(id));
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableHead>
+                ) : null}
                 <TableHead>Fecha</TableHead>
                 <TableHead>Usuario</TableHead>
                 <TableHead>Proveedor</TableHead>
@@ -334,7 +543,7 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={COLS}>
+                  <TableCell colSpan={puedeHacerBulk ? COLS : COLS - 1}>
                     <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
@@ -366,6 +575,16 @@ export function FacturasCoordinadorClient({ admin }: { admin?: boolean }) {
                   );
                   return (
                     <TableRow key={i}>
+                      {puedeHacerBulk ? (
+                        <TableCell className="w-10">
+                          {puedeAprobarRechazar && fid ? (
+                            <Checkbox
+                              checked={selected.has(fid)}
+                              onCheckedChange={() => toggleSelected(fid)}
+                            />
+                          ) : null}
+                        </TableCell>
+                      ) : null}
                       <TableCell className="whitespace-nowrap">
                         {formatDateDDMMYYYY(getCellCaseInsensitive(f, "Fecha", "Fecha_Factura"))}
                       </TableCell>
