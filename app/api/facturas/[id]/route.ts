@@ -229,16 +229,12 @@ async function runUpdate(
   const err = validateFacturaNegocio(merged);
   if (err) return NextResponse.json({ error: err }, { status: 400 });
 
+  // imagenUrl es opcional en edición: se preserva la existente si el body no la incluye.
+  // Si la existente tampoco existe, no se toca el campo imagen en la DB.
   const imagenUrl =
     updates.imagenUrl !== undefined
       ? updates.imagenUrl.trim()
       : getCellCaseInsensitive(found, "ImagenURL", "URL", "Adjuntar_Factura");
-  if (!imagenUrl) {
-    return NextResponse.json(
-      { error: "La factura debe incluir imagenUrl" },
-      { status: 400 }
-    );
-  }
 
   const numFactura =
     updates.numFactura !== undefined
@@ -265,7 +261,7 @@ async function runUpdate(
     aNombreBia: merged.aNombreBia,
     ciudad: merged.ciudad,
     sector: merged.sector,
-    imagenUrl,
+    imagenUrl: imagenUrl || undefined,
     driveFileId: updates.driveFileId,
   });
   return NextResponse.json({ ok: true });

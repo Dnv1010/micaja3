@@ -65,7 +65,7 @@ export async function patchUsuarioMicaja(patch: UsuarioMicajaPatch): Promise<num
   const want = normalizeEmailForAuth(patch.email);
   if (!want) throw new Error("email inválido");
 
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const update: Record<string, unknown> = {};
   if (typeof patch.userActive === "boolean") update.user_active = patch.userActive;
   if (patch.responsable != null) update.responsable = patch.responsable.trim();
   if (patch.correos != null) update.correo = normalizeEmailForAuth(patch.correos);

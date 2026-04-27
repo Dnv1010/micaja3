@@ -164,12 +164,28 @@ async function handleUpdate(req: NextRequest): Promise<NextResponse> {
           u.responsable.toLowerCase().includes(nombre.toLowerCase())
       );
       if (candidato?.email) {
-        const ok = await patchUsuarioTelegramChatId(candidato.email, chatId);
-        if (ok) {
-          usuario = { ...candidato, telegram_chat_id: chatId };
+        try {
+          const ok = await patchUsuarioTelegramChatId(candidato.email, chatId);
+          if (ok) {
+            usuario = { ...candidato, telegram_chat_id: chatId };
+            await enviarTelegram(
+              chatId,
+              `\u2705 <b>Registro exitoso.</b> Hola ${escHtml(candidato.responsable)} \u2014 ya puedes enviar fotos de facturas.`
+            );
+            return NextResponse.json({ ok: true });
+          }
+          // Update ran but touched 0 rows \u2014 dato inconsistente en BD
+          console.error("[registro] patchUsuarioTelegramChatId devolvi\u00f3 false para", candidato.email);
           await enviarTelegram(
             chatId,
-            `\u2705 <b>Registro exitoso.</b> Hola ${escHtml(candidato.responsable)} \u2014 ya puedes enviar fotos de facturas.`
+            "\u274c No se pudo vincular tu Telegram. Pide al administrador que revise tu usuario en MiCaja."
+          );
+          return NextResponse.json({ ok: true });
+        } catch (regErr) {
+          console.error("[registro] error al actualizar chatId:", regErr);
+          await enviarTelegram(
+            chatId,
+            "\u274c Error interno al registrarte. Int\u00e9ntalo de nuevo en unos minutos o contacta al administrador."
           );
           return NextResponse.json({ ok: true });
         }
@@ -177,7 +193,7 @@ async function handleUpdate(req: NextRequest): Promise<NextResponse> {
     }
     await enviarTelegram(
       chatId,
-      "\u274c No encontr\u00e9 un usuario activo con ese nombre. Prueba con tu nombre como aparece en MiCaja."
+      "\u274c No encontr\u00e9 un usuario activo con ese nombre. Prueba con tu nombre <b>exactamente</b> como aparece en MiCaja."
     );
     return NextResponse.json({ ok: true });
   }

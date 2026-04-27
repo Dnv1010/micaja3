@@ -123,13 +123,13 @@ export async function runGeminiOcr(
       const data = (await res.json()) as GeminiResp;
       if (!res.ok) {
         const msg = data?.error?.message || `HTTP ${res.status}`;
-        const retryable =
-          /overloaded|high demand|UNAVAILABLE|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg) ||
-          res.status === 503 ||
-          res.status === 429;
+        // Auth errors (401/403): todos los modelos fallarán, salir
+        const authError = res.status === 401 || res.status === 403;
         console.error(`[gemini ocr ${modelo}] ${msg}`);
-        if (retryable) continue;
-        return null;
+        if (authError) return null;
+        // Cualquier otro error (404 modelo no disponible, 429 rate limit, 503 overload,
+        // 400 bad request, etc.) → intentar con el siguiente modelo
+        continue;
       }
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (text) {
