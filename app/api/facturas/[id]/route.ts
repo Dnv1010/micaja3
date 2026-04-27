@@ -88,9 +88,11 @@ async function puedeEditarContenido(
   },
   row: FacturaRow
 ): Promise<boolean> {
-  if (!estadoEdicionPermitido(row)) return false;
   const rol = String(session.user?.rol || "user").toLowerCase();
+  // Admin puede editar en cualquier estado
   if (rol === "admin") return true;
+  // Coordinador y user solo pueden editar Pendiente o Rechazada
+  if (!estadoEdicionPermitido(row)) return false;
   if (rol === "coordinador") return puedeCoordinadorEditar(session, row);
   if (rol === "user") {
     const resp = getCellCaseInsensitive(row, "Responsable");
@@ -340,7 +342,9 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   }
 
-  if (!estadoEdicionPermitido(found)) {
+  const rol = String(session.user?.rol || "user").toLowerCase();
+  // No-admins no pueden editar facturas Completadas
+  if (rol !== "admin" && !estadoEdicionPermitido(found)) {
     return NextResponse.json(
       { error: "La factura ya fue incluida en un reporte y no puede editarse" },
       { status: 400 }
