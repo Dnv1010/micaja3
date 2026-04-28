@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,16 +20,18 @@ function initials(name: string): string {
 }
 
 export function UserHomeClient({ user }: { user: Session["user"] }) {
-  const responsable = String(user.responsable || "");
+  // useSession garantiza el mismo responsable que usa /entregas (que sí funciona)
+  const { data: sessionData } = useSession();
+  const responsable = String(sessionData?.user?.responsable || user.responsable || "");
   const [loading, setLoading] = useState(true);
   const [facturas, setFacturas] = useState<FacturaItem[]>([]);
   const [entregas, setEntregas] = useState<EntregaItem[]>([]);
 
   useEffect(() => {
+    if (!responsable) return;
     let mounted = true;
     async function loadData() {
       const enc = encodeURIComponent(responsable);
-      // Fetch independently so a facturas failure never clears entregas
       const [fResult, eResult] = await Promise.allSettled([
         fetch(`/api/facturas?responsable=${enc}`).then((r) => r.json()).catch(() => ({ data: [] })),
         fetch(`/api/entregas?responsable=${enc}`).then((r) => r.json()).catch(() => ({ data: [] })),
