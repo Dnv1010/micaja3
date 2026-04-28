@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
+import { TABLES } from "@/lib/db-tables";
 
 type GrupoDb = {
   id: string;
@@ -55,7 +56,7 @@ export async function GET() {
     }
 
     const { data, error } = await getSupabase()
-      .from("gastos_grupos")
+      .from(TABLES.expenseGroups)
       .select(
         "id, id_gasto, fecha, fecha_creacion, responsable, cargo, sector, motivo, fecha_inicio, fecha_fin, monto, estado, gastos_ids, pdf_url, firma, centro_costos, created_at"
       )
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
       centro_costos: body.centroCostos || null,
     };
 
-    const { error } = await getSupabase().from("gastos_grupos").insert(payload);
+    const { error } = await getSupabase().from(TABLES.expenseGroups).insert(payload);
     if (error) throw error;
 
     return NextResponse.json({ id, ok: true });

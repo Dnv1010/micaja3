@@ -1,6 +1,7 @@
 import { normalizeEmailForAuth } from "@/lib/email-normalize";
 import { getSupabase } from "@/lib/supabase";
 import { invalidarCacheUsuarios } from "@/lib/usuarios-sheet";
+import { TABLES } from "@/lib/db-tables";
 
 export type UsuarioMicajaInput = {
   responsable: string;
@@ -42,7 +43,7 @@ export async function appendUsuarioMicaja(input: UsuarioMicajaInput): Promise<vo
     telegram_chat_id: (input.telegramChatId ?? "").trim() || null,
   };
 
-  const { error } = await getSupabase().from("usuarios").insert(payload);
+  const { error } = await getSupabase().from(TABLES.users).insert(payload);
   if (error) throw error;
 }
 
@@ -80,7 +81,7 @@ export async function patchUsuarioMicaja(patch: UsuarioMicajaPatch): Promise<num
     update.telegram_chat_id = patch.telegramChatId.trim() || null;
 
   const { data, error } = await getSupabase()
-    .from("usuarios")
+    .from(TABLES.users)
     .update(update)
     .ilike("correo", want)
     .select("id");
@@ -92,7 +93,7 @@ export async function deleteUsuarioMicajaByEmail(email: string): Promise<boolean
   const want = normalizeEmailForAuth(email);
   if (!want) throw new Error("email inválido");
   const { data, error } = await getSupabase()
-    .from("usuarios")
+    .from(TABLES.users)
     .delete()
     .ilike("correo", want)
     .select("id");

@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
+import { TABLES } from "@/lib/db-tables";
 
 export type MicajaBalanceRow = {
   responsable: string;
@@ -41,7 +42,7 @@ export async function loadMicajaBalancesByResponsable(opts?: {
 
   const [entData, facData] = await Promise.all([
     fetchAll<{ responsable: string | null; monto_entregado: number | string | null }>(
-      () => sb.from("entregas"),
+      () => sb.from(TABLES.deliveries),
       "responsable, monto_entregado"
     ),
     fetchAll<{
@@ -50,7 +51,7 @@ export async function loadMicajaBalancesByResponsable(opts?: {
       estado: string | null;
       sector: string | null;
     }>(
-      () => sb.from("facturas"),
+      () => sb.from(TABLES.invoices),
       "responsable, monto_factura, estado, sector"
     ),
   ]);

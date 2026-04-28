@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
 import { Resend } from "resend";
+import { TABLES } from "@/lib/db-tables";
 
 function escAttr(s: string): string {
   return s
@@ -51,7 +52,7 @@ export async function POST(
 
   try {
     const { data: rows, error } = await getSupabase()
-      .from("gastos_grupos")
+      .from(TABLES.expenseGroups)
       .select("id_gasto, responsable, cargo, motivo, fecha_inicio, fecha_fin, monto, pdf_url, sector, estado")
       .eq("id_gasto", id)
       .limit(1);

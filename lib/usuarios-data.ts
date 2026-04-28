@@ -2,6 +2,7 @@ import { normalizeEmailForAuth } from "@/lib/email-normalize";
 import { isUserActiveInSheet } from "@/lib/usuario-sheet-fields";
 import { getSupabase } from "@/lib/supabase";
 import type { UsuarioRow } from "@/types/models";
+import { TABLES } from "@/lib/db-tables";
 
 export type UsuarioRowWithSource = UsuarioRow & {
   _usuariosSource?: "SUPABASE";
@@ -45,7 +46,7 @@ function dbRowToApiRow(r: UsuariosDbRow, rowIndex: number): UsuarioRowWithSource
 
 export async function loadUsuariosMerged(): Promise<UsuarioRowWithSource[]> {
   const { data, error } = await getSupabase()
-    .from("usuarios")
+    .from(TABLES.users)
     .select(
       "responsable, correo, telefono, rol, user_active, area, sector, cargo, cedula, pin, telegram_chat_id"
     );
@@ -62,7 +63,7 @@ export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioR
   if (!want) return null;
 
   const { data, error } = await getSupabase()
-    .from("usuarios")
+    .from(TABLES.users)
     .select(
       "responsable, correo, telefono, rol, user_active, area, sector, cargo, cedula, pin, telegram_chat_id"
     )
@@ -94,7 +95,7 @@ export async function patchUsuarioUserActiveByEmail(
   if (!want) throw new Error("email inválido");
 
   const { data, error } = await getSupabase()
-    .from("usuarios")
+    .from(TABLES.users)
     .update({ user_active: userActive, updated_at: new Date().toISOString() })
     .ilike("correo", want)
     .select("id");

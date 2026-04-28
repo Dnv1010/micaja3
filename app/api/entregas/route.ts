@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
 import { parseSheetDate, todayISO } from "@/lib/format";
+import { TABLES } from "@/lib/db-tables";
 import { sectorsEquivalent } from "@/lib/sector-normalize";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import { uniqueSheetKey } from "@/lib/ids";
@@ -50,12 +51,12 @@ export async function GET(req: NextRequest) {
     const sb = getSupabase();
     const [entRes, envRes] = await Promise.all([
       sb
-        .from("entregas")
+        .from(TABLES.deliveries)
         .select(
           "id_entrega, fecha_entrega, id_envio, responsable, monto_entregado, saldo_total_entregado, aceptar, firma, created_at"
         )
         .order("created_at", { ascending: true }),
-      sb.from("envios").select("id_envio, comprobante"),
+      sb.from(TABLES.transfers).select("id_envio, comprobante"),
     ]);
 
     if (entRes.error) throw entRes.error;
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest) {
         ? false
         : null;
 
-    const { error } = await getSupabase().from("entregas").insert({
+    const { error } = await getSupabase().from(TABLES.deliveries).insert({
       id_entrega: idEntrega,
       fecha_entrega: fecha,
       id_envio: idEnvio || null,

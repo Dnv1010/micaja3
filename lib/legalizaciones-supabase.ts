@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
+import { TABLES } from "@/lib/db-tables";
 
 export type LegalizacionDbRow = {
   id: string;
@@ -94,7 +95,7 @@ export async function insertLegalizacion(f: LegalizacionInsertFields): Promise<v
     url_reporte: f.pdfUrl || null,
     resumen_ia: f.resumenIA || null,
   };
-  const { error } = await getSupabase().from("legalizaciones").insert(payload);
+  const { error } = await getSupabase().from(TABLES.expenseReports).insert(payload);
   if (error) throw error;
 }
 
@@ -102,7 +103,7 @@ export async function findLegalizacionByReporteId(
   idReporte: string
 ): Promise<LegalizacionDbRow | null> {
   const { data, error } = await getSupabase()
-    .from("legalizaciones")
+    .from(TABLES.expenseReports)
     .select(SELECT_COLUMNS)
     .eq("id_reporte", idReporte)
     .limit(1);
@@ -112,7 +113,7 @@ export async function findLegalizacionByReporteId(
 
 export async function loadLegalizaciones(): Promise<LegalizacionDbRow[]> {
   const { data, error } = await getSupabase()
-    .from("legalizaciones")
+    .from(TABLES.expenseReports)
     .select(SELECT_COLUMNS)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -124,7 +125,7 @@ export async function updateLegalizacionEstado(
   estado: string
 ): Promise<number> {
   const { data, error } = await getSupabase()
-    .from("legalizaciones")
+    .from(TABLES.expenseReports)
     .update({ estado, updated_at: new Date().toISOString() })
     .eq("id_reporte", idReporte)
     .select("id");
@@ -138,7 +139,7 @@ export async function firmarLegalizacionAdmin(
   pdfUrl: string
 ): Promise<number> {
   const { data, error } = await getSupabase()
-    .from("legalizaciones")
+    .from(TABLES.expenseReports)
     .update({
       firma_admin: firmaAdmin,
       url_reporte: pdfUrl,
@@ -153,7 +154,7 @@ export async function firmarLegalizacionAdmin(
 
 export async function deleteLegalizacion(idReporte: string): Promise<boolean> {
   const { data, error } = await getSupabase()
-    .from("legalizaciones")
+    .from(TABLES.expenseReports)
     .delete()
     .eq("id_reporte", idReporte)
     .select("id");

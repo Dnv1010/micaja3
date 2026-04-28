@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
+import { TABLES } from "@/lib/db-tables";
 import { updateFacturasEstadoMasivo } from "@/lib/facturas-supabase";
 import { appPublicBaseUrl, escHtml, notificarUsuario } from "@/lib/notificaciones";
 
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: rows, error } = await getSupabase()
-    .from("facturas")
+    .from(TABLES.invoices)
     .select("id_factura, estado, responsable, razon_social")
     .in("id_factura", ids);
   if (error) {

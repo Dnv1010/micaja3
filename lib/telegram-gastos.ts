@@ -4,10 +4,11 @@ import { formatCOP } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
 import { Resend } from "resend";
+import { TABLES } from "@/lib/db-tables";
 
 async function leerSesion(chatId: string): Promise<any | null> {
   const { data, error } = await getSupabase()
-    .from("sesiones_bot")
+    .from(TABLES.botSessions)
     .select("datos_temp")
     .eq("chat_id", chatId)
     .limit(1);
@@ -30,14 +31,14 @@ async function guardarSesion(chatId: string, payload: any): Promise<void> {
     updated_at: new Date().toISOString(),
   };
   const { error } = await sb
-    .from("sesiones_bot")
+    .from(TABLES.botSessions)
     .upsert(row, { onConflict: "chat_id" });
   if (error) console.error("guardarSesion:", error);
 }
 
 async function borrarSesion(chatId: string): Promise<void> {
   const { error } = await getSupabase()
-    .from("sesiones_bot")
+    .from(TABLES.botSessions)
     .delete()
     .eq("chat_id", chatId);
   if (error) console.error("borrarSesion:", error);
@@ -339,7 +340,7 @@ async function guardarGastosEnSupabase(s: any): Promise<void> {
     sector: sectorCanon,
     estado: "Aprobada",
   }));
-  const { error } = await getSupabase().from("gastos_generales").insert(rows);
+  const { error } = await getSupabase().from(TABLES.expenses).insert(rows);
   if (error) console.error("guardarGastosEnSupabase:", error);
 }
 

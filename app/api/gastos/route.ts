@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
 import { normalizeSector, sectorsEquivalent } from "@/lib/sector-normalize";
+import { TABLES } from "@/lib/db-tables";
 
 type GastoGeneralDb = {
   id: string;
@@ -56,7 +57,7 @@ export async function GET() {
 
   try {
     const { data, error } = await getSupabase()
-      .from("gastos_generales")
+      .from(TABLES.expenses)
       .select(
         "id, id_gasto, fecha, responsable, cargo, ciudad, motivo, fecha_inicio, fecha_fin, concepto, centro_costos, nit, fecha_factura, monto, estado, sector, fecha_creacion, created_at"
       )
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { data, error } = await getSupabase()
-      .from("gastos_generales")
+      .from(TABLES.expenses)
       .insert({
         id_gasto: id,
         fecha: new Date().toISOString().slice(0, 10),
@@ -165,7 +166,7 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const { error } = await getSupabase()
-      .from("gastos_generales")
+      .from(TABLES.expenses)
       .update({ estado, updated_at: new Date().toISOString() })
       .eq("id", rowIndex);
     if (error) throw error;

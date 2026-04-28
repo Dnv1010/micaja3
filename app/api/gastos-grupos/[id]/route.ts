@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
+import { TABLES } from "@/lib/db-tables";
 
 export async function PATCH(
   req: NextRequest,
@@ -30,7 +31,7 @@ export async function PATCH(
     if (body.motivo !== undefined) update.motivo = String(body.motivo ?? "") || null;
 
     const { data, error } = await getSupabase()
-      .from("gastos_grupos")
+      .from(TABLES.expenseGroups)
       .update(update)
       .eq("id_gasto", id)
       .select("id");
@@ -57,7 +58,7 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { data, error } = await getSupabase()
-      .from("gastos_grupos")
+      .from(TABLES.expenseGroups)
       .delete()
       .eq("id_gasto", id)
       .select("id");
