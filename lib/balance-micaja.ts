@@ -10,8 +10,10 @@ export type MicajaBalanceRow = {
   balance: number;
 };
 
-/** Facturas que cuentan como gastado: Aprobada o Completada. */
-const ESTADOS_GASTADO = new Set(["Aprobada", "Completada"]);
+function esEstadoGastado(estado: string): boolean {
+  const e = estado.trim().toLowerCase();
+  return e === "aprobada" || e === "completada";
+}
 
 /** Agrega montos por responsable desde entregas y facturas en Supabase. */
 export async function loadMicajaBalancesByResponsable(opts?: {
@@ -78,7 +80,7 @@ export async function loadMicajaBalancesByResponsable(opts?: {
 
   for (const row of facData) {
     const estado = String(row.estado ?? "").trim();
-    if (!ESTADOS_GASTADO.has(estado)) continue;
+    if (!esEstadoGastado(estado)) continue;
     const r = String(row.responsable ?? "").trim();
     const rowSec = normalizeSector(String(row.sector ?? ""));
     if (zonaSet && !zonaSet.has(r.toLowerCase())) {

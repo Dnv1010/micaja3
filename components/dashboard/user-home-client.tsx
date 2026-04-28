@@ -51,12 +51,12 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
     [entregas]
   );
 
-  // Solo facturas Aprobadas o Completadas cuentan como gasto real
+  // Solo facturas Aprobadas o Completadas cuentan como gasto real (auto-aprobada incluida)
   const totalAprobado = useMemo(
     () => facturas
       .filter((f) => {
-        const est = String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente");
-        return est === "Aprobada" || est === "Completada";
+        const est = String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "").toLowerCase();
+        return est === "aprobada" || est === "completada";
       })
       .reduce((s, f) => s + parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0")), 0),
     [facturas]
@@ -66,8 +66,8 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
   const totalEnRevision = useMemo(
     () => facturas
       .filter((f) => {
-        const est = String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente");
-        return est === "Pendiente";
+        const est = String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "").toLowerCase();
+        return est === "pendiente" || est === "";
       })
       .reduce((s, f) => s + parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0")), 0),
     [facturas]
