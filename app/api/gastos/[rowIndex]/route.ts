@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
+import { TABLES } from "@/lib/db-tables";
 
 /** Mapeo de campos de UI (Sheet-style) → columnas Supabase. */
 const FIELD_MAP: Record<string, string> = {
@@ -46,7 +47,7 @@ export async function PATCH(
 
   try {
     const { error } = await getSupabase()
-      .from("gastos_generales")
+      .from(TABLES.expenses)
       .update(update)
       .eq("id", rowIndex);
     if (error) throw error;
@@ -67,7 +68,7 @@ export async function DELETE(
 
   try {
     const { error } = await getSupabase()
-      .from("gastos_generales")
+      .from(TABLES.expenses)
       .delete()
       .eq("id", rowIndex);
     if (error) throw error;

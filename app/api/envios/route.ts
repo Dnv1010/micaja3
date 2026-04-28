@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getSupabase } from "@/lib/supabase";
 import { parseSheetDate, formatCOP } from "@/lib/format";
+import { TABLES } from "@/lib/db-tables";
 import { sectorsEquivalent, normalizeSector } from "@/lib/sector-normalize";
 import { appPublicBaseUrl, escHtml, notificarUsuario } from "@/lib/notificaciones";
 import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { data: rows, error } = await getSupabase()
-      .from("envios")
+      .from(TABLES.transfers)
       .select("id_envio, fecha, responsable, monto, sector, comprobante, observacion, created_at")
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -151,7 +152,7 @@ export async function POST(req: NextRequest) {
       normalizeSector(String(body.sector ?? session.user.sector ?? "")) || "Bogota";
 
     const sb = getSupabase();
-    const { error: envErr } = await sb.from("envios").insert({
+    const { error: envErr } = await sb.from(TABLES.transfers).insert({
       id_envio: id,
       fecha,
       responsable,
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
     });
     if (envErr) throw envErr;
 
-    const { error: entErr } = await sb.from("entregas").insert({
+    const { error: entErr } = await sb.from(TABLES.deliveries).insert({
       id_entrega: idEntrega,
       fecha_entrega: fecha,
       id_envio: id,
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
     });
     if (entErr) {
       // Entrega failed — roll back the envio to avoid orphan records
-      await sb.from("envios").delete().eq("id_envio", id);
+      await sb.from(TABLES.transfers).delete().eq("id_envio", id);
       throw entErr;
     }
 
@@ -213,7 +214,7 @@ export async function DELETE(req: NextRequest) {
 
     const sb = getSupabase();
     const { data: existing, error: selErr } = await sb
-      .from("envios")
+      .from(TABLES.transfers)
       .select("id, id_envio, responsable")
       .eq("id_envio", id)
       .limit(1);
@@ -234,10 +235,10 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    const { error: delEnt } = await sb.from("entregas").delete().eq("id_envio", id);
+    const { error: delEnt } = await sb.from(TABLES.deliveries).delete().eq("id_envio", id);
     if (delEnt) throw delEnt;
 
-    const { error: delEnv } = await sb.from("envios").delete().eq("id_envio", id);
+    const { error: delEnv } = await sb.from(TABLES.transfers).delete().eq("id_envio", id);
     if (delEnv) throw delEnv;
 
     return NextResponse.json({ ok: true });

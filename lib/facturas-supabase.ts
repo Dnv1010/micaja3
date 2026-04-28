@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { normalizeSector } from "@/lib/sector-normalize";
 import type { FacturaRow } from "@/types/models";
+import { TABLES } from "@/lib/db-tables";
 
 export type FacturaDbRow = {
   id: string;
@@ -105,7 +106,7 @@ export async function loadFacturas(): Promise<FacturaRow[]> {
   const all: FacturaDbRow[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await getSupabase()
-      .from("facturas")
+      .from(TABLES.invoices)
       .select(SELECT_COLUMNS)
       .order("created_at", { ascending: true })
       .range(from, from + PAGE - 1);
@@ -119,7 +120,7 @@ export async function loadFacturas(): Promise<FacturaRow[]> {
 
 export async function findFacturaById(idFactura: string): Promise<FacturaRow | null> {
   const { data, error } = await getSupabase()
-    .from("facturas")
+    .from(TABLES.invoices)
     .select(SELECT_COLUMNS)
     .eq("id_factura", idFactura)
     .limit(1);
@@ -188,7 +189,7 @@ export async function insertFactura(f: FacturaInsertFields): Promise<void> {
     drive_file_id: f.driveFileId || null,
     fecha_creacion: f.fechaCreacion || new Date().toISOString(),
   };
-  const { error } = await getSupabase().from("facturas").insert(payload);
+  const { error } = await getSupabase().from(TABLES.invoices).insert(payload);
   if (error) throw error;
 }
 
@@ -238,7 +239,7 @@ export async function updateFactura(
   if (u.driveFileId !== undefined) patch.drive_file_id = u.driveFileId.trim() || null;
 
   const { error } = await getSupabase()
-    .from("facturas")
+    .from(TABLES.invoices)
     .update(patch)
     .eq("id_factura", idFactura);
   if (error) throw error;
@@ -256,7 +257,7 @@ export async function updateFacturaEstado(
     updated_at: new Date().toISOString(),
   };
   const { error } = await getSupabase()
-    .from("facturas")
+    .from(TABLES.invoices)
     .update(patch)
     .eq("id_factura", idFactura);
   if (error) throw error;
@@ -264,7 +265,7 @@ export async function updateFacturaEstado(
 
 export async function deleteFactura(idFactura: string): Promise<boolean> {
   const { data, error } = await getSupabase()
-    .from("facturas")
+    .from(TABLES.invoices)
     .delete()
     .eq("id_factura", idFactura)
     .select("id");
@@ -285,7 +286,7 @@ export async function updateFacturasEstadoMasivo(
     updated_at: new Date().toISOString(),
   };
   const { error } = await getSupabase()
-    .from("facturas")
+    .from(TABLES.invoices)
     .update(patch)
     .in("id_factura", idsFactura);
   if (error) throw error;
@@ -294,7 +295,7 @@ export async function updateFacturasEstadoMasivo(
 export async function marcarFacturasCompletadas(idsFactura: string[]): Promise<void> {
   if (idsFactura.length === 0) return;
   const { error } = await getSupabase()
-    .from("facturas")
+    .from(TABLES.invoices)
     .update({
       estado: "Completada",
       verificado: true,

@@ -1,6 +1,7 @@
 import { normalizeEmailForAuth } from "@/lib/email-normalize";
 import { normalizeSector } from "@/lib/sector-normalize";
 import { getSupabase } from "@/lib/supabase";
+import { TABLES } from "@/lib/db-tables";
 
 export type UsuarioSheet = {
   responsable: string;
@@ -78,7 +79,7 @@ export async function getUsuariosFromSheet(): Promise<UsuarioSheet[]> {
   if (cache && now - cacheTimestamp < CACHE_TTL) return cache;
 
   const { data, error } = await getSupabase()
-    .from("usuarios")
+    .from(TABLES.users)
     .select(
       "responsable, correo, telefono, rol, user_active, area, sector, cargo, cedula, pin, telegram_chat_id"
     );
