@@ -99,10 +99,12 @@ export async function responderCallbackTelegram(
   }
 }
 
-export async function notificarUsuario(responsable: string, mensajeHtml: string): Promise<void> {
+export async function notificarUsuario(responsable: string, mensajeHtml: string): Promise<boolean> {
   const usuario = await findUsuarioByResponsable(responsable);
   const cid = usuario?.telegram_chat_id?.trim();
-  if (cid) void enviarTelegram(cid, mensajeHtml).catch(() => {});
+  if (!cid) return false;
+  const result = await enviarTelegram(cid, mensajeHtml).catch(() => ({ ok: false }));
+  return result.ok;
 }
 
 export async function notificarAdmins(mensajeHtml: string): Promise<void> {

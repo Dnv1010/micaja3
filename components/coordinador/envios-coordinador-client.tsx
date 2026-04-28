@@ -260,7 +260,14 @@ export function EnviosCoordinadorClient({
 
   async function enviarDinero(ev: React.FormEvent) {
     ev.preventDefault();
-    if (!responsable || !monto) return;
+    if (!responsable) {
+      setOkMsg("Selecciona un usuario destinatario.");
+      return;
+    }
+    if (!monto) {
+      setOkMsg("Ingresa el monto a enviar.");
+      return;
+    }
     setSending(true);
     setOkMsg("");
     const montoNum = Number(monto);
@@ -282,9 +289,12 @@ export function EnviosCoordinadorClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => ({}));
+      const json = await res.json().catch(() => ({})) as { error?: string; notificado?: boolean };
       if (res.ok) {
-        setOkMsg(`✅ Envío registrado para ${responsable}`);
+        const sinTelegram = json.notificado === false
+          ? " ⚠️ El usuario no tiene Telegram vinculado y no fue notificado."
+          : "";
+        setOkMsg(`✅ Envío registrado para ${responsable}.${sinTelegram}`);
         setMonto("");
         limpiarComprobanteSeleccion();
         setTelefono("");
@@ -414,7 +424,11 @@ export function EnviosCoordinadorClient({
               >
                 {sending ? "Enviando..." : "Enviar dinero"}
               </Button>
-              {okMsg ? <p className="mt-2 text-sm text-emerald-400">{okMsg}</p> : null}
+              {okMsg ? (
+                <p className={`mt-2 text-sm ${okMsg.startsWith("✅") ? "text-emerald-400" : "text-amber-400"}`}>
+                  {okMsg}
+                </p>
+              ) : null}
             </div>
           </form>
         </CardContent>

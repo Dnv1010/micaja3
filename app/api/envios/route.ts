@@ -102,7 +102,14 @@ export async function POST(req: NextRequest) {
       observacion?: string;
     };
     const responsable = String(body.responsable || "").trim();
-    const fecha = String(body.fecha || "").trim();
+    const fechaRaw = String(body.fecha || "").trim();
+    // Normalize to YYYY-MM-DD for DB (accepts DD/MM/YYYY or YYYY-MM-DD)
+    const fecha = (() => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fechaRaw)) return fechaRaw;
+      const m = fechaRaw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+      return fechaRaw;
+    })();
     const comprobante = String(body.comprobante ?? "").trim();
 
     const montoNum =
@@ -163,7 +170,9 @@ export async function POST(req: NextRequest) {
       monto_entregado: montoNum,
     });
     if (entErr) {
-      console.error("envios POST: entrega no creada:", entErr);
+      // Entrega failed — roll back the envio to avoid orphan records
+      await sb.from("envios").delete().eq("id_envio", id);
+      throw entErr;
     }
 
     const coord = String(session.user.responsable || session.user.name || "").trim();
@@ -171,17 +180,18 @@ export async function POST(req: NextRequest) {
     const msg = [
       `💸 <b>BIA Energy - MiCaja</b>`,
       ``,
-      `Hola ${escHtml(responsable)}, tu coordinador <b>${escHtml(coord)}</b> te envió <b>${escHtml(formatCOP(montoNum))}</b> el ${escHtml(fecha)}.`,
+      `Hola ${escHtml(responsable)}, tu coordinador <b>${escHtml(coord)}</b> te envió <b>${escHtml(formatCOP(montoNum))}</b> el ${escHtml(fechaRaw || fecha)}.`,
       ``,
       `Revisa tu saldo: ${escHtml(base)}`,
     ].join("\n");
-    void notificarUsuario(responsable, msg).catch(() => {});
+    const notificado = await notificarUsuario(responsable, msg).catch(() => false);
 
-    return NextResponse.json({ ok: true, id });
+    return NextResponse.json({ ok: true, id, notificado });
   } catch (e) {
-    console.error("envios POST:", e);
+    const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? String(e);
+    console.error("envios POST:", msg, e);
     return NextResponse.json(
-      { ok: false, error: "No se pudo registrar el envío" },
+      { ok: false, error: `Error al registrar: ${msg}` },
       { status: 500 }
     );
   }
@@ -225,7 +235,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { error: delEnt } = await sb.from("entregas").delete().eq("id_envio", id);
-    if (delEnt) console.error("envios DELETE: entregas no borradas:", delEnt);
+    if (delEnt) throw delEnt;
 
     const { error: delEnv } = await sb.from("envios").delete().eq("id_envio", id);
     if (delEnv) throw delEnv;

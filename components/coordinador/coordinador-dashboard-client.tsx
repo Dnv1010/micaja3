@@ -12,6 +12,11 @@ type EntregaRow = Record<string, unknown>;
 function montoFactura(f: FacturaRow): number {
   return parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"));
 }
+function montoFacturaAprobada(f: FacturaRow): number {
+  const est = estadoFactura(f).toLowerCase();
+  if (est !== "aprobada" && est !== "completada") return 0;
+  return montoFactura(f);
+}
 function montoEntrega(e: EntregaRow): number {
   return parseMonto(String(getCellCaseInsensitive(e, "Monto_Entregado", "Monto") || "0"));
 }
@@ -95,19 +100,19 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     [entregas]
   );
 
-  // FACTURADO = suma columna D (Monto_Factura) de Facturas de la zona
+  // FACTURADO = suma solo Aprobada/Completada (igual que el saldo del técnico)
   const totalFacturado = useMemo(
-    () => facturas.reduce((s, f) => s + montoFactura(f), 0),
+    () => facturas.reduce((s, f) => s + montoFacturaAprobada(f), 0),
     [facturas]
   );
 
-  // PENDIENTE = por técnico: entregado - facturado (solo positivos)
+  // PENDIENTE = por técnico: entregado - aprobado (solo positivos)
   const pendienteLegalizar = useMemo(() => {
     const resps = new Set([...entregas.map(respKey), ...facturas.map(respKey)].filter(Boolean));
     let total = 0;
     for (const resp of Array.from(resps)) {
       const entregado = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntrega(e), 0);
-      const facturado = facturas.filter((f) => respKey(f) === resp).reduce((s, f) => s + montoFactura(f), 0);
+      const facturado = facturas.filter((f) => respKey(f) === resp).reduce((s, f) => s + montoFacturaAprobada(f), 0);
       const saldo = entregado - facturado;
       if (saldo > 0) total += saldo;
     }

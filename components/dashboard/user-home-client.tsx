@@ -27,23 +27,16 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
   useEffect(() => {
     let mounted = true;
     async function loadData() {
-      try {
-        const enc = encodeURIComponent(responsable);
-        const [fRes, eRes] = await Promise.all([
-          fetch(`/api/facturas?responsable=${enc}`),
-          fetch(`/api/entregas?responsable=${enc}`),
-        ]);
-        const fJson = await fRes.json().catch(() => ({ data: [] }));
-        const eJson = await eRes.json().catch(() => ({ data: [] }));
-        if (!mounted) return;
-        setFacturas(Array.isArray(fJson.data) ? fJson.data : []);
-        setEntregas(Array.isArray(eJson.data) ? eJson.data : []);
-      } catch {
-        if (!mounted) return;
-        setFacturas([]); setEntregas([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      const enc = encodeURIComponent(responsable);
+      // Fetch independently so a facturas failure never clears entregas
+      const [fResult, eResult] = await Promise.allSettled([
+        fetch(`/api/facturas?responsable=${enc}`).then((r) => r.json()).catch(() => ({ data: [] })),
+        fetch(`/api/entregas?responsable=${enc}`).then((r) => r.json()).catch(() => ({ data: [] })),
+      ]);
+      if (!mounted) return;
+      if (fResult.status === "fulfilled") setFacturas(Array.isArray(fResult.value?.data) ? fResult.value.data : []);
+      if (eResult.status === "fulfilled") setEntregas(Array.isArray(eResult.value?.data) ? eResult.value.data : []);
+      setLoading(false);
     }
     void loadData();
     return () => { mounted = false; };
@@ -55,21 +48,38 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
     [entregas]
   );
 
-  // Facturado = Total facturas del técnico
-  const totalFacturado = useMemo(
-    () => facturas.reduce((s, f) => s + parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0")), 0),
+  // Solo facturas Aprobadas o Completadas cuentan como gasto real
+  const totalAprobado = useMemo(
+    () => facturas
+      .filter((f) => {
+        const est = String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente");
+        return est === "Aprobada" || est === "Completada";
+      })
+      .reduce((s, f) => s + parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0")), 0),
     [facturas]
   );
 
-  // Total = Recibido - Facturado
-  // positivo = tiene disponible
-  // negativo = excedido (gastó de más)
-  const saldo = totalRecibido - totalFacturado;
+  // Facturas pendientes de aprobación (para informar, no para el saldo)
+  const totalEnRevision = useMemo(
+    () => facturas
+      .filter((f) => {
+        const est = String(getCellCaseInsensitive(f, "Estado", "Legalizado", "Verificado") || "Pendiente");
+        return est === "Pendiente";
+      })
+      .reduce((s, f) => s + parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0")), 0),
+    [facturas]
+  );
+
+  // Saldo real = recibido − aprobado (solo facturas con estado Aprobada/Completada)
+  const saldo = totalRecibido - totalAprobado;
 
   const ultimasEntregas = useMemo(() => {
     const key = (e: EntregaItem) => {
       const f = String(getCellCaseInsensitive(e, "Fecha_Entrega", "Fecha") || "");
-      return parseMonto(f.replace(/\D/g, "")) || new Date(f).getTime() || 0;
+      if (/^\d{4}-\d{2}-\d{2}/.test(f)) return new Date(f).getTime();
+      const m = f.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) return new Date(`${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`).getTime();
+      return new Date(f).getTime() || 0;
     };
     return [...entregas].sort((a, b) => key(b) - key(a)).slice(0, 3);
   }, [entregas]);
@@ -79,6 +89,9 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
       const tFc = fc ? new Date(fc).getTime() : NaN;
       if (Number.isFinite(tFc)) return tFc;
       const fd = String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || "");
+      if (/^\d{4}-\d{2}-\d{2}/.test(fd)) return new Date(fd).getTime() || 0;
+      const m = fd.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) return new Date(`${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`).getTime() || 0;
       return new Date(fd).getTime() || 0;
     };
     return [...facturas].sort((a, b) => key(b) - key(a)).slice(0, 3);
@@ -114,9 +127,9 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
             <p className="text-xs text-[#525A72] mt-1">Total entregado</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4 border border-white/5">
-            <p className="text-xs text-[#8892A4] mb-1">🧾 Facturado</p>
-            <p className="text-lg font-bold text-[#08DDBC]">{formatCOP(totalFacturado)}</p>
-            <p className="text-xs text-[#525A72] mt-1">Total facturas</p>
+            <p className="text-xs text-[#8892A4] mb-1">🧾 Aprobado</p>
+            <p className="text-lg font-bold text-[#08DDBC]">{formatCOP(totalAprobado)}</p>
+            <p className="text-xs text-[#525A72] mt-1">Facturas aprobadas</p>
           </div>
           <div className="rounded-xl bg-[#001035] p-4 border border-white/5">
             <p className="text-xs text-[#8892A4] mb-1">
@@ -143,13 +156,20 @@ export function UserHomeClient({ user }: { user: Session["user"] }) {
       {!loading && saldo < 0 && (
         <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
           <p className="text-sm text-red-400">
-            🔴 Facturaste <span className="font-bold">{formatCOP(Math.abs(saldo))}</span> más de lo recibido
+            🔴 Tus facturas aprobadas superan lo recibido por <span className="font-bold">{formatCOP(Math.abs(saldo))}</span>
           </p>
         </div>
       )}
       {!loading && saldo === 0 && totalRecibido > 0 && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
           <p className="text-sm text-emerald-400">✅ Todo legalizado — estás al día</p>
+        </div>
+      )}
+      {!loading && totalEnRevision > 0 && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
+          <p className="text-sm text-blue-400">
+            ⏳ <span className="font-bold">{formatCOP(totalEnRevision)}</span> en facturas pendientes de aprobación
+          </p>
         </div>
       )}
 

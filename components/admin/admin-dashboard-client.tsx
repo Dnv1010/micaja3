@@ -18,9 +18,6 @@ function facturaEstado(f: FacturaRow): string {
 function montoEntregaRow(e: EntregaRow): number {
   return parseMonto(String(getCellCaseInsensitive(e, "Monto_Entregado", "Monto", "Valor") || "0"));
 }
-function montoFacturaRow(f: FacturaRow): number {
-  return parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"));
-}
 function facturaFecha(f: FacturaRow): string {
   return String(getCellCaseInsensitive(f, "Fecha_Factura", "Fecha") || "");
 }
@@ -40,14 +37,20 @@ function BarraProgreso({ pctFacturado, pctPendiente }: { pctFacturado: number; p
   );
 }
 
-// ── PENDIENTE por usuario: entregado − facturado, solo positivos ──
+function montoFacturaAprobada(f: FacturaRow): number {
+  const est = facturaEstado(f).toLowerCase();
+  if (est !== "aprobada" && est !== "completada") return 0;
+  return parseMonto(String(getCellCaseInsensitive(f, "Monto_Factura", "Valor") || "0"));
+}
+
+// ── PENDIENTE por usuario: entregado − aprobado, solo positivos ──
 function calcularPendiente(entregas: EntregaRow[], facturas: FacturaRow[]): number {
   const resps = new Set([...entregas.map(respKey), ...facturas.map(respKey)].filter(Boolean));
   let total = 0;
   for (const resp of Array.from(resps)) {
     const entregado = entregas.filter((e) => respKey(e) === resp).reduce((s, e) => s + montoEntregaRow(e), 0);
-    const facturado = facturas.filter((f) => respKey(f) === resp).reduce((s, f) => s + montoFacturaRow(f), 0);
-    const saldo = entregado - facturado;
+    const aprobado = facturas.filter((f) => respKey(f) === resp).reduce((s, f) => s + montoFacturaAprobada(f), 0);
+    const saldo = entregado - aprobado;
     if (saldo > 0) total += saldo;
   }
   return total;
@@ -164,7 +167,7 @@ export function AdminDashboardClient() {
   // ── BOGOTÁ ── ✅ usa facturasBogota directo, sin filtrar en cliente
   const bogota = useMemo(() => {
     const entregado = entregasBogota.reduce((s, e) => s + montoEntregaRow(e), 0);
-    const facturado = facturasBogota.reduce((s, f) => s + montoFacturaRow(f), 0);
+    const facturado = facturasBogota.reduce((s, f) => s + montoFacturaAprobada(f), 0);
     const pendiente = calcularPendiente(entregasBogota, facturasBogota);
     const enCaja = facturado - entregado;
     const pctEntregado = limiteBogota > 0 ? Math.min(100, Math.round((entregado / limiteBogota) * 100)) : 0;
@@ -176,7 +179,7 @@ export function AdminDashboardClient() {
   // ── COSTA CARIBE ── ✅ usa facturasCosta directo, sin filtrar en cliente
   const costa = useMemo(() => {
     const entregado = entregasCosta.reduce((s, e) => s + montoEntregaRow(e), 0);
-    const facturado = facturasCosta.reduce((s, f) => s + montoFacturaRow(f), 0);
+    const facturado = facturasCosta.reduce((s, f) => s + montoFacturaAprobada(f), 0);
     const pendiente = calcularPendiente(entregasCosta, facturasCosta);
     const enCaja = facturado - entregado;
     const pctEntregado = limiteCosta > 0 ? Math.min(100, Math.round((entregado / limiteCosta) * 100)) : 0;
