@@ -8,10 +8,10 @@ import { updateFacturasEstadoMasivo } from "@/lib/facturas-supabase";
 import { appPublicBaseUrl, escHtml, notificarUsuario } from "@/lib/notificaciones";
 
 type BulkRow = {
-  id_factura: string | null;
-  estado: string | null;
-  responsable: string | null;
-  razon_social: string | null;
+  invoice_id: string | null;
+  status: string | null;
+  assignee: string | null;
+  company_name: string | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
 
   const { data: rows, error } = await getSupabase()
     .from(TABLES.invoices)
-    .select("id_factura, estado, responsable, razon_social")
-    .in("id_factura", ids);
+    .select("invoice_id, status, assignee, company_name")
+    .in("invoice_id", ids);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   // Filtrar: las Completadas no se pueden tocar
   const elegibles = found.filter(
-    (r) => String(r.estado || "").toLowerCase() !== "completada"
+    (r) => String(r.status || "").toLowerCase() !== "completada"
   );
   const saltadasCompletada = found.length - elegibles.length;
 
@@ -66,13 +66,13 @@ export async function POST(req: NextRequest) {
     const sector = String(session.user.sector || "");
     const set = await responsablesEnZonaSheetSet(sector);
     permitidas = elegibles.filter((r) =>
-      set.has(String(r.responsable || "").toLowerCase())
+      set.has(String(r.assignee || "").toLowerCase())
     );
   }
   const saltadasPermisos = elegibles.length - permitidas.length;
 
   const idsFinal = permitidas
-    .map((r) => r.id_factura)
+    .map((r) => r.invoice_id)
     .filter((x): x is string => !!x);
 
   if (idsFinal.length === 0) {
@@ -100,13 +100,13 @@ export async function POST(req: NextRequest) {
       const msg = [
         `⚠️ <b>BIA Energy - MiCaja</b>`,
         ``,
-        `Tu factura de <b>${escHtml(r.razon_social || "—")}</b> fue rechazada.`,
+        `Tu factura de <b>${escHtml(r.company_name || "—")}</b> fue rechazada.`,
         ``,
         `<b>Motivo:</b> ${escHtml(motivoRechazo)}`,
         ``,
         `Corrígela en: ${escHtml(`${base}/facturas`)}`,
       ].join("\n");
-      void notificarUsuario(r.responsable || "", msg).catch(() => {});
+      void notificarUsuario(r.assignee || "", msg).catch(() => {});
     }
   }
 
