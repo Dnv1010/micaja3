@@ -90,42 +90,6 @@ function ZonaCard({ titulo, limite, tecnicos, entregado, facturado, pendiente, e
   );
 }
 
-function RepararEntregas() {
-  const [estado, setEstado] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  async function reparar() {
-    setLoading(true);
-    setEstado("");
-    try {
-      const res = await fetch("/api/admin/repair-entregas", { method: "POST" });
-      const j = await res.json().catch(() => ({})) as { ok?: boolean; reparadas?: number; responsables?: string[]; error?: string; message?: string };
-      if (j.ok) {
-        setEstado(j.reparadas === 0 ? "✅ No hay entregas faltantes" : `✅ ${j.reparadas} entrega(s) reparada(s): ${(j.responsables ?? []).join(", ")}`);
-      } else {
-        setEstado(`❌ ${j.error || "Error"}`);
-      }
-    } catch {
-      setEstado("❌ Error de red");
-    } finally {
-      setLoading(false);
-    }
-  }
-  return (
-    <div className="rounded-xl border border-white/5 bg-[#001035] p-4 flex flex-col gap-2">
-      <p className="text-xs text-[#8892A4]">🔧 Herramienta de mantenimiento</p>
-      <p className="text-sm text-white">Reparar entregas faltantes — crea las entregas de envíos que no tienen registro de entrega asociado.</p>
-      <button
-        onClick={() => void reparar()}
-        disabled={loading}
-        className="w-fit rounded-lg bg-[#08DDBC] px-4 py-2 text-sm font-semibold text-[#001035] hover:opacity-90 disabled:opacity-50"
-      >
-        {loading ? "Reparando..." : "Reparar ahora"}
-      </button>
-      {estado ? <p className="text-sm text-white">{estado}</p> : null}
-    </div>
-  );
-}
-
 export function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
 
@@ -314,9 +278,6 @@ export function AdminDashboardClient() {
           </Table>
         </CardContent>
       </Card>
-
-      {/* ── REPARAR ENTREGAS ── */}
-      <RepararEntregas />
 
       {/* ── REPORTES PENDIENTES ── */}
       <Card className="border-white/5 bg-[#001035] text-white">
