@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const responsableQ = searchParams.get("responsable")?.trim().toLowerCase() || "";
+    let responsableQ = searchParams.get("responsable")?.trim().toLowerCase() || "";
     const estadoQ = searchParams.get("estado")?.trim().toLowerCase() || "";
     const desdeQ = searchParams.get("desde") || "";
     const hastaQ = searchParams.get("hasta") || "";
@@ -46,8 +46,14 @@ export async function GET(req: NextRequest) {
     const zonaSector = searchParams.get("zonaSector")?.trim() || "";
     const rol = String(session.user.rol || "").toLowerCase();
 
+    // Usuario solo puede ver sus propias facturas — igual que entregas API
+    if (rol === "user") {
+      responsableQ = String(session.user.responsable || "").trim().toLowerCase();
+      if (!responsableQ) return NextResponse.json({ data: [] });
+    }
+
     let zonaSet: Set<string> | null = null;
-    if (zonaSector) {
+    if (zonaSector && rol !== "user") {
       if (rol === "admin") {
         zonaSet = await responsablesEnZonaSheetSet(zonaSector);
       } else if (
@@ -55,8 +61,6 @@ export async function GET(req: NextRequest) {
         sectorsEquivalent(String(session.user.sector || ""), zonaSector)
       ) {
         zonaSet = await responsablesEnZonaSheetSet(zonaSector);
-      } else if (rol === "user") {
-        // user solo ve sus propias facturas (filtro por responsableQ abajo)
       } else {
         return NextResponse.json({ data: [] });
       }
