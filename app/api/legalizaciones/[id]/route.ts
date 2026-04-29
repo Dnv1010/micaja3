@@ -38,7 +38,7 @@ export async function PATCH(
       const mine = String(session.user.responsable || session.user.name || "").trim();
       if (
         rol === "coordinador" &&
-        (row.coordinador ?? "").toLowerCase() !== mine.toLowerCase()
+        (row.coordinator ?? "").toLowerCase() !== mine.toLowerCase()
       ) {
         return NextResponse.json(
           { error: "No puedes actualizar reportes de otro coordinador" },
@@ -72,7 +72,7 @@ export async function PATCH(
 
     await firmarLegalizacionAdmin(reportId, firmaAdmin, pdfUrl);
 
-    const sectorReporte = existing.sector ?? "";
+    const sectorReporte = existing.region ?? "";
     const totalRaw = existing.total != null ? String(existing.total) : "0";
     const totalReporte =
       parseCOPString(totalRaw) ||
@@ -115,8 +115,8 @@ export async function DELETE(
     const row = await findLegalizacionByReporteId(reportId);
     if (!row) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-    const estado = (row.estado ?? "").trim();
-    const coord = (row.coordinador ?? "").trim();
+    const estado = (row.status ?? "").trim();
+    const coord = (row.coordinator ?? "").trim();
     const mine = String(session.user.responsable || session.user.name || "").trim();
 
     if (rol === "coordinador") {

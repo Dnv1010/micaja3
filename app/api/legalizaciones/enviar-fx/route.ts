@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Reporte no encontrado" }, { status: 404 });
     }
 
-    const coordinadorRow = (row.coordinador ?? "").trim();
+    const coordinadorRow = (row.coordinator ?? "").trim();
     const sessionCoord = String(session.user.responsable || session.user.name || "").trim();
     if (rol === "coordinador" && coordinadorRow.toLowerCase() !== sessionCoord.toLowerCase()) {
       return NextResponse.json(
@@ -57,21 +57,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const estado = (row.estado ?? "").toLowerCase();
+    const estado = (row.status ?? "").toLowerCase();
     if (!estado.includes("firmado")) {
       return NextResponse.json({ error: "El reporte aún no está firmado" }, { status: 400 });
     }
 
     const coordinador = coordinadorRow || sessionCoord;
-    const sector = (row.sector ?? "").trim();
-    const periodoDe = row.periodo_desde ?? "";
-    const periodoHasta = row.periodo_hasta ?? "";
+    const sector = (row.region ?? "").trim();
+    const periodoDe = row.period_start ?? "";
+    const periodoHasta = row.period_end ?? "";
     const totalRaw = row.total != null ? String(row.total) : "0";
     const totalNum =
       parseCOPString(totalRaw) || Number(totalRaw.replace(/[^\d.-]/g, "")) || 0;
-    const resumenIA = (row.resumen_ia ?? "").trim();
+    const resumenIA = (row.ai_summary ?? "").trim();
 
-    const facturasRaw = row.facturas_ids ?? "";
+    const facturasRaw = row.invoice_ids ?? "";
     let numFacturas = 0;
     try {
       let parsed: unknown = JSON.parse(facturasRaw);
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     const totalFormato = `$${Math.round(totalNum).toLocaleString("es-CO")}`;
     const zonaLabel = sector === "Costa Caribe" ? "Costa Caribe" : "Bogotá";
 
-    const pdfUrl = String(body.pdfUrl || row.url_reporte || "").trim();
+    const pdfUrl = String(body.pdfUrl || row.report_url || "").trim();
     let pdfBase64 = body.pdfBase64?.replace(/^data:application\/pdf;base64,/i, "").trim() || "";
 
     if (!pdfBase64 && pdfUrl) {

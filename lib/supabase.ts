@@ -36,7 +36,7 @@ export function getSupabase(): SupabaseClient {
   cached = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema: "micaja" },
-  });
+  }) as unknown as SupabaseClient;
   return cached;
 }
 

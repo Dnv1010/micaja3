@@ -14,35 +14,35 @@ export async function POST() {
   const sb = getSupabase();
 
   const { data: envios, error: eErr } = await sb
-    .from("envios")
-    .select("id_envio, fecha, responsable, monto");
+    .from("transfers")
+    .select("transfer_id, fecha, assignee, amount");
   if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 });
 
   const { data: entregas, error: entErr } = await sb
-    .from("entregas")
-    .select("id_envio");
+    .from("deliveries")
+    .select("transfer_id");
   if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 });
 
-  const entregasPorEnvio = new Set((entregas ?? []).map((e: { id_envio: string | null }) => e.id_envio).filter(Boolean));
+  const entregasPorEnvio = new Set((entregas ?? []).map((e: { transfer_id: string | null }) => e.transfer_id).filter(Boolean));
 
   const faltantes = (envios ?? []).filter(
-    (env: { id_envio: string | null }) => env.id_envio && !entregasPorEnvio.has(env.id_envio)
-  ) as { id_envio: string; fecha: string | null; responsable: string | null; monto: number | string | null }[];
+    (env: { transfer_id: string | null }) => env.transfer_id && !entregasPorEnvio.has(env.transfer_id)
+  ) as { transfer_id: string; fecha: string | null; assignee: string | null; amount: number | string | null }[];
 
   if (!faltantes.length) {
     return NextResponse.json({ ok: true, reparadas: 0, message: "No hay entregas faltantes" });
   }
 
   const inserts = faltantes.map((env) => ({
-    id_entrega: `ENT-REP-${env.id_envio}`,
-    fecha_entrega: env.fecha,
-    id_envio: env.id_envio,
-    responsable: env.responsable,
-    monto_entregado: typeof env.monto === "number" ? env.monto : Number(String(env.monto ?? "0").replace(/[^\d]/g, "")),
+    delivery_id: `ENT-REP-${env.transfer_id}`,
+    delivery_date: env.fecha,
+    transfer_id: env.transfer_id,
+    assignee: env.assignee,
+    delivered_amount: typeof env.amount === "number" ? env.amount : Number(String(env.amount ?? "0").replace(/[^\d]/g, "")),
   }));
 
-  const { error: insErr } = await sb.from("entregas").insert(inserts);
+  const { error: insErr } = await sb.from("deliveries").insert(inserts);
   if (insErr) return NextResponse.json({ error: insErr.message, intentados: inserts.length }, { status: 500 });
 
-  return NextResponse.json({ ok: true, reparadas: inserts.length, responsables: faltantes.map((e) => e.responsable) });
+  return NextResponse.json({ ok: true, reparadas: inserts.length, responsables: faltantes.map((e) => e.assignee) });
 }

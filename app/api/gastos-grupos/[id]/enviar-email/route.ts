@@ -53,8 +53,8 @@ export async function POST(
   try {
     const { data: rows, error } = await getSupabase()
       .from(TABLES.expenseGroups)
-      .select("id_gasto, responsable, cargo, motivo, fecha_inicio, fecha_fin, monto, pdf_url, sector, estado")
-      .eq("id_gasto", id)
+      .select("group_id, assignee, job_title, reason, start_date, end_date, amount, pdf_url, region, status")
+      .eq("group_id", id)
       .limit(1);
     if (error) throw error;
     const row = rows?.[0];
@@ -70,7 +70,7 @@ export async function POST(
     if (rol !== "admin" && rol !== "coordinador") {
       return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
     }
-    if (rol === "coordinador" && String(row.responsable ?? "").trim().toLowerCase() !== me) {
+    if (rol === "coordinador" && String(row.assignee ?? "").trim().toLowerCase() !== me) {
       return NextResponse.json({ error: "No puedes enviar agrupaciones de otro usuario" }, { status: 403 });
     }
 
@@ -80,13 +80,13 @@ export async function POST(
     }
     const pdfBase64 = Buffer.from(await pdfRes.arrayBuffer()).toString("base64");
 
-    const responsable = String(row.responsable ?? "").trim();
-    const motivo = String(row.motivo ?? "").trim();
-    const periodoDe = String(row.fecha_inicio ?? "");
-    const periodoHasta = String(row.fecha_fin ?? "");
-    const totalNum = Number(row.monto ?? 0) || 0;
+    const responsable = String(row.assignee ?? "").trim();
+    const motivo = String(row.reason ?? "").trim();
+    const periodoDe = String(row.start_date ?? "");
+    const periodoHasta = String(row.end_date ?? "");
+    const totalNum = Number(row.amount ?? 0) || 0;
     const totalFormato = `$${Math.round(totalNum).toLocaleString("es-CO")}`;
-    const zonaLabel = String(row.sector ?? "");
+    const zonaLabel = String(row.region ?? "");
 
     const asunto = `Reporte Gastos Generales — ${responsable} — ${id}`;
     const cuerpo = `
