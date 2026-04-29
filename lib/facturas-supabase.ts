@@ -5,77 +5,77 @@ import { TABLES } from "@/lib/db-tables";
 
 export type FacturaDbRow = {
   id: string;
-  id_factura: string | null;
-  num_factura: string | null;
-  fecha_factura: string | null;
-  monto_factura: number | string | null;
-  responsable: string | null;
-  tipo_servicio: string | null;
-  tipo_factura: string | null;
-  nit_factura: string | null;
-  razon_social: string | null;
-  nombre_bia: boolean | null;
-  observacion: string | null;
-  adjuntar_factura: string | null;
+  invoice_id: string | null;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  invoice_amount: number | string | null;
+  assignee: string | null;
+  service_type: string | null;
+  invoice_type: string | null;
+  vendor_tax_id: string | null;
+  company_name: string | null;
+  billed_to_bia: boolean | null;
+  notes: string | null;
+  attachment_url: string | null;
   url: string | null;
-  estado: string | null;
+  status: string | null;
   verificado: boolean | null;
-  ciudad: string | null;
-  sector: string | null;
-  centro_costo: string | null;
-  info_centro_costo: string | null;
-  fecha_creacion: string | null;
+  city: string | null;
+  region: string | null;
+  cost_center: string | null;
+  cost_center_info: string | null;
+  submitted_at: string | null;
   ops: string | null;
-  motivo_rechazo: string | null;
+  rejection_reason: string | null;
   drive_file_id: string | null;
-  entrega_id: string | null;
+  transfer_id: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
 
 const SELECT_COLUMNS =
-  "id, id_factura, num_factura, fecha_factura, monto_factura, responsable, tipo_servicio, tipo_factura, nit_factura, razon_social, nombre_bia, observacion, adjuntar_factura, url, estado, verificado, ciudad, sector, centro_costo, info_centro_costo, fecha_creacion, ops, motivo_rechazo, drive_file_id, entrega_id, created_at";
+  "id, invoice_id, invoice_number, invoice_date, invoice_amount, assignee, service_type, invoice_type, vendor_tax_id, company_name, billed_to_bia, notes, attachment_url, url, status, verificado, city, region, cost_center, cost_center_info, submitted_at, ops, rejection_reason, drive_file_id, transfer_id, created_at";
 
 /** Convierte fila de DB → shape legacy de Sheet (múltiples alias por campo para compat UI). */
 export function facturaDbToApi(r: FacturaDbRow): FacturaRow {
-  const estadoStr = r.estado ?? "Pendiente";
-  const nombreBiaStr = r.nombre_bia ? "TRUE" : r.nombre_bia === false ? "FALSE" : "";
+  const estadoStr = r.status ?? "Pendiente";
+  const nombreBiaStr = r.billed_to_bia ? "TRUE" : r.billed_to_bia === false ? "FALSE" : "";
   const verificadoStr = r.verificado === true ? "TRUE" : r.verificado === false ? "FALSE" : estadoStr;
-  const imagen = r.adjuntar_factura ?? r.url ?? "";
+  const imagen = r.attachment_url ?? r.url ?? "";
   const row: Record<string, string | number | undefined> = {
     _rowIndex: 0,
     _id: r.id,
     // IDs
-    ID: r.id_factura ?? "",
-    ID_Factura: r.id_factura ?? "",
+    ID: r.invoice_id ?? "",
+    ID_Factura: r.invoice_id ?? "",
     // Número de factura (col B legado Num_Factura)
-    Num_Factura: r.num_factura ?? "",
-    NumFactura: r.num_factura ?? "",
+    Num_Factura: r.invoice_number ?? "",
+    NumFactura: r.invoice_number ?? "",
     // Fechas
-    Fecha: r.fecha_factura ?? "",
-    Fecha_Factura: r.fecha_factura ?? "",
-    FechaCreacion: r.fecha_creacion ?? "",
+    Fecha: r.invoice_date ?? "",
+    Fecha_Factura: r.invoice_date ?? "",
+    FechaCreacion: r.submitted_at ?? "",
     // Monto
-    Monto_Factura: r.monto_factura != null ? String(r.monto_factura) : "",
-    Valor: r.monto_factura != null ? String(r.monto_factura) : "",
+    Monto_Factura: r.invoice_amount != null ? String(r.invoice_amount) : "",
+    Valor: r.invoice_amount != null ? String(r.invoice_amount) : "",
     // Responsable
-    Responsable: r.responsable ?? "",
+    Responsable: r.assignee ?? "",
     // Tipo servicio/factura
-    Tipo_servicio: r.tipo_servicio ?? "",
-    ServicioDeclarado: r.tipo_servicio ?? "",
-    Tipo_Factura: r.tipo_factura ?? "",
-    TipoFactura: r.tipo_factura ?? "",
+    Tipo_servicio: r.service_type ?? "",
+    ServicioDeclarado: r.service_type ?? "",
+    Tipo_Factura: r.invoice_type ?? "",
+    TipoFactura: r.invoice_type ?? "",
     // NIT / proveedor
-    Nit_Factura: r.nit_factura ?? "",
-    NIT: r.nit_factura ?? "",
-    Razon_Social: r.razon_social ?? "",
-    Proveedor: r.razon_social ?? "",
+    Nit_Factura: r.vendor_tax_id ?? "",
+    NIT: r.vendor_tax_id ?? "",
+    Razon_Social: r.company_name ?? "",
+    Proveedor: r.company_name ?? "",
     // Nombre BIA
     Nombre_bia: nombreBiaStr,
     ANombreBia: nombreBiaStr,
     // Concepto / observación
-    Observacion: r.observacion ?? "",
-    Concepto: r.observacion ?? "",
+    Observacion: r.notes ?? "",
+    Concepto: r.notes ?? "",
     // Imagen / URL
     Adjuntar_Factura: imagen,
     ImagenURL: imagen,
@@ -85,18 +85,18 @@ export function facturaDbToApi(r: FacturaDbRow): FacturaRow {
     Estado: estadoStr,
     Legalizado: estadoStr,
     Verificado: verificadoStr,
-    MotivoRechazo: r.motivo_rechazo ?? "",
+    MotivoRechazo: r.rejection_reason ?? "",
     // Ubicación
-    Ciudad: r.ciudad ?? "",
-    Sector: r.sector ?? "",
+    Ciudad: r.city ?? "",
+    Sector: r.region ?? "",
     // OPS
     OPS: r.ops ?? "",
     TipoOperacion: r.ops ?? "",
     // Centro de costo
-    "Centro de Costo": r.centro_costo ?? "",
-    InfoCentroCosto: r.info_centro_costo ?? "",
+    "Centro de Costo": r.cost_center ?? "",
+    InfoCentroCosto: r.cost_center_info ?? "",
     // Entrega vinculada
-    EntregaID: r.entrega_id ?? "",
+    EntregaID: r.transfer_id ?? "",
   };
   return row as unknown as FacturaRow;
 }
@@ -122,7 +122,7 @@ export async function findFacturaById(idFactura: string): Promise<FacturaRow | n
   const { data, error } = await getSupabase()
     .from(TABLES.invoices)
     .select(SELECT_COLUMNS)
-    .eq("id_factura", idFactura)
+    .eq("invoice_id", idFactura)
     .limit(1);
   if (error) throw error;
   if (!data || data.length === 0) return null;
@@ -168,26 +168,26 @@ export async function insertFactura(f: FacturaInsertFields): Promise<void> {
   const estado = (f.estado || "Pendiente").trim();
   const sectorCanon = normalizeSector(f.sector ?? "") || "Bogota";
   const payload: Record<string, unknown> = {
-    id_factura: f.idFactura,
-    num_factura: f.numFactura || null,
-    fecha_factura: parseFechaISO(f.fecha),
-    monto_factura: f.valor,
-    responsable: f.responsable,
-    tipo_servicio: f.servicioDeclarado || null,
-    tipo_factura: f.tipoFactura || null,
-    nit_factura: f.nit || null,
-    razon_social: f.proveedor || null,
-    nombre_bia: f.aNombreBia ?? null,
-    observacion: f.observacion ?? f.concepto ?? null,
-    adjuntar_factura: f.imagenUrl || null,
+    invoice_id: f.idFactura,
+    invoice_number: f.numFactura || null,
+    invoice_date: parseFechaISO(f.fecha),
+    invoice_amount: f.valor,
+    assignee: f.responsable,
+    service_type: f.servicioDeclarado || null,
+    invoice_type: f.tipoFactura || null,
+    vendor_tax_id: f.nit || null,
+    company_name: f.proveedor || null,
+    billed_to_bia: f.aNombreBia ?? null,
+    notes: f.observacion ?? f.concepto ?? null,
+    attachment_url: f.imagenUrl || null,
     url: f.imagenUrl || null,
-    estado,
+    status: estado,
     verificado: estado === "Aprobada" || estado === "Completada",
-    ciudad: f.ciudad || null,
-    sector: sectorCanon,
+    city: f.ciudad || null,
+    region: sectorCanon,
     ops: f.tipoOperacion || null,
     drive_file_id: f.driveFileId || null,
-    fecha_creacion: f.fechaCreacion || new Date().toISOString(),
+    submitted_at: f.fechaCreacion || new Date().toISOString(),
   };
   const { error } = await getSupabase().from(TABLES.invoices).insert(payload);
   if (error) throw error;
@@ -215,25 +215,25 @@ export async function updateFactura(
   u: FacturaUpdateFields
 ): Promise<void> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (u.fecha !== undefined) patch.fecha_factura = parseFechaISO(String(u.fecha));
-  if (u.proveedor !== undefined) patch.razon_social = u.proveedor.trim() || null;
-  if (u.nit !== undefined) patch.nit_factura = u.nit.trim() || null;
-  if (u.numFactura !== undefined) patch.num_factura = u.numFactura.trim() || null;
-  if (u.concepto !== undefined) patch.observacion = u.concepto.trim() || null;
+  if (u.fecha !== undefined) patch.invoice_date = parseFechaISO(String(u.fecha));
+  if (u.proveedor !== undefined) patch.company_name = u.proveedor.trim() || null;
+  if (u.nit !== undefined) patch.vendor_tax_id = u.nit.trim() || null;
+  if (u.numFactura !== undefined) patch.invoice_number = u.numFactura.trim() || null;
+  if (u.concepto !== undefined) patch.notes = u.concepto.trim() || null;
   if (u.valor !== undefined) {
     const raw = String(u.valor).replace(/[^\d.-]/g, "");
-    patch.monto_factura = raw ? Number(raw) : null;
+    patch.invoice_amount = raw ? Number(raw) : null;
   }
-  if (u.tipoFactura !== undefined) patch.tipo_factura = u.tipoFactura.trim() || null;
+  if (u.tipoFactura !== undefined) patch.invoice_type = u.tipoFactura.trim() || null;
   if (u.servicioDeclarado !== undefined)
-    patch.tipo_servicio = u.servicioDeclarado.trim() || null;
+    patch.service_type = u.servicioDeclarado.trim() || null;
   if (u.tipoOperacion !== undefined) patch.ops = u.tipoOperacion.trim() || null;
-  if (u.aNombreBia !== undefined) patch.nombre_bia = u.aNombreBia;
-  if (u.ciudad !== undefined) patch.ciudad = u.ciudad.trim() || null;
-  if (u.sector !== undefined) patch.sector = normalizeSector(u.sector) || u.sector.trim() || null;
+  if (u.aNombreBia !== undefined) patch.billed_to_bia = u.aNombreBia;
+  if (u.ciudad !== undefined) patch.city = u.ciudad.trim() || null;
+  if (u.sector !== undefined) patch.region = normalizeSector(u.sector) || u.sector.trim() || null;
   if (u.imagenUrl !== undefined) {
     const v = u.imagenUrl.trim() || null;
-    patch.adjuntar_factura = v;
+    patch.attachment_url = v;
     patch.url = v;
   }
   if (u.driveFileId !== undefined) patch.drive_file_id = u.driveFileId.trim() || null;
@@ -241,7 +241,7 @@ export async function updateFactura(
   const { error } = await getSupabase()
     .from(TABLES.invoices)
     .update(patch)
-    .eq("id_factura", idFactura);
+    .eq("invoice_id", idFactura);
   if (error) throw error;
 }
 
@@ -251,15 +251,15 @@ export async function updateFacturaEstado(
   motivoRechazo?: string
 ): Promise<void> {
   const patch: Record<string, unknown> = {
-    estado,
+    status: estado,
     verificado: estado === "Aprobada" || estado === "Completada",
-    motivo_rechazo: estado === "Rechazada" ? motivoRechazo || null : null,
+    rejection_reason: estado === "Rechazada" ? motivoRechazo || null : null,
     updated_at: new Date().toISOString(),
   };
   const { error } = await getSupabase()
     .from(TABLES.invoices)
     .update(patch)
-    .eq("id_factura", idFactura);
+    .eq("invoice_id", idFactura);
   if (error) throw error;
 }
 
@@ -267,7 +267,7 @@ export async function deleteFactura(idFactura: string): Promise<boolean> {
   const { data, error } = await getSupabase()
     .from(TABLES.invoices)
     .delete()
-    .eq("id_factura", idFactura)
+    .eq("invoice_id", idFactura)
     .select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
@@ -280,15 +280,15 @@ export async function updateFacturasEstadoMasivo(
 ): Promise<void> {
   if (idsFactura.length === 0) return;
   const patch: Record<string, unknown> = {
-    estado,
+    status: estado,
     verificado: estado === "Aprobada",
-    motivo_rechazo: estado === "Rechazada" ? motivoRechazo || null : null,
+    rejection_reason: estado === "Rechazada" ? motivoRechazo || null : null,
     updated_at: new Date().toISOString(),
   };
   const { error } = await getSupabase()
     .from(TABLES.invoices)
     .update(patch)
-    .in("id_factura", idsFactura);
+    .in("invoice_id", idsFactura);
   if (error) throw error;
 }
 
@@ -297,10 +297,10 @@ export async function marcarFacturasCompletadas(idsFactura: string[]): Promise<v
   const { error } = await getSupabase()
     .from(TABLES.invoices)
     .update({
-      estado: "Completada",
+      status: "Completada",
       verificado: true,
       updated_at: new Date().toISOString(),
     })
-    .in("id_factura", idsFactura);
+    .in("invoice_id", idsFactura);
   if (error) throw error;
 }

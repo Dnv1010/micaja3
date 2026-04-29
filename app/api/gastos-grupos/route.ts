@@ -8,40 +8,40 @@ import { TABLES } from "@/lib/db-tables";
 
 type GrupoDb = {
   id: string;
-  id_gasto: string | null;
+  group_id: string | null;
   fecha: string | null;
-  fecha_creacion: string | null;
-  responsable: string | null;
-  cargo: string | null;
-  sector: string | null;
-  motivo: string | null;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
-  monto: number | string | null;
-  estado: string | null;
-  gastos_ids: string | null;
+  submitted_at: string | null;
+  assignee: string | null;
+  job_title: string | null;
+  region: string | null;
+  reason: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  amount: number | string | null;
+  status: string | null;
+  expense_ids: string | null;
   pdf_url: string | null;
-  firma: string | null;
-  centro_costos: string | null;
+  signature: string | null;
+  cost_center: string | null;
 };
 
 function dbToApi(r: GrupoDb): Record<string, string> {
   return {
     _rowIndex: r.id,
-    ID_Grupo: r.id_gasto ?? "",
-    FechaCreacion: r.fecha_creacion ?? r.fecha ?? "",
-    Responsable: r.responsable ?? "",
-    Cargo: r.cargo ?? "",
-    Sector: r.sector ?? "",
-    Motivo: r.motivo ?? "",
-    FechaInicio: r.fecha_inicio ?? "",
-    FechaFin: r.fecha_fin ?? "",
-    Total: r.monto != null ? String(r.monto) : "0",
-    Estado: r.estado ?? "",
-    Gastos_IDs: r.gastos_ids ?? "",
+    ID_Grupo: r.group_id ?? "",
+    FechaCreacion: r.submitted_at ?? r.fecha ?? "",
+    Responsable: r.assignee ?? "",
+    Cargo: r.job_title ?? "",
+    Sector: r.region ?? "",
+    Motivo: r.reason ?? "",
+    FechaInicio: r.start_date ?? "",
+    FechaFin: r.end_date ?? "",
+    Total: r.amount != null ? String(r.amount) : "0",
+    Estado: r.status ?? "",
+    Gastos_IDs: r.expense_ids ?? "",
     PDF_URL: r.pdf_url ?? "",
-    Firma: r.firma ?? "",
-    CentroCostos: r.centro_costos ?? "",
+    Firma: r.signature ?? "",
+    CentroCostos: r.cost_center ?? "",
   };
 }
 
@@ -58,7 +58,7 @@ export async function GET() {
     const { data, error } = await getSupabase()
       .from(TABLES.expenseGroups)
       .select(
-        "id, id_gasto, fecha, fecha_creacion, responsable, cargo, sector, motivo, fecha_inicio, fecha_fin, monto, estado, gastos_ids, pdf_url, firma, centro_costos, created_at"
+        "id, group_id, fecha, submitted_at, assignee, job_title, region, reason, start_date, end_date, amount, status, expense_ids, pdf_url, signature, cost_center, created_at"
       )
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -106,19 +106,19 @@ export async function POST(req: Request) {
     const totalNum = Number(String(body.total ?? "0").replace(/[^\d.-]/g, "")) || 0;
 
     const payload = {
-      id_gasto: id,
+      group_id: id,
       fecha: new Date().toISOString().slice(0, 10),
-      fecha_creacion: new Date().toISOString(),
-      responsable: body.responsable || null,
-      cargo: body.cargo || null,
-      sector: sectorCanon,
-      motivo: body.motivo || null,
-      fecha_inicio: body.fechaInicio || null,
-      fecha_fin: body.fechaFin || null,
-      monto: totalNum,
-      estado: "Pendiente",
-      gastos_ids: JSON.stringify(body.gastosIds || []),
-      centro_costos: body.centroCostos || null,
+      submitted_at: new Date().toISOString(),
+      assignee: body.responsable || null,
+      job_title: body.cargo || null,
+      region: sectorCanon,
+      reason: body.motivo || null,
+      start_date: body.fechaInicio || null,
+      end_date: body.fechaFin || null,
+      amount: totalNum,
+      status: "Pendiente",
+      expense_ids: JSON.stringify(body.gastosIds || []),
+      cost_center: body.centroCostos || null,
     };
 
     const { error } = await getSupabase().from(TABLES.expenseGroups).insert(payload);

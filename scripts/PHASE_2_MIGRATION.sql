@@ -172,39 +172,30 @@ ALTER TABLE expense_groups RENAME COLUMN fecha_creacion TO submitted_at;
 -- BLOQUE 9: Renombrar columnas — bot_sessions (era: sesiones_bot)
 -- ============================================================
 
-ALTER TABLE bot_sessions RENAME COLUMN estado TO status;
-ALTER TABLE bot_sessions RENAME COLUMN datos  TO data;
+ALTER TABLE bot_sessions RENAME COLUMN estado        TO status;
+ALTER TABLE bot_sessions RENAME COLUMN datos_temp    TO session_data;
+ALTER TABLE bot_sessions RENAME COLUMN ultimo_mensaje TO last_message_at;
+ALTER TABLE bot_sessions RENAME COLUMN responsable   TO assignee;
 
 
 -- ============================================================
--- BLOQUE 10: Actualizar valores de texto (enum-like TEXT fields)
--- Nota: los valores de sector ("Bogota", "Costa Caribe") NO se cambian
+-- BLOQUE 10: Convertir columnas ENUM a TEXT
+-- Los VALUES (Pendiente, Aprobada, etc.) NO se cambian — son datos de dominio
+-- que el frontend muestra directamente al usuario. Cambiarlos rompería la UI.
+-- Solo convertimos el tipo de columna de ENUM a TEXT para mayor flexibilidad.
 -- ============================================================
 
--- invoices.status
-UPDATE invoices SET status = 'pending'   WHERE status = 'Pendiente';
-UPDATE invoices SET status = 'approved'  WHERE status = 'Aprobada';
-UPDATE invoices SET status = 'rejected'  WHERE status = 'Rechazada';
-UPDATE invoices SET status = 'completed' WHERE status = 'Completada';
+ALTER TABLE invoices        ALTER COLUMN status TYPE TEXT USING (status::TEXT);
+ALTER TABLE expenses        ALTER COLUMN status TYPE TEXT USING (status::TEXT);
+ALTER TABLE expense_groups  ALTER COLUMN status TYPE TEXT USING (status::TEXT);
+ALTER TABLE expense_reports ALTER COLUMN status TYPE TEXT USING (status::TEXT);
+ALTER TABLE users           ALTER COLUMN role   TYPE TEXT USING (role::TEXT);
 
--- expenses.status
-UPDATE expenses SET status = 'pending'   WHERE status = 'Pendiente';
-UPDATE expenses SET status = 'approved'  WHERE status = 'Aprobada';
-UPDATE expenses SET status = 'rejected'  WHERE status = 'Rechazada';
-UPDATE expenses SET status = 'completed' WHERE status = 'Completada';
-
--- expense_groups.status
-UPDATE expense_groups SET status = 'pending'   WHERE status = 'Pendiente';
-UPDATE expense_groups SET status = 'approved'  WHERE status = 'Aprobada';
-UPDATE expense_groups SET status = 'rejected'  WHERE status = 'Rechazada';
-UPDATE expense_groups SET status = 'completed' WHERE status = 'Completada';
-
--- expense_reports.status
-UPDATE expense_reports SET status = 'pending_admin' WHERE status = 'Pendiente Admin';
-UPDATE expense_reports SET status = 'signed'        WHERE status = 'Firmado';
-
--- users.role
-UPDATE users SET role = 'coordinator' WHERE role = 'coordinador';
+-- Eliminar tipos ENUM viejos (ya no los usa ninguna columna)
+-- Si la DB tiene otros objetos dependientes del tipo, estos DROP fallarán —
+-- en ese caso comentar las líneas (no afecta el funcionamiento).
+DROP TYPE IF EXISTS micaja.estado_factura CASCADE;
+DROP TYPE IF EXISTS public.estado_factura CASCADE;
 
 
 -- ============================================================

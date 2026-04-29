@@ -7,16 +7,16 @@ import { TABLES } from "@/lib/db-tables";
 
 /** Mapeo de campos de UI (Sheet-style) → columnas Supabase. */
 const FIELD_MAP: Record<string, string> = {
-  Ciudad: "ciudad",
-  Motivo: "motivo",
-  FechaInicio: "fecha_inicio",
-  FechaFin: "fecha_fin",
-  Concepto: "concepto",
-  CentroCostos: "centro_costos",
+  Ciudad: "city",
+  Motivo: "reason",
+  FechaInicio: "start_date",
+  FechaFin: "end_date",
+  Concepto: "concept",
+  CentroCostos: "cost_center",
   NIT: "nit",
-  FechaFactura: "fecha_factura",
-  Valor: "monto",
-  Estado: "estado",
+  FechaFactura: "invoice_date",
+  Valor: "amount",
+  Estado: "status",
 };
 
 export async function PATCH(
@@ -33,10 +33,10 @@ export async function PATCH(
   for (const [uiField, dbCol] of Object.entries(FIELD_MAP)) {
     if (body[uiField] !== undefined) {
       const raw = body[uiField];
-      if (dbCol === "monto") {
+      if (dbCol === "amount") {
         const clean = String(raw ?? "").replace(/[^\d.-]/g, "");
-        update.monto = clean ? Number(clean) : null;
-      } else if (dbCol.startsWith("fecha")) {
+        update.amount = clean ? Number(clean) : null;
+      } else if (dbCol.endsWith("_date") || dbCol === "start_date" || dbCol === "end_date") {
         const v = String(raw ?? "").trim();
         update[dbCol] = v || null;
       } else {

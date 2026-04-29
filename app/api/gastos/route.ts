@@ -8,42 +8,42 @@ import { TABLES } from "@/lib/db-tables";
 
 type GastoGeneralDb = {
   id: string;
-  id_gasto: string | null;
+  expense_id: string | null;
   fecha: string | null;
-  responsable: string | null;
-  cargo: string | null;
-  ciudad: string | null;
-  motivo: string | null;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
-  concepto: string | null;
-  centro_costos: string | null;
+  assignee: string | null;
+  job_title: string | null;
+  city: string | null;
+  reason: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  concept: string | null;
+  cost_center: string | null;
   nit: string | null;
-  fecha_factura: string | null;
-  monto: number | string | null;
-  estado: string | null;
-  sector: string | null;
-  fecha_creacion: string | null;
+  invoice_date: string | null;
+  amount: number | string | null;
+  status: string | null;
+  region: string | null;
+  submitted_at: string | null;
 };
 
 function dbToApi(r: GastoGeneralDb): Record<string, string> {
   return {
     _rowIndex: r.id,
-    ID_Gasto: r.id_gasto ?? "",
-    FechaCreacion: r.fecha_creacion ?? r.fecha ?? "",
-    Responsable: r.responsable ?? "",
-    Cargo: r.cargo ?? "",
-    Ciudad: r.ciudad ?? "",
-    Motivo: r.motivo ?? "",
-    FechaInicio: r.fecha_inicio ?? "",
-    FechaFin: r.fecha_fin ?? "",
-    Concepto: r.concepto ?? "",
-    CentroCostos: r.centro_costos ?? "",
+    ID_Gasto: r.expense_id ?? "",
+    FechaCreacion: r.submitted_at ?? r.fecha ?? "",
+    Responsable: r.assignee ?? "",
+    Cargo: r.job_title ?? "",
+    Ciudad: r.city ?? "",
+    Motivo: r.reason ?? "",
+    FechaInicio: r.start_date ?? "",
+    FechaFin: r.end_date ?? "",
+    Concepto: r.concept ?? "",
+    CentroCostos: r.cost_center ?? "",
     NIT: r.nit ?? "",
-    FechaFactura: r.fecha_factura ?? "",
-    Valor: r.monto != null ? String(r.monto) : "",
-    Estado: r.estado ?? "",
-    Sector: r.sector ?? "",
+    FechaFactura: r.invoice_date ?? "",
+    Valor: r.amount != null ? String(r.amount) : "",
+    Estado: r.status ?? "",
+    Sector: r.region ?? "",
   };
 }
 
@@ -59,7 +59,7 @@ export async function GET() {
     const { data, error } = await getSupabase()
       .from(TABLES.expenses)
       .select(
-        "id, id_gasto, fecha, responsable, cargo, ciudad, motivo, fecha_inicio, fecha_fin, concepto, centro_costos, nit, fecha_factura, monto, estado, sector, fecha_creacion, created_at"
+        "id, expense_id, fecha, assignee, job_title, city, reason, start_date, end_date, concept, cost_center, nit, invoice_date, amount, status, region, submitted_at, created_at"
       )
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -121,22 +121,22 @@ export async function POST(req: NextRequest) {
     const { data, error } = await getSupabase()
       .from(TABLES.expenses)
       .insert({
-        id_gasto: id,
+        expense_id: id,
         fecha: new Date().toISOString().slice(0, 10),
-        fecha_creacion: new Date().toISOString(),
-        responsable,
-        cargo: body.cargo || null,
-        ciudad: body.ciudad || null,
-        motivo: body.motivo || null,
-        fecha_inicio: body.fechaInicio || null,
-        fecha_fin: body.fechaFin || null,
-        concepto: body.concepto || null,
+        submitted_at: new Date().toISOString(),
+        assignee: responsable,
+        job_title: body.cargo || null,
+        city: body.ciudad || null,
+        reason: body.motivo || null,
+        start_date: body.fechaInicio || null,
+        end_date: body.fechaFin || null,
+        concept: body.concepto || null,
         nit: body.nit || null,
-        fecha_factura: body.fechaFactura || null,
-        monto: montoNum,
-        centro_costos: body.centroCostos || null,
-        sector,
-        estado: "Pendiente",
+        invoice_date: body.fechaFactura || null,
+        amount: montoNum,
+        cost_center: body.centroCostos || null,
+        region: sector,
+        status: "Pendiente",
       })
       .select("id")
       .single();
@@ -167,7 +167,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const { error } = await getSupabase()
       .from(TABLES.expenses)
-      .update({ estado, updated_at: new Date().toISOString() })
+      .update({ status: estado, updated_at: new Date().toISOString() })
       .eq("id", rowIndex);
     if (error) throw error;
     return NextResponse.json({ ok: true });

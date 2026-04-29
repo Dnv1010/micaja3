@@ -35,7 +35,7 @@ export function getSupabase(): SupabaseClient {
   const url = resolveUrl(key);
   cached = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    db: { schema: "public" },
+    db: { schema: "micaja" },
   });
   return cached;
 }
