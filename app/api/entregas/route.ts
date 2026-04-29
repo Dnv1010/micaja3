@@ -12,32 +12,32 @@ import { uniqueSheetKey } from "@/lib/ids";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 
 type EntregaDb = {
-  id_entrega: string | null;
-  fecha_entrega: string | null;
-  id_envio: string | null;
-  responsable: string | null;
-  monto_entregado: number | string | null;
-  saldo_total_entregado: number | string | null;
-  aceptar: boolean | null;
-  firma: string | null;
+  delivery_id: string | null;
+  delivery_date: string | null;
+  transfer_id: string | null;
+  assignee: string | null;
+  delivered_amount: number | string | null;
+  cumulative_delivered: number | string | null;
+  confirmed: boolean | null;
+  signature: string | null;
 };
 
 type EnvioDb = {
-  id_envio: string | null;
-  comprobante: string | null;
+  transfer_id: string | null;
+  voucher_number: string | null;
 };
 
 function entregaDbToApi(r: EntregaDb, comprobante: string): Record<string, string> {
   return {
-    ID_Entrega: r.id_entrega ?? "",
-    Fecha_Entrega: r.fecha_entrega ?? "",
-    ID_Envio: r.id_envio ?? "",
-    Responsable: r.responsable ?? "",
-    Monto_Entregado: r.monto_entregado != null ? String(r.monto_entregado) : "",
+    ID_Entrega: r.delivery_id ?? "",
+    Fecha_Entrega: r.delivery_date ?? "",
+    ID_Envio: r.transfer_id ?? "",
+    Responsable: r.assignee ?? "",
+    Monto_Entregado: r.delivered_amount != null ? String(r.delivered_amount) : "",
     Saldo_Total_Entregado:
-      r.saldo_total_entregado != null ? String(r.saldo_total_entregado) : "",
-    Aceptar: r.aceptar === true ? "TRUE" : r.aceptar === false ? "FALSE" : "",
-    Firma: r.firma ?? "",
+      r.cumulative_delivered != null ? String(r.cumulative_delivered) : "",
+    Aceptar: r.confirmed === true ? "TRUE" : r.confirmed === false ? "FALSE" : "",
+    Firma: r.signature ?? "",
     ComprobanteEnvio: comprobante,
   };
 }
@@ -53,10 +53,10 @@ export async function GET(req: NextRequest) {
       sb
         .from(TABLES.deliveries)
         .select(
-          "id_entrega, fecha_entrega, id_envio, responsable, monto_entregado, saldo_total_entregado, aceptar, firma, created_at"
+          "delivery_id, delivery_date, transfer_id, assignee, delivered_amount, cumulative_delivered, confirmed, signature, created_at"
         )
         .order("created_at", { ascending: true }),
-      sb.from(TABLES.transfers).select("id_envio, comprobante"),
+      sb.from(TABLES.transfers).select("transfer_id, voucher_number"),
     ]);
 
     if (entRes.error) throw entRes.error;
@@ -64,11 +64,11 @@ export async function GET(req: NextRequest) {
 
     const comprobantesPorEnvio = new Map<string, string>();
     for (const e of (envRes.data ?? []) as EnvioDb[]) {
-      if (e.id_envio) comprobantesPorEnvio.set(e.id_envio, e.comprobante ?? "");
+      if (e.transfer_id) comprobantesPorEnvio.set(e.transfer_id, e.voucher_number ?? "");
     }
 
     let data = ((entRes.data ?? []) as EntregaDb[]).map((r) =>
-      entregaDbToApi(r, comprobantesPorEnvio.get(r.id_envio ?? "") ?? "")
+      entregaDbToApi(r, comprobantesPorEnvio.get(r.transfer_id ?? "") ?? "")
     );
 
     const rol = String(session.user.rol || "").toLowerCase();
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
 
     const saldoStr = String(body.Saldo_Total_Entregado || "").replace(/[^\d]/g, "");
     const aceptarRaw = String(body.Aceptar || "").trim().toUpperCase();
-    const aceptar =
+    const confirmed =
       aceptarRaw === "TRUE" || aceptarRaw === "SI" || aceptarRaw === "1"
         ? true
         : aceptarRaw === "FALSE" || aceptarRaw === "NO" || aceptarRaw === "0"
@@ -161,14 +161,14 @@ export async function POST(req: NextRequest) {
         : null;
 
     const { error } = await getSupabase().from(TABLES.deliveries).insert({
-      id_entrega: idEntrega,
-      fecha_entrega: fecha,
-      id_envio: idEnvio || null,
-      responsable,
-      monto_entregado: monto,
-      saldo_total_entregado: saldoStr ? Number(saldoStr) : null,
-      aceptar,
-      firma: String(body.Firma || "").trim() || null,
+      delivery_id: idEntrega,
+      delivery_date: fecha,
+      transfer_id: idEnvio || null,
+      assignee: responsable,
+      delivered_amount: monto,
+      cumulative_delivered: saldoStr ? Number(saldoStr) : null,
+      confirmed,
+      signature: String(body.Firma || "").trim() || null,
     });
     if (error) throw error;
 

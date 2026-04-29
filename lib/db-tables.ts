@@ -1,12 +1,12 @@
 export const TABLES = {
-  users:          'usuarios',
-  invoices:       'facturas',
-  transfers:      'envios',
-  deliveries:     'entregas',
-  expenseReports: 'legalizaciones',
-  expenses:       'gastos_generales',
-  expenseGroups:  'gastos_grupos',
-  botSessions:    'sesiones_bot',
+  users:          'users',
+  invoices:       'invoices',
+  transfers:      'transfers',
+  deliveries:     'deliveries',
+  expenseReports: 'expense_reports',
+  expenses:       'expenses',
+  expenseGroups:  'expense_groups',
+  botSessions:    'bot_sessions',
 } as const;
 
 export type TableKey = keyof typeof TABLES;

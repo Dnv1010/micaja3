@@ -19,21 +19,21 @@ export async function PATCH(
     const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
     if (body.pdfUrl !== undefined) update.pdf_url = String(body.pdfUrl ?? "") || null;
-    if (body.firma !== undefined) update.firma = String(body.firma ?? "") || null;
-    if (body.estado !== undefined) update.estado = String(body.estado ?? "") || null;
+    if (body.firma !== undefined) update.signature = String(body.firma ?? "") || null;
+    if (body.estado !== undefined) update.status = String(body.estado ?? "") || null;
     if (body.total !== undefined) {
       const n = Number(String(body.total ?? "").replace(/[^\d.-]/g, ""));
-      update.monto = Number.isFinite(n) ? n : null;
+      update.amount = Number.isFinite(n) ? n : null;
     }
     if (body.gastosIds !== undefined) {
-      update.gastos_ids = JSON.stringify(body.gastosIds || []);
+      update.expense_ids = JSON.stringify(body.gastosIds || []);
     }
-    if (body.motivo !== undefined) update.motivo = String(body.motivo ?? "") || null;
+    if (body.motivo !== undefined) update.reason = String(body.motivo ?? "") || null;
 
     const { data, error } = await getSupabase()
       .from(TABLES.expenseGroups)
       .update(update)
-      .eq("id_gasto", id)
+      .eq("group_id", id)
       .select("id");
     if (error) throw error;
     if (!data || data.length === 0) {
@@ -60,7 +60,7 @@ export async function DELETE(
     const { data, error } = await getSupabase()
       .from(TABLES.expenseGroups)
       .delete()
-      .eq("id_gasto", id)
+      .eq("group_id", id)
       .select("id");
     if (error) throw error;
     if (!data || data.length === 0) {

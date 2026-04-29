@@ -10,24 +10,24 @@ import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 
 type EnvioDb = {
-  id_envio: string | null;
+  transfer_id: string | null;
   fecha: string | null;
-  responsable: string | null;
-  monto: number | string | null;
-  sector: string | null;
-  comprobante: string | null;
+  assignee: string | null;
+  amount: number | string | null;
+  region: string | null;
+  voucher_number: string | null;
   observacion: string | null;
 };
 
 function envioDbToApi(r: EnvioDb): Record<string, string> {
   return {
-    IDEnvio: r.id_envio ?? "",
-    ID: r.id_envio ?? "",
+    IDEnvio: r.transfer_id ?? "",
+    ID: r.transfer_id ?? "",
     Fecha: r.fecha ?? "",
-    Monto: r.monto != null ? String(r.monto) : "",
-    Responsable: r.responsable ?? "",
-    Comprobante: r.comprobante ?? "",
-    Sector: r.sector ?? "",
+    Monto: r.amount != null ? String(r.amount) : "",
+    Responsable: r.assignee ?? "",
+    Comprobante: r.voucher_number ?? "",
+    Sector: r.region ?? "",
     Observacion: r.observacion ?? "",
   };
 }
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     const { data: rows, error } = await getSupabase()
       .from(TABLES.transfers)
-      .select("id_envio, fecha, responsable, monto, sector, comprobante, observacion, created_at")
+      .select("transfer_id, fecha, assignee, amount, region, voucher_number, observacion, created_at")
       .order("created_at", { ascending: true });
     if (error) throw error;
 
@@ -153,26 +153,26 @@ export async function POST(req: NextRequest) {
 
     const sb = getSupabase();
     const { error: envErr } = await sb.from(TABLES.transfers).insert({
-      id_envio: id,
+      transfer_id: id,
       fecha,
-      responsable,
-      monto: montoNum,
-      sector: sectorCanon,
-      comprobante: comprobante || null,
+      assignee: responsable,
+      amount: montoNum,
+      region: sectorCanon,
+      voucher_number: comprobante || null,
       observacion: String(body.observacion ?? "").trim() || null,
     });
     if (envErr) throw envErr;
 
     const { error: entErr } = await sb.from(TABLES.deliveries).insert({
-      id_entrega: idEntrega,
-      fecha_entrega: fecha,
-      id_envio: id,
-      responsable,
-      monto_entregado: montoNum,
+      delivery_id: idEntrega,
+      delivery_date: fecha,
+      transfer_id: id,
+      assignee: responsable,
+      delivered_amount: montoNum,
     });
     if (entErr) {
       // Entrega failed — roll back the envio to avoid orphan records
-      await sb.from(TABLES.transfers).delete().eq("id_envio", id);
+      await sb.from(TABLES.transfers).delete().eq("transfer_id", id);
       throw entErr;
     }
 
@@ -215,8 +215,8 @@ export async function DELETE(req: NextRequest) {
     const sb = getSupabase();
     const { data: existing, error: selErr } = await sb
       .from(TABLES.transfers)
-      .select("id, id_envio, responsable")
-      .eq("id_envio", id)
+      .select("id, transfer_id, assignee")
+      .eq("transfer_id", id)
       .limit(1);
     if (selErr) throw selErr;
     if (!existing || existing.length === 0) {
@@ -224,7 +224,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (rol === "coordinador") {
-      const respEnvio = String(existing[0].responsable || "").trim().toLowerCase();
+      const respEnvio = String((existing[0] as { assignee?: string }).assignee || "").trim().toLowerCase();
       const set = await responsablesEnZonaSheetSet(String(session.user.sector || ""));
       const yo = String(session.user.responsable || session.user.name || "")
         .trim()
@@ -235,10 +235,10 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    const { error: delEnt } = await sb.from(TABLES.deliveries).delete().eq("id_envio", id);
+    const { error: delEnt } = await sb.from(TABLES.deliveries).delete().eq("transfer_id", id);
     if (delEnt) throw delEnt;
 
-    const { error: delEnv } = await sb.from(TABLES.transfers).delete().eq("id_envio", id);
+    const { error: delEnv } = await sb.from(TABLES.transfers).delete().eq("transfer_id", id);
     if (delEnv) throw delEnv;
 
     return NextResponse.json({ ok: true });

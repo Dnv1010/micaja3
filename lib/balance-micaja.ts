@@ -41,18 +41,18 @@ export async function loadMicajaBalancesByResponsable(opts?: {
   }
 
   const [entData, facData] = await Promise.all([
-    fetchAll<{ responsable: string | null; monto_entregado: number | string | null }>(
+    fetchAll<{ assignee: string | null; delivered_amount: number | string | null }>(
       () => sb.from(TABLES.deliveries),
-      "responsable, monto_entregado"
+      "assignee, delivered_amount"
     ),
     fetchAll<{
-      responsable: string | null;
-      monto_factura: number | string | null;
-      estado: string | null;
-      sector: string | null;
+      assignee: string | null;
+      invoice_amount: number | string | null;
+      status: string | null;
+      region: string | null;
     }>(
       () => sb.from(TABLES.invoices),
-      "responsable, monto_factura, estado, sector"
+      "assignee, invoice_amount, status, region"
     ),
   ]);
 
@@ -70,21 +70,21 @@ export async function loadMicajaBalancesByResponsable(opts?: {
   };
 
   for (const row of entData) {
-    const r = String(row.responsable ?? "").trim();
+    const r = String(row.assignee ?? "").trim();
     if (zonaSet && !zonaSet.has(r.toLowerCase())) continue;
-    const m = Number(row.monto_entregado ?? 0);
+    const m = Number(row.delivered_amount ?? 0);
     if (Number.isFinite(m)) bump(r, "recibido", m);
   }
 
   for (const row of facData) {
-    const estado = String(row.estado ?? "").trim();
+    const estado = String(row.status ?? "").trim();
     if (!ESTADOS_GASTADO.has(estado)) continue;
-    const r = String(row.responsable ?? "").trim();
-    const rowSec = normalizeSector(String(row.sector ?? ""));
+    const r = String(row.assignee ?? "").trim();
+    const rowSec = normalizeSector(String(row.region ?? ""));
     if (zonaSet && !zonaSet.has(r.toLowerCase())) {
       if (wantSec === null || rowSec !== wantSec) continue;
     }
-    const m = Number(row.monto_factura ?? 0);
+    const m = Number(row.invoice_amount ?? 0);
     if (Number.isFinite(m)) bump(r, "gastado", m);
   }
 

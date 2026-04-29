@@ -21,28 +21,13 @@
 
 ---
 
-## Valores de enum (TEXT en DB — requieren UPDATE de datos en Fase 2)
+## Valores de enum — SIN CAMBIO
 
-### `status` — invoices, expenses, expense_groups
-| Valor actual  | Valor nuevo   |
-|---------------|---------------|
-| `"Pendiente"` | `"pending"`   |
-| `"Aprobada"`  | `"approved"`  |
-| `"Rechazada"` | `"rejected"`  |
-| `"Completada"`| `"completed"` |
+Los valores (`"Pendiente"`, `"Aprobada"`, `"Rechazada"`, `"Completada"`, `"coordinador"`, etc.)
+son datos de dominio que el frontend muestra directamente al usuario. **No se cambian.**
 
-### `status` — expense_reports
-| Valor actual        | Valor nuevo      |
-|---------------------|------------------|
-| `"Pendiente Admin"` | `"pending_admin"`|
-| `"Firmado"`         | `"signed"`       |
-
-### `role` — users
-| Valor actual   | Valor nuevo    |
-|----------------|----------------|
-| `"coordinador"`| `"coordinator"`|
-| `"admin"`      | `"admin"` ← sin cambio |
-| `"user"`       | `"user"` ← sin cambio  |
+En Fase 2 solo se convierte el tipo de columna de ENUM PostgreSQL a TEXT para mayor
+flexibilidad, pero los valores almacenados permanecen en español.
 
 ### `region` — todas las tablas
 | Valor actual    | Valor nuevo                     |
@@ -177,12 +162,14 @@
 > `id_gasto` se renombra a `group_id` aquí (no `expense_id`) para no confundir con `expenses.expense_id`.
 
 ### `bot_sessions` (era: `sesiones_bot`)
-| Columna actual | Columna nueva |
-|----------------|---------------|
-| `estado`       | `status`      |
-| `datos`        | `data`        |
+| Columna actual  | Columna nueva    |
+|-----------------|------------------|
+| `estado`        | `status`         |
+| `datos_temp`    | `session_data`   |
+| `ultimo_mensaje`| `last_message_at`|
+| `responsable`   | `assignee`       |
 
-> Los valores del campo `paso` dentro del JSONB `data` son internos al bot y NO se modifican.
+> Los valores del campo `paso` dentro del JSONB `session_data` son internos al bot y NO se modifican.
 
 ---
 

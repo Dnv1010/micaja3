@@ -38,37 +38,37 @@ export function sheetSectorToCanon(raw: string): "Bogota" | "Costa Caribe" {
 }
 
 type UsuarioDbRow = {
-  responsable: string | null;
-  correo: string | null;
-  telefono: string | null;
-  rol: string | null;
-  user_active: boolean | null;
+  assignee: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  is_active: boolean | null;
   area: string | null;
-  sector: string | null;
-  cargo: string | null;
-  cedula: string | null;
+  region: string | null;
+  job_title: string | null;
+  document_number: string | null;
   pin: string | null;
   telegram_chat_id: string | null;
 };
 
 function rowToUsuarioSheet(r: UsuarioDbRow): UsuarioSheet | null {
-  const email = normalizeEmailForAuth(String(r.correo ?? ""));
+  const email = normalizeEmailForAuth(String(r.email ?? ""));
   if (!email) return null;
-  const rolRaw = String(r.rol ?? "user").toLowerCase().trim();
+  const rolRaw = String(r.role ?? "user").toLowerCase().trim();
   const rol: UsuarioSheet["rol"] = ["admin", "coordinador", "user"].includes(rolRaw)
     ? (rolRaw as UsuarioSheet["rol"])
     : "user";
   const chat = (r.telegram_chat_id ?? "").trim();
   return {
-    responsable: (r.responsable ?? "").trim(),
+    responsable: (r.assignee ?? "").trim(),
     email,
-    telefono: (r.telefono ?? "").replace(/[^0-9]/g, ""),
+    telefono: (r.phone ?? "").replace(/[^0-9]/g, ""),
     rol,
-    userActive: r.user_active !== false,
+    userActive: r.is_active !== false,
     area: (r.area ?? "").trim(),
-    sector: sheetSectorToCanon(String(r.sector ?? "")),
-    cargo: (r.cargo ?? "").trim(),
-    cedula: (r.cedula ?? "").trim(),
+    sector: sheetSectorToCanon(String(r.region ?? "")),
+    cargo: (r.job_title ?? "").trim(),
+    cedula: (r.document_number ?? "").trim(),
     pin: ((r.pin ?? "").trim() || "1234"),
     telegram_chat_id: chat || undefined,
   };
@@ -81,7 +81,7 @@ export async function getUsuariosFromSheet(): Promise<UsuarioSheet[]> {
   const { data, error } = await getSupabase()
     .from(TABLES.users)
     .select(
-      "responsable, correo, telefono, rol, user_active, area, sector, cargo, cedula, pin, telegram_chat_id"
+      "assignee, email, phone, role, is_active, area, region, job_title, document_number, pin, telegram_chat_id"
     );
   if (error) {
     console.error("[usuarios] Supabase error:", error);

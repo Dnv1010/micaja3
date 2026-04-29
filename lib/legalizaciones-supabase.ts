@@ -4,53 +4,53 @@ import { TABLES } from "@/lib/db-tables";
 
 export type LegalizacionDbRow = {
   id: string;
-  id_reporte: string | null;
+  report_id: string | null;
   fecha: string | null;
-  fecha_creacion: string | null;
-  coordinador: string | null;
-  sector: string | null;
+  submitted_at: string | null;
+  coordinator: string | null;
+  region: string | null;
   total: number | string | null;
-  total_aprobado: number | string | null;
-  estado: string | null;
-  observacion: string | null;
-  url_reporte: string | null;
-  periodo_desde: string | null;
-  periodo_hasta: string | null;
-  facturas_ids: string | null;
-  firma_coordinador: string | null;
-  firma_admin: string | null;
-  resumen_ia: string | null;
+  approved_total: number | string | null;
+  status: string | null;
+  notes: string | null;
+  report_url: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  invoice_ids: string | null;
+  coordinator_signature: string | null;
+  admin_signature: string | null;
+  ai_summary: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
 
 const SELECT_COLUMNS =
-  "id, id_reporte, fecha, fecha_creacion, coordinador, sector, total, total_aprobado, estado, observacion, url_reporte, periodo_desde, periodo_hasta, facturas_ids, firma_coordinador, firma_admin, resumen_ia, created_at";
+  "id, report_id, fecha, submitted_at, coordinator, region, total, approved_total, status, notes, report_url, period_start, period_end, invoice_ids, coordinator_signature, admin_signature, ai_summary, created_at";
 
 /** Convierte DB → forma que espera la UI (claves Sheet-style). */
 export function legalizacionDbToApi(r: LegalizacionDbRow): Record<string, string> {
   return {
-    ID_Reporte: r.id_reporte ?? "",
-    ID: r.id_reporte ?? "",
-    Fecha_Creacion: r.fecha_creacion ?? r.fecha ?? "",
-    Coordinador: r.coordinador ?? "",
-    Sector: r.sector ?? "",
-    Periodo_Desde: r.periodo_desde ?? "",
-    Periodo: r.periodo_desde ?? "",
-    Periodo_Hasta: r.periodo_hasta ?? "",
+    ID_Reporte: r.report_id ?? "",
+    ID: r.report_id ?? "",
+    Fecha_Creacion: r.submitted_at ?? r.fecha ?? "",
+    Coordinador: r.coordinator ?? "",
+    Sector: r.region ?? "",
+    Periodo_Desde: r.period_start ?? "",
+    Periodo: r.period_start ?? "",
+    Periodo_Hasta: r.period_end ?? "",
     Total: r.total != null ? String(r.total) : "0",
-    TotalAprobado: r.total_aprobado != null ? String(r.total_aprobado) : "",
-    Estado: r.estado ?? "",
-    Facturas_IDs: r.facturas_ids ?? "",
-    FacturasIds: r.facturas_ids ?? "",
-    Firma_Coordinador: r.firma_coordinador ?? "",
-    Firma_Admin: r.firma_admin ?? "",
-    PDF_URL: r.url_reporte ?? "",
-    PdfURL: r.url_reporte ?? "",
+    TotalAprobado: r.approved_total != null ? String(r.approved_total) : "",
+    Estado: r.status ?? "",
+    Facturas_IDs: r.invoice_ids ?? "",
+    FacturasIds: r.invoice_ids ?? "",
+    Firma_Coordinador: r.coordinator_signature ?? "",
+    Firma_Admin: r.admin_signature ?? "",
+    PDF_URL: r.report_url ?? "",
+    PdfURL: r.report_url ?? "",
     Fecha_ISO: r.created_at ?? "",
-    Resumen_IA: r.resumen_ia ?? "",
-    ResumenIA: r.resumen_ia ?? "",
-    Observacion: r.observacion ?? "",
+    Resumen_IA: r.ai_summary ?? "",
+    ResumenIA: r.ai_summary ?? "",
+    Observacion: r.notes ?? "",
   };
 }
 
@@ -81,19 +81,19 @@ function parseFechaISO(raw: string): string | null {
 export async function insertLegalizacion(f: LegalizacionInsertFields): Promise<void> {
   const sectorCanon = normalizeSector(f.sector) || "Bogota";
   const payload = {
-    id_reporte: f.idReporte,
+    report_id: f.idReporte,
     fecha: new Date().toISOString().slice(0, 10),
-    fecha_creacion: new Date().toISOString(),
-    coordinador: f.coordinador,
-    sector: sectorCanon,
-    periodo_desde: parseFechaISO(f.periodoDe),
-    periodo_hasta: parseFechaISO(f.periodoHasta),
+    submitted_at: new Date().toISOString(),
+    coordinator: f.coordinador,
+    region: sectorCanon,
+    period_start: parseFechaISO(f.periodoDe),
+    period_end: parseFechaISO(f.periodoHasta),
     total: f.total,
-    estado: "Pendiente Admin",
-    facturas_ids: f.facturasIds,
-    firma_coordinador: f.firmaCoordinador,
-    url_reporte: f.pdfUrl || null,
-    resumen_ia: f.resumenIA || null,
+    status: "Pendiente Admin",
+    invoice_ids: f.facturasIds,
+    coordinator_signature: f.firmaCoordinador,
+    report_url: f.pdfUrl || null,
+    ai_summary: f.resumenIA || null,
   };
   const { error } = await getSupabase().from(TABLES.expenseReports).insert(payload);
   if (error) throw error;
@@ -105,7 +105,7 @@ export async function findLegalizacionByReporteId(
   const { data, error } = await getSupabase()
     .from(TABLES.expenseReports)
     .select(SELECT_COLUMNS)
-    .eq("id_reporte", idReporte)
+    .eq("report_id", idReporte)
     .limit(1);
   if (error) throw error;
   return data && data.length > 0 ? (data[0] as LegalizacionDbRow) : null;
@@ -126,8 +126,8 @@ export async function updateLegalizacionEstado(
 ): Promise<number> {
   const { data, error } = await getSupabase()
     .from(TABLES.expenseReports)
-    .update({ estado, updated_at: new Date().toISOString() })
-    .eq("id_reporte", idReporte)
+    .update({ status: estado, updated_at: new Date().toISOString() })
+    .eq("report_id", idReporte)
     .select("id");
   if (error) throw error;
   return data?.length ?? 0;
@@ -141,12 +141,12 @@ export async function firmarLegalizacionAdmin(
   const { data, error } = await getSupabase()
     .from(TABLES.expenseReports)
     .update({
-      firma_admin: firmaAdmin,
-      url_reporte: pdfUrl,
-      estado: "Firmado",
+      admin_signature: firmaAdmin,
+      report_url: pdfUrl,
+      status: "Firmado",
       updated_at: new Date().toISOString(),
     })
-    .eq("id_reporte", idReporte)
+    .eq("report_id", idReporte)
     .select("id");
   if (error) throw error;
   return data?.length ?? 0;
@@ -156,7 +156,7 @@ export async function deleteLegalizacion(idReporte: string): Promise<boolean> {
   const { data, error } = await getSupabase()
     .from(TABLES.expenseReports)
     .delete()
-    .eq("id_reporte", idReporte)
+    .eq("report_id", idReporte)
     .select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;

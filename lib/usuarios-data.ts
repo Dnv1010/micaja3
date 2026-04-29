@@ -14,15 +14,15 @@ export function usuarioPinFromRow(u: UsuarioRow): string {
 }
 
 type UsuariosDbRow = {
-  responsable: string | null;
-  correo: string | null;
-  telefono: string | null;
-  rol: string | null;
-  user_active: boolean | null;
+  assignee: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  is_active: boolean | null;
   area: string | null;
-  sector: string | null;
-  cargo: string | null;
-  cedula: string | null;
+  region: string | null;
+  job_title: string | null;
+  document_number: string | null;
   pin: string | null;
   telegram_chat_id: string | null;
 };
@@ -30,15 +30,15 @@ type UsuariosDbRow = {
 function dbRowToApiRow(r: UsuariosDbRow, rowIndex: number): UsuarioRowWithSource {
   return {
     _rowIndex: rowIndex,
-    Responsable: (r.responsable ?? "").trim(),
-    Correos: normalizeEmailForAuth(String(r.correo ?? "")),
-    Telefono: (r.telefono ?? "").trim(),
-    Rol: (r.rol ?? "").trim(),
-    UserActive: r.user_active ? "TRUE" : "FALSE",
+    Responsable: (r.assignee ?? "").trim(),
+    Correos: normalizeEmailForAuth(String(r.email ?? "")),
+    Telefono: (r.phone ?? "").trim(),
+    Rol: (r.role ?? "").trim(),
+    UserActive: r.is_active ? "TRUE" : "FALSE",
     Area: (r.area ?? "").trim(),
-    Cargo: (r.cargo ?? "").trim(),
-    Cedula: (r.cedula ?? "").trim(),
-    Sector: (r.sector ?? "").trim(),
+    Cargo: (r.job_title ?? "").trim(),
+    Cedula: (r.document_number ?? "").trim(),
+    Sector: (r.region ?? "").trim(),
     PIN: (r.pin ?? "").trim(),
     _usuariosSource: "SUPABASE",
   } as UsuarioRowWithSource;
@@ -48,7 +48,7 @@ export async function loadUsuariosMerged(): Promise<UsuarioRowWithSource[]> {
   const { data, error } = await getSupabase()
     .from(TABLES.users)
     .select(
-      "responsable, correo, telefono, rol, user_active, area, sector, cargo, cedula, pin, telegram_chat_id"
+      "assignee, email, phone, role, is_active, area, region, job_title, document_number, pin, telegram_chat_id"
     );
   if (error) {
     console.error("[usuarios-data] Supabase error:", error);
@@ -57,7 +57,7 @@ export async function loadUsuariosMerged(): Promise<UsuarioRowWithSource[]> {
   return (data as UsuariosDbRow[]).map((r, i) => dbRowToApiRow(r, i + 2));
 }
 
-/** Solo para login: encuentra usuario activo por correo. */
+/** Solo para login: encuentra usuario activo por email. */
 export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioRow | null> {
   const want = normalizeEmailForAuth(email);
   if (!want) return null;
@@ -65,16 +65,16 @@ export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioR
   const { data, error } = await getSupabase()
     .from(TABLES.users)
     .select(
-      "responsable, correo, telefono, rol, user_active, area, sector, cargo, cedula, pin, telegram_chat_id"
+      "assignee, email, phone, role, is_active, area, region, job_title, document_number, pin, telegram_chat_id"
     )
-    .ilike("correo", want)
+    .ilike("email", want)
     .limit(1);
   if (error) {
     console.error("[MiCaja auth] Supabase error:", error);
     return null;
   }
   if (!data || data.length === 0) {
-    console.warn(`[MiCaja auth] Sin usuario con correo ${want}`);
+    console.warn(`[MiCaja auth] Sin usuario con email ${want}`);
     return null;
   }
   const row = data[0] as UsuariosDbRow;
@@ -86,7 +86,7 @@ export async function findUsuarioByEmailForAuth(email: string): Promise<UsuarioR
   return apiRow;
 }
 
-/** Actualiza user_active por correo. Retorna nº de filas modificadas. */
+/** Actualiza is_active por email. Retorna nº de filas modificadas. */
 export async function patchUsuarioUserActiveByEmail(
   email: string,
   userActive: boolean
@@ -96,8 +96,8 @@ export async function patchUsuarioUserActiveByEmail(
 
   const { data, error } = await getSupabase()
     .from(TABLES.users)
-    .update({ user_active: userActive, updated_at: new Date().toISOString() })
-    .ilike("correo", want)
+    .update({ is_active: userActive, updated_at: new Date().toISOString() })
+    .ilike("email", want)
     .select("id");
   if (error) throw error;
   return data?.length ?? 0;
