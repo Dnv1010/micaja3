@@ -362,7 +362,7 @@ async function handleUpdate(req: NextRequest): Promise<NextResponse> {
         tipoFactura: datos.tipo_factura || "POS",
         servicioDeclarado: datos.servicio_declarado || "Otro",
         tipoOperacion: "OPS - Activaciones",
-        aNombreBia: !!(datos.nombre_bia && datos.nit_factura),
+        aNombreBia: !!datos.nombre_bia,
         ciudad,
         sector: usuario.sector,
         responsable: usuario.responsable,

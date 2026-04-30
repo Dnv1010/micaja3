@@ -9,6 +9,7 @@ declare module "next-auth" {
     cargo?: string;
     responsable?: string;
     cedula?: string;
+    telefono?: string;
   }
 
   interface Session {

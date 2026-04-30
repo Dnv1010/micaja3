@@ -119,10 +119,10 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
     return total;
   }, [entregas, facturas]);
 
-  // EN CAJA = Facturado - Entregado
+  // EN CAJA = Límite − Entregado (presupuesto disponible para distribuir)
   const enCaja = useMemo(
-    () => totalFacturado - totalEntregado,
-    [totalFacturado, totalEntregado]
+    () => limite - totalEntregado,
+    [limite, totalEntregado]
   );
 
   const pctEntregado = limite > 0 ? Math.min(100, Math.round((totalEntregado / limite) * 100)) : 0;
@@ -151,9 +151,9 @@ export function CoordinadorDashboardClient({ sector, zonaLabel }: { sector: stri
         <MetricaBox icon="⚠️" label="Pendiente legalizar" valor={formatCOP(pendienteLegalizar)} sub="Entregado sin facturar" color="text-yellow-400" />
         <MetricaBox
           icon="🏦"
-          label="En caja"
+          label="Disponible"
           valor={`${enCaja < 0 ? "-" : ""}${formatCOP(Math.abs(enCaja))}`}
-          sub="Facturado − Entregado"
+          sub="Límite − Entregado"
           color={enCaja >= 0 ? "text-emerald-400" : "text-red-400"}
         />
       </div>
