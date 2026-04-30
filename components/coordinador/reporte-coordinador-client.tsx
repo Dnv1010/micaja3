@@ -537,10 +537,10 @@ export function ReporteCoordinadorClient() {
                                   disabled={!est.toLowerCase().includes("firmado") || est.toLowerCase().includes("enviado fx")}
                                   title={
                                     est.toLowerCase().includes("enviado fx")
-                                      ? "Este reporte ya fue enviado a FX"
+                                      ? "Este reporte ya fue enviado"
                                       : !est.toLowerCase().includes("firmado")
                                         ? "Solo disponible para reportes firmados"
-                                        : "Abrir modal para enviar a FX"
+                                        : "Abrir Form Finance"
                                   }
                                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                                     est.toLowerCase().includes("enviado fx")
@@ -548,7 +548,7 @@ export function ReporteCoordinadorClient() {
                                       : "bg-[#4728EF] text-white hover:bg-[#3a20d4] disabled:cursor-not-allowed disabled:opacity-60"
                                   }`}
                                 >
-                                  {est.toLowerCase().includes("enviado fx") ? "✓ Ya enviado" : "📧 Enviar a FX"}
+                                  {est.toLowerCase().includes("enviado fx") ? "✓ Ya enviado" : "📧 Form Finance"}
                                 </button>
                               </div>
                             ) : (

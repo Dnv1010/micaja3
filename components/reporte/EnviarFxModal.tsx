@@ -131,11 +131,11 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
         if (!next) onClose();
       }}
     >
-      <DialogContent className="max-h-[98vh] w-[98vw] max-w-5xl overflow-y-auto border border-white/10 bg-[#0f1729] text-white p-5 sm:p-6 text-[15px]">
+      <DialogContent className="max-h-[95dvh] w-[96vw] max-w-5xl overflow-y-auto border border-white/10 bg-[#0f1729] text-white p-4 sm:p-6 text-[15px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
             <FileText className="h-5 w-5 shrink-0 text-cyan-400" />
-            Enviar a FX — Legalización
+            Form Finance — Legalización
           </DialogTitle>
           <p className="text-sm text-gray-400">
             Reporte {reporteId || "—"} · {reporte.Periodo_Desde || "—"} → {reporte.Periodo_Hasta || "—"}
@@ -148,7 +148,7 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
           </p>
           {pdfUrl ? (
             <>
-              <div className="mb-3 h-[min(50vh,420px)] min-h-[200px] w-full overflow-hidden rounded-md border border-white/10 bg-black/30">
+              <div className="mb-3 h-[min(38vh,340px)] min-h-[160px] w-full overflow-hidden rounded-md border border-white/10 bg-black/30">
                 <iframe
                   title="Vista previa PDF"
                   src={previewSrc}
@@ -177,7 +177,7 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
           <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
             Datos del formulario FX (editables)
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="col-span-2">
               <Label className="text-xs text-gray-400">Empresa</Label>
               <Input
@@ -264,7 +264,7 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
           </ol>
         </div>
 
-        <DialogFooter className="flex gap-2 pt-2">
+        <DialogFooter className="flex flex-wrap gap-2 pt-2">
           {!enviado ? (
             <>
               <Button variant="ghost" onClick={onClose} className="text-gray-400">
@@ -276,7 +276,7 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
                 className="gap-2 bg-blue-600 hover:bg-blue-700"
               >
                 <ExternalLink className="h-4 w-4" />
-                Abrir Google Form
+                Abrir Form Finance
               </Button>
               <Button
                 onClick={handleMarcarEnviado}
@@ -289,7 +289,7 @@ export default function EnviarFxModal({ reporte, open, onClose, onSuccess }: Env
             </>
           ) : (
             <div className="w-full text-center font-semibold text-emerald-400">
-              ✅ ¡Reporte marcado como Enviado FX!
+              ✅ ¡Reporte marcado como Enviado!
             </div>
           )}
         </DialogFooter>
