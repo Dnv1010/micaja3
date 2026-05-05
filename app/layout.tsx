@@ -17,8 +17,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={cn("dark font-sans", inter.variable)}>
-      <body className="min-h-screen antialiased bg-bia-blue text-white">
+    <html lang="es" className={cn("font-sans", inter.variable)} suppressHydrationWarning>
+      <head>
+        {/* Aplica el tema antes del primer paint para evitar flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme')||'system';if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
+      </head>
+      <body className="min-h-screen antialiased bg-background text-foreground">
         <Providers>{children}</Providers>
       </body>
     </html>

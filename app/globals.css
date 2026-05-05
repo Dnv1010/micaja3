@@ -5,7 +5,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Variables de marca BIA Energy (tema oscuro único) */
+/* Variables de marca BIA Energy */
 :root {
   --bia-blue: #001035;
   --bia-blue-mid: #0a1b4d;
@@ -18,36 +18,38 @@
 }
 
 @layer base {
+  /* Tema claro (por defecto) */
   :root {
-    --background: 220 100% 10%;
-    --foreground: 0 0% 100%;
-    --card: 223 77% 17%;
-    --card-foreground: 0 0% 100%;
-    --popover: 223 77% 17%;
-    --popover-foreground: 0 0% 100%;
+    --background: 220 50% 97%;
+    --foreground: 220 100% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 100% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 100% 10%;
     --primary: 172 93% 45%;
     --primary-foreground: 220 100% 10%;
-    --secondary: 223 16% 38%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 223 25% 18%;
-    --muted-foreground: 220 14% 59%;
+    --secondary: 220 20% 92%;
+    --secondary-foreground: 220 100% 10%;
+    --muted: 220 30% 94%;
+    --muted-foreground: 220 20% 45%;
     --accent: 252 85% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 223 16% 28%;
-    --input: 223 77% 14%;
+    --border: 220 20% 88%;
+    --input: 220 30% 94%;
     --ring: 172 93% 45%;
-    --sidebar: 220 100% 10%;
-    --sidebar-foreground: 220 14% 59%;
+    --sidebar: 220 50% 95%;
+    --sidebar-foreground: 220 20% 40%;
     --sidebar-primary: 172 93% 45%;
     --sidebar-primary-foreground: 220 100% 10%;
     --sidebar-accent: 172 93% 45%;
     --sidebar-accent-foreground: 172 93% 45%;
-    --sidebar-border: 223 16% 22%;
+    --sidebar-border: 220 20% 88%;
     --sidebar-ring: 172 93% 45%;
   }
 
+  /* Tema oscuro */
   .dark {
     --background: 220 100% 10%;
     --foreground: 0 0% 100%;
@@ -85,7 +87,5 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Open Sauce One", var(--font-sans), Inter, system-ui, sans-serif;
-    background-color: var(--bia-blue);
-    color: #ffffff;
   }
 }

@@ -52,7 +52,7 @@ export function MobileBottomNav({ session }: { session: Session }) {
     (rol === "admin" ? "/admin" : "/");
 
   return (
-    <nav className="safe-area-pb fixed bottom-0 left-0 right-0 z-40 flex border-t border-bia-gray/20 bg-bia-blue md:hidden">
+    <nav className="safe-area-pb fixed bottom-0 left-0 right-0 z-40 flex border-t border-border bg-background md:hidden">
       {shortTabs.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (

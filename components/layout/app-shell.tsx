@@ -19,7 +19,7 @@ export function AppShell({
       </aside>
       <div className="flex flex-1 flex-col min-w-0">
         <Header serverSession={session} />
-        <main className="mx-auto w-full max-w-6xl flex-1 bg-bia-blue p-4 md:p-6">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 bg-background p-4 md:p-6">{children}</main>
       </div>
       <MobileBottomNav session={session} />
     </div>

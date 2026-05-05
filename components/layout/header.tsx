@@ -6,6 +6,7 @@ import { RoleBadge } from "@/components/shared/role-badge";
 import { LogOut, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarNav } from "./sidebar-nav";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { Session } from "next-auth";
 
 export function Header({ serverSession }: { serverSession: Session }) {
@@ -14,20 +15,20 @@ export function Header({ serverSession }: { serverSession: Session }) {
   const rol = user?.rol || "user";
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-bia-gray/20 bg-bia-blue px-4 backdrop-blur supports-[backdrop-filter]:bg-bia-blue/95">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-border bg-background px-4 backdrop-blur supports-[backdrop-filter]:bg-background/95">
       <div className="flex items-center gap-2 md:hidden">
         <Sheet>
           <SheetTrigger
             aria-label="Abrir menú"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-bia-gray-light transition-colors hover:bg-white/10 hover:text-white"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Menu className="h-5 w-5" />
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 border-bia-gray/20 bg-bia-blue p-0">
+          <SheetContent side="left" className="w-72 border-border bg-sidebar p-0">
             <SidebarNav session={serverSession} className="min-h-screen border-0" />
           </SheetContent>
         </Sheet>
-        <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-white">
+        <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
           <span className="text-bia-aqua" aria-hidden>
             ⚡
           </span>
@@ -37,6 +38,7 @@ export function Header({ serverSession }: { serverSession: Session }) {
 
       <div className="hidden md:flex md:flex-1 md:items-center md:justify-end md:gap-3">
         <RoleBadge rol={rol} />
+        <ThemeToggle />
         <Button
           variant="outline"
           size="sm"
@@ -53,7 +55,8 @@ export function Header({ serverSession }: { serverSession: Session }) {
 
       <div className="flex items-center gap-2 md:hidden">
         <RoleBadge rol={rol} />
-        <Button variant="ghost" size="icon" className="text-bia-gray-light hover:text-bia-aqua" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesión">
+        <ThemeToggle iconOnly />
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-bia-aqua" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Cerrar sesión">
           <LogOut className="h-5 w-5" />
         </Button>
       </div>

@@ -73,15 +73,15 @@ export function SidebarNav({
   return (
     <aside
       className={cn(
-        "flex h-full min-h-screen w-64 flex-col border-r border-bia-gray/20 bg-bia-blue",
+        "flex h-full min-h-screen w-64 flex-col border-r border-border bg-sidebar",
         className
       )}
     >
-      <div className="flex items-center gap-2 border-b border-bia-gray/20 p-6">
+      <div className="flex items-center gap-2 border-b border-border p-6">
         <Zap className="h-7 w-7 shrink-0 text-bia-aqua" aria-hidden strokeWidth={2.25} />
         <div>
-          <span className="text-lg font-bold tracking-wide text-white">Bia</span>
-          <p className="text-xs text-bia-gray-light">{process.env.NEXT_PUBLIC_APP_NAME || "MiCaja"}</p>
+          <span className="text-lg font-bold tracking-wide text-foreground">Bia</span>
+          <p className="text-xs text-muted-foreground">{process.env.NEXT_PUBLIC_APP_NAME || "MiCaja"}</p>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export function SidebarNav({
                 "mx-2 flex min-h-[44px] items-center gap-3 rounded-xl px-4 py-3 text-sm transition-colors",
                 active
                   ? "border-l-2 border-bia-aqua bg-bia-aqua/10 font-medium text-bia-aqua"
-                  : "border-l-2 border-transparent text-bia-gray-light hover:bg-bia-blue-mid hover:text-white"
+                  : "border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />
@@ -110,19 +110,19 @@ export function SidebarNav({
         })}
       </nav>
 
-      <div className="mt-auto border-t border-bia-gray/20 p-4">
+      <div className="mt-auto border-t border-border p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bia-aqua/20 text-sm font-bold text-bia-aqua">
             {initials(nombre)}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{nombre}</p>
-            <p className="truncate text-xs text-bia-gray-light">{cargo || "—"}</p>
+            <p className="truncate text-sm font-medium text-foreground">{nombre}</p>
+            <p className="truncate text-xs text-muted-foreground">{cargo || "—"}</p>
           </div>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="shrink-0 text-bia-gray transition-colors hover:text-bia-aqua"
+            className="shrink-0 text-muted-foreground transition-colors hover:text-bia-aqua"
             aria-label="Cerrar sesión"
           >
             <LogOut className="h-5 w-5" />
