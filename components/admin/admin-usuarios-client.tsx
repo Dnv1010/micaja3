@@ -122,13 +122,15 @@ export function AdminUsuariosClient() {
   const [biaMessage, setBiaMessage] = useState<{ type: "success" | "error"; text: string } | null>(
     null
   );
+  // Error visible dentro del modal (el BiaAlert global queda oculto detrás del overlay)
+  const [modalError, setModalError] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [bRes, uRes, fRes] = await Promise.all([
         fetch("/api/balance"),
-        fetch("/api/usuarios?todos=true"),
+        fetch("/api/usuarios?todos=true", { cache: "no-store" }),
         fetch("/api/facturas"),
       ]);
       const bJson = await bRes.json().catch(() => ({ data: [] }));
@@ -188,6 +190,7 @@ export function AdminUsuariosClient() {
   function abrirAgregar() {
     setFormData(emptyForm());
     setEmailOriginal("");
+    setModalError("");
     setModalMode("agregar");
   }
 
@@ -207,12 +210,14 @@ export function AdminUsuariosClient() {
       userActive: activeFromSheet.get(em) ?? true,
       pin: "",
     });
+    setModalError("");
     setModalMode("editar");
   }
 
   async function guardarUsuario() {
+    setModalError("");
     if (!formData.responsable.trim() || !formData.email.trim()) {
-      setBiaMessage({ type: "error", text: "Nombre y correo son obligatorios" });
+      setModalError("Nombre y correo son obligatorios");
       return;
     }
     try {
@@ -235,10 +240,10 @@ export function AdminUsuariosClient() {
         });
         const j = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setBiaMessage({ type: "error", text: String((j as { error?: string }).error || "Error al crear") });
+          setModalError(String((j as { error?: string }).error || "Error al crear usuario"));
           return;
         }
-        setBiaMessage({ type: "success", text: "Usuario creado" });
+        setBiaMessage({ type: "success", text: "✓ Usuario creado correctamente" });
       } else if (modalMode === "editar") {
         const body: Record<string, unknown> = {
           email: emailOriginal,
@@ -260,15 +265,15 @@ export function AdminUsuariosClient() {
         });
         const j = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setBiaMessage({ type: "error", text: String((j as { error?: string }).error || "Error al guardar") });
+          setModalError(String((j as { error?: string }).error || "Error al guardar cambios"));
           return;
         }
-        setBiaMessage({ type: "success", text: "Cambios guardados" });
+        setBiaMessage({ type: "success", text: "✓ Cambios guardados" });
       }
       setModalMode(null);
       await load();
     } catch {
-      setBiaMessage({ type: "error", text: "Error de red" });
+      setModalError("Error de red — verifica tu conexión e intenta de nuevo");
     }
   }
 
@@ -536,7 +541,7 @@ export function AdminUsuariosClient() {
         <div
           role="presentation"
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setModalMode(null)}
+          onClick={() => { setModalMode(null); setModalError(""); }}
         >
           <div
             role="dialog"
@@ -547,6 +552,12 @@ export function AdminUsuariosClient() {
             <h3 className="mb-4 font-semibold text-white">
               {modalMode === "agregar" ? "Nuevo usuario" : "Editar usuario"}
             </h3>
+            {modalError ? (
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-400 dark:text-red-400">
+                <span className="mt-0.5 shrink-0 font-bold">⚠</span>
+                <span>{modalError}</span>
+              </div>
+            ) : null}
             {(
               [
                 { label: "Nombre completo", key: "responsable" as const },
@@ -625,7 +636,7 @@ export function AdminUsuariosClient() {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setModalMode(null)}
+                onClick={() => { setModalMode(null); setModalError(""); }}
                 className="rounded-xl bg-[#525A72]/20 px-4 py-2 text-sm text-[#8892A4]"
               >
                 Cancelar
