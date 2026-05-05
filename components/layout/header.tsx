@@ -43,7 +43,7 @@ export function Header({ serverSession }: { serverSession: Session }) {
           variant="outline"
           size="sm"
           onClick={() => window.open("https://turnos.bia.app", "_blank")}
-          className="hidden sm:flex items-center gap-1.5 border-[#08DDBC]/30 text-[#08DDBC] hover:bg-[#001035]"
+          className="hidden sm:flex items-center gap-1.5 border-bia-aqua/40 text-bia-aqua hover:bg-bia-aqua/10"
         >
           <span className="text-xs font-bold">📋 App Turnos</span>
         </Button>

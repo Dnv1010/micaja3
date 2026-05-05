@@ -5,87 +5,143 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Variables de marca BIA Energy */
+/* ── BIA brand colors (RGB para soportar opacidad con Tailwind) ─────────── */
+/* MODO CLARO por defecto */
 :root {
-  --bia-blue: #001035;
-  --bia-blue-mid: #0a1b4d;
-  --bia-gray: #525a72;
-  --bia-gray-light: #8892a4;
-  --bia-aqua: #08ddbc;
-  --bia-purple: #4728ef;
-  --bia-purple-light: #dedef9;
+  /* Paleta BIA en modo claro */
+  --bia-blue-rgb:         240 245 255;   /* #f0f5ff – fondo principal suave */
+  --bia-blue-mid-rgb:     255 255 255;   /* #ffffff – tarjetas/contenedores */
+  --bia-gray-rgb:         82  90  114;   /* #525a72 */
+  --bia-gray-light-rgb:   88 102 126;    /* #58667e – más oscuro para contraste */
+  --bia-aqua-rgb:         5  152 130;    /* #059882 – teal oscuro, legible sobre blanco */
+  --bia-purple-rgb:       71  40 239;    /* #4728ef */
+  --bia-purple-light-rgb: 222 222 249;   /* #dedef9 */
+
+  /* Componentes shadcn – modo claro */
+  --background: 220 40% 98%;
+  --foreground: 220 100% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 100% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 100% 10%;
+  --primary: 172 93% 45%;
+  --primary-foreground: 220 100% 10%;
+  --secondary: 220 25% 92%;
+  --secondary-foreground: 220 100% 15%;
+  --muted: 220 25% 94%;
+  --muted-foreground: 220 15% 40%;
+  --accent: 252 85% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 20% 84%;
+  --input: 0 0% 100%;
+  --ring: 172 93% 40%;
+  --sidebar: 220 35% 95%;
+  --sidebar-foreground: 220 20% 35%;
+  --sidebar-primary: 172 93% 45%;
+  --sidebar-primary-foreground: 220 100% 10%;
+  --sidebar-accent: 172 93% 45%;
+  --sidebar-accent-foreground: 172 93% 45%;
+  --sidebar-border: 220 20% 87%;
+  --sidebar-ring: 172 93% 45%;
   --radius: 0.75rem;
 }
 
+/* MODO OSCURO */
+.dark {
+  /* Paleta BIA original */
+  --bia-blue-rgb:         0   16  53;    /* #001035 */
+  --bia-blue-mid-rgb:     10  27  77;    /* #0a1b4d */
+  --bia-gray-rgb:         82  90  114;   /* #525a72 */
+  --bia-gray-light-rgb:   136 146 164;   /* #8892a4 */
+  --bia-aqua-rgb:         8  221 188;    /* #08ddbc */
+  --bia-purple-rgb:       71  40 239;    /* #4728ef */
+  --bia-purple-light-rgb: 222 222 249;   /* #dedef9 */
+
+  /* Componentes shadcn – modo oscuro */
+  --background: 220 100% 10%;
+  --foreground: 0 0% 100%;
+  --card: 223 77% 17%;
+  --card-foreground: 0 0% 100%;
+  --popover: 223 77% 17%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 172 93% 45%;
+  --primary-foreground: 220 100% 10%;
+  --secondary: 223 16% 38%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 223 25% 18%;
+  --muted-foreground: 220 14% 59%;
+  --accent: 252 85% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 223 16% 28%;
+  --input: 223 77% 14%;
+  --ring: 172 93% 45%;
+  --sidebar: 220 100% 10%;
+  --sidebar-foreground: 220 14% 59%;
+  --sidebar-primary: 172 93% 45%;
+  --sidebar-primary-foreground: 220 100% 10%;
+  --sidebar-accent: 172 93% 45%;
+  --sidebar-accent-foreground: 172 93% 45%;
+  --sidebar-border: 223 16% 22%;
+  --sidebar-ring: 172 93% 45%;
+}
+
 @layer base {
-  /* Tema claro (por defecto) */
-  :root {
-    --background: 220 50% 97%;
-    --foreground: 220 100% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 100% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 100% 10%;
-    --primary: 172 93% 45%;
-    --primary-foreground: 220 100% 10%;
-    --secondary: 220 20% 92%;
-    --secondary-foreground: 220 100% 10%;
-    --muted: 220 30% 94%;
-    --muted-foreground: 220 20% 45%;
-    --accent: 252 85% 55%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 20% 88%;
-    --input: 220 30% 94%;
-    --ring: 172 93% 45%;
-    --sidebar: 220 50% 95%;
-    --sidebar-foreground: 220 20% 40%;
-    --sidebar-primary: 172 93% 45%;
-    --sidebar-primary-foreground: 220 100% 10%;
-    --sidebar-accent: 172 93% 45%;
-    --sidebar-accent-foreground: 172 93% 45%;
-    --sidebar-border: 220 20% 88%;
-    --sidebar-ring: 172 93% 45%;
-  }
-
-  /* Tema oscuro */
-  .dark {
-    --background: 220 100% 10%;
-    --foreground: 0 0% 100%;
-    --card: 223 77% 17%;
-    --card-foreground: 0 0% 100%;
-    --popover: 223 77% 17%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 172 93% 45%;
-    --primary-foreground: 220 100% 10%;
-    --secondary: 223 16% 38%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 223 25% 18%;
-    --muted-foreground: 220 14% 59%;
-    --accent: 252 85% 55%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 223 16% 28%;
-    --input: 223 77% 14%;
-    --ring: 172 93% 45%;
-    --sidebar: 220 100% 10%;
-    --sidebar-foreground: 220 14% 59%;
-    --sidebar-primary: 172 93% 45%;
-    --sidebar-primary-foreground: 220 100% 10%;
-    --sidebar-accent: 172 93% 45%;
-    --sidebar-accent-foreground: 172 93% 45%;
-    --sidebar-border: 223 16% 22%;
-    --sidebar-ring: 172 93% 45%;
-  }
-
-  * {
-    @apply border-border;
-  }
-
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Open Sauce One", var(--font-sans), Inter, system-ui, sans-serif;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERRIDES MODO CLARO – hex hardcodeados en componentes
+   Estas reglas viven fuera de @layer para tener mayor precedencia.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Fondos oscuros → fondos claros ────────────────────────────────────── */
+:root .bg-\[\#001035\]  { background-color: rgb(var(--bia-blue-mid-rgb)); }
+:root .bg-\[\#0A1B4D\]  { background-color: hsl(var(--secondary)); }
+:root .bg-\[\#0a1b4d\]  { background-color: hsl(var(--secondary)); }
+:root .bg-\[\#0a1628\]  { background-color: hsl(220 20% 88%); }
+:root .bg-\[\#0f1729\]  { background-color: hsl(var(--popover)); }
+
+/* Hover oscuro → hover claro */
+:root .hover\:bg-\[\#001035\]:hover { background-color: hsl(var(--secondary)); }
+
+/* ── Bordes imperceptibles en modo claro → bordes visibles ─────────────── */
+:root .border-white\/5  { border-color: hsl(var(--border)); }
+:root .border-white\/10 { border-color: hsl(var(--border)); }
+:root .border-white\/20 { border-color: hsl(var(--border)); }
+
+/* ── Texto blanco dentro de contenedores oscuros → texto legible ────────── */
+:root .bg-\[\#001035\]  .text-white,
+:root .bg-\[\#0A1B4D\]  .text-white,
+:root .bg-\[\#0a1b4d\]  .text-white,
+:root .bg-\[\#0f1729\]  .text-white { color: hsl(var(--foreground)); }
+
+/* ── Colores de texto hardcodeados → adaptados al fondo claro ───────────── */
+/* Aqua #08DDBC como texto: buen contraste en oscuro, pero invisible en claro */
+:root .text-\[\#08DDBC\] { color: rgb(var(--bia-aqua-rgb)); }
+:root .text-\[\#08ddbc\] { color: rgb(var(--bia-aqua-rgb)); }
+
+/* Grises de la paleta BIA: adaptar al fondo claro */
+:root .text-\[\#8892A4\] { color: hsl(var(--muted-foreground)); }
+:root .text-\[\#8892a4\] { color: hsl(var(--muted-foreground)); }
+:root .text-\[\#525A72\] { color: hsl(220 15% 40%); }
+:root .text-\[\#525a72\] { color: hsl(220 15% 40%); }
+
+/* Purple-light #DEDEF9: invisible sobre fondo claro → usar color más oscuro */
+:root .text-\[\#DEDEF9\] { color: hsl(252 70% 45%); }
+:root .text-\[\#dedef9\] { color: hsl(252 70% 45%); }
+
+/* ── Bordes con aqua o gris → ajustados para visibilidad ───────────────── */
+:root .border-\[\#525A72\]\/10,
+:root .border-\[\#525a72\]\/10,
+:root .border-\[\#525A72\]\/20,
+:root .border-\[\#525a72\]\/20,
+:root .border-\[\#525A72\]\/30,
+:root .border-\[\#525a72\]\/30 { border-color: hsl(var(--border)); }

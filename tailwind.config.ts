@@ -11,13 +11,14 @@ const config: Config = {
     extend: {
       colors: {
         bia: {
-          blue: "#001035",
-          "blue-mid": "#0A1B4D",
-          gray: "#525A72",
-          "gray-light": "#8892A4",
-          aqua: "#08DDBC",
-          purple: "#4728EF",
-          "purple-light": "#DEDEF9",
+          // CSS variable–based so dark/light mode adapts automatically
+          blue:           "rgb(var(--bia-blue-rgb) / <alpha-value>)",
+          "blue-mid":     "rgb(var(--bia-blue-mid-rgb) / <alpha-value>)",
+          gray:           "rgb(var(--bia-gray-rgb) / <alpha-value>)",
+          "gray-light":   "rgb(var(--bia-gray-light-rgb) / <alpha-value>)",
+          aqua:           "rgb(var(--bia-aqua-rgb) / <alpha-value>)",
+          purple:         "rgb(var(--bia-purple-rgb) / <alpha-value>)",
+          "purple-light": "rgb(var(--bia-purple-light-rgb) / <alpha-value>)",
           white: "#FFFFFF",
         },
         border: "hsl(var(--border))",
