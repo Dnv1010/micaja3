@@ -371,7 +371,6 @@ export function EnviosCoordinadorClient({
                 <input
                   type="file"
                   accept="image/*,application/pdf"
-                  capture="environment"
                   className="hidden"
                   disabled={subiendoComprobante}
                   onChange={(e) => void onComprobanteChange(e)}

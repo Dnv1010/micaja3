@@ -188,7 +188,6 @@ export function FacturaUploadOcr({
             <input
               type="file"
               accept={ACCEPT}
-              capture="environment"
               onChange={handleFileChange}
               className="hidden"
               disabled={isProcessing}
