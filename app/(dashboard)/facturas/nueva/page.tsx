@@ -178,7 +178,7 @@ export default function NuevaFacturaPage() {
       .then((d) => {
         if (cancelled) return;
         const rows = Array.isArray(d.data) ? d.data : [];
-        const list: { responsable: string; cargo: string; email: string }[] = [];
+        const list: { responsable: string; cargo: string; email: string; area: string }[] = [];
         for (const row of rows) {
           const rec = row as Record<string, unknown>;
           const responsable = String(getCellCaseInsensitive(rec, "Responsable") || "").trim();
