@@ -365,7 +365,7 @@ export function AdminReportesClient() {
                       </TableCell>
                       <TableCell>{formatCOP(parseCOPString(String(r.Total || r.TotalAprobado || "0")))}</TableCell>
                       <TableCell>
-                        {est === "Firmado" ? (
+                        {est === "Firmado" || est === "Enviado FX" ? (
                           <Badge className="border-bia-aqua/30 bg-bia-aqua/10 text-bia-aqua">{est}</Badge>
                         ) : (
                           <Badge className="border-amber-700 bg-amber-950 text-amber-200">{est}</Badge>

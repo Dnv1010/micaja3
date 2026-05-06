@@ -49,6 +49,23 @@ export const authOptions: NextAuthOptions = {
         token.responsable = (user as { responsable?: string }).responsable;
         token.cedula = (user as { cedula?: string }).cedula;
         token.telefono = (user as { telefono?: string }).telefono;
+      } else if (!token.area && token.email) {
+        // Refresh area (and other fields) for existing sessions that predate this field
+        try {
+          const usuarios = await getUsuariosFromSheet();
+          const found = usuarios.find((u) => u.email === token.email);
+          if (found) {
+            token.area = found.area;
+            if (!token.rol) token.rol = found.rol;
+            if (!token.sector) token.sector = found.sector;
+            if (!token.cargo) token.cargo = found.cargo;
+            if (!token.responsable) token.responsable = found.responsable;
+            if (!token.cedula) token.cedula = found.cedula ?? "";
+            if (!token.telefono) token.telefono = found.telefono ?? "";
+          }
+        } catch {
+          /* mantener token existente si falla el fetch */
+        }
       }
       return token;
     },
