@@ -158,8 +158,9 @@ export default function NuevaFacturaPage() {
   const [saveError, setSaveError] = useState("");
   const [duplicada, setDuplicada] = useState(false);
   const [responsableTarget, setResponsableTarget] = useState("");
+  const [areaFactura, setAreaFactura] = useState("");
   const [usuariosZona, setUsuariosZona] = useState<
-    { responsable: string; cargo: string; email: string }[]
+    { responsable: string; cargo: string; email: string; area: string }[]
   >([]);
 
   const sessionSector = String(user?.sector || "");
@@ -187,6 +188,7 @@ export default function NuevaFacturaPage() {
             responsable,
             email,
             cargo: String(getCellCaseInsensitive(rec, "Cargo") || "").trim(),
+            area: String(getCellCaseInsensitive(rec, "Area", "Área") || "").trim(),
           });
         }
         list.sort((a, b) => a.responsable.localeCompare(b.responsable, "es"));
@@ -215,7 +217,8 @@ export default function NuevaFacturaPage() {
     const def = String(user?.responsable || user?.name || "").trim();
     if (!def) return;
     setResponsableTarget((prev) => (prev ? prev : def));
-  }, [user?.responsable, user?.name]);
+    setAreaFactura((prev) => (prev ? prev : String(user?.area || "").trim()));
+  }, [user?.responsable, user?.name, user?.area]);
 
   useEffect(() => {
     setDuplicada(false);
@@ -411,7 +414,7 @@ export default function NuevaFacturaPage() {
         ciudad,
         sector: sectorForm,
         responsable: responsableTarget.trim(),
-        area: String(user.area || ""),
+        area: areaFactura,
         imagenUrl: imagenUrl.trim(),
         driveFileId: driveFileId.trim(),
       };
@@ -789,7 +792,15 @@ export default function NuevaFacturaPage() {
             {rol === "coordinador" || rol === "admin" ? (
               <Select
                 value={responsableTarget}
-                onValueChange={(v) => setResponsableTarget(v || "")}
+                onValueChange={(v) => {
+                  setResponsableTarget(v || "");
+                  if (v === String(user?.responsable || user?.name || "")) {
+                    setAreaFactura(String(user?.area || "").trim());
+                  } else {
+                    const found = usuariosZona.find((u) => u.responsable === v);
+                    setAreaFactura(found?.area ?? "");
+                  }
+                }}
               >
                 <SelectTrigger className="bg-bia-blue border-bia-gray/40">
                   <SelectValue placeholder="Seleccionar responsable" />
@@ -819,7 +830,7 @@ export default function NuevaFacturaPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Área</Label>
-            <Input value={user?.area || ""} readOnly className="bg-bia-blue border-bia-gray/40 opacity-80" />
+            <Input value={areaFactura} readOnly className="bg-bia-blue border-bia-gray/40 opacity-80" />
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
