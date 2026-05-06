@@ -65,7 +65,9 @@ export function LegalizacionesCoordinadorClient() {
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) =>
-      String(getCellCaseInsensitive(b, "Fecha")).localeCompare(String(getCellCaseInsensitive(a, "Fecha")))
+      String(getCellCaseInsensitive(b, "Fecha_Creacion", "Fecha_ISO", "Fecha")).localeCompare(
+        String(getCellCaseInsensitive(a, "Fecha_Creacion", "Fecha_ISO", "Fecha"))
+      )
     );
   }, [rows]);
 
@@ -217,7 +219,7 @@ export function LegalizacionesCoordinadorClient() {
                   const totalC = getCellCaseInsensitive(r, "Total") || getCellCaseInsensitive(r, "TotalAprobado");
                   return (
                     <TableRow key={i}>
-                      <TableCell>{getCellCaseInsensitive(r, "Fecha") || "—"}</TableCell>
+                      <TableCell>{getCellCaseInsensitive(r, "Fecha_Creacion", "Fecha_ISO", "Fecha") || "—"}</TableCell>
                       <TableCell className="max-w-[220px] text-xs">{periodoTxt}</TableCell>
                       <TableCell>{formatCOP(parseCOPString(totalC))}</TableCell>
                       <TableCell>{estadoBadge(estado)}</TableCell>

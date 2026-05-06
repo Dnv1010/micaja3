@@ -357,7 +357,7 @@ export function AdminReportesClient() {
                   const pdfUrl = String(r.PDF_URL || r.PdfURL || "").trim();
                   return (
                     <TableRow key={`${id}-${i}`}>
-                      <TableCell>{r.Fecha || "—"}</TableCell>
+                      <TableCell>{r.Fecha_Creacion || r.Fecha_ISO || "—"}</TableCell>
                       <TableCell>{r.Coordinador || "—"}</TableCell>
                       <TableCell>{r.Sector || "—"}</TableCell>
                       <TableCell className="max-w-[200px] text-xs whitespace-pre-wrap">
@@ -378,7 +378,7 @@ export function AdminReportesClient() {
                               ✍️ Revisar y firmar
                             </Button>
                           ) : null}
-                          {est === "Firmado" && pdfUrl ? (
+                          {pdfUrl ? (
                             <a
                               href={pdfUrl}
                               target="_blank"

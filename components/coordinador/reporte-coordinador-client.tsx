@@ -507,7 +507,7 @@ export function ReporteCoordinadorClient() {
                     const est = String(r.Estado || "");
                     return (
                       <TableRow key={`${id}-${i}`}>
-                        <TableCell>{r.Fecha || "—"}</TableCell>
+                        <TableCell>{r.Fecha_Creacion || r.Fecha_ISO || "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
                           {r.Periodo_Desde || r.Periodo || "—"} → {r.Periodo_Hasta || "—"}
                         </TableCell>
