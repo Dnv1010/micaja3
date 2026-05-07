@@ -22,10 +22,11 @@ function isoDateToDDMMYYYY(iso: string): string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-/** Miniatura vía proxy solo si la URL apunta a contenido descargable como imagen. */
+/** Miniatura vía proxy: Supabase Storage o Drive (sin URLs de previsualización /file/d/). */
 function comprobantePermiteMiniatura(url: string): boolean {
   const u = url.trim().toLowerCase();
   if (!u.startsWith("https://")) return false;
+  if (u.includes("/storage/v1/object/public/")) return true;
   if (u.includes("/file/d/")) return false;
   return u.includes("drive.google.com") || u.includes("googleusercontent.com");
 }
@@ -403,7 +404,7 @@ export function EnviosCoordinadorClient({
               ) : null}
 
               {comprobanteUrl && !subiendoComprobante ? (
-                <p className="mt-1 text-xs text-[#08DDBC]">Comprobante guardado en Drive</p>
+                <p className="mt-1 text-xs text-[#08DDBC]">Comprobante guardado</p>
               ) : null}
             </div>
 
