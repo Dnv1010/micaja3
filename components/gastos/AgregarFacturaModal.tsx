@@ -40,6 +40,7 @@ export default function AgregarFacturaModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
+  const [voucherUrl, setVoucherUrl] = useState("");
   const [ocrData, setOcrData] = useState<OcrDataExtracted>({
     proveedor: null,
     nit: null,
@@ -87,12 +88,20 @@ export default function AgregarFacturaModal({
           throw new Error("Formato no soportado (usa JPG, PNG o PDF)");
         }
 
-        // Llamar a OCR
-        const ocrRes = await fetch("/api/ia/ocr", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageBase64, mimeType }),
-        });
+        // OCR y upload a Storage en paralelo
+        const uploadForm = new FormData();
+        uploadForm.append("file", file);
+        uploadForm.append("responsable", responsable);
+        uploadForm.append("destino", "gastos");
+
+        const [ocrRes, uploadRes] = await Promise.all([
+          fetch("/api/ia/ocr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageBase64, mimeType }),
+          }),
+          fetch("/api/facturas/upload", { method: "POST", body: uploadForm }),
+        ]);
 
         if (!ocrRes.ok) {
           const errJson = await ocrRes.json().catch(() => ({}));
@@ -107,6 +116,11 @@ export default function AgregarFacturaModal({
 
         if (!ocrJson.success || !ocrJson.data) {
           throw new Error(ocrJson.error || "No se extrajeron datos");
+        }
+
+        if (uploadRes.ok) {
+          const upJson = (await uploadRes.json().catch(() => ({}))) as { url?: string };
+          if (upJson.url) setVoucherUrl(upJson.url);
         }
 
         setOcrData(ocrJson.data);
@@ -146,6 +160,7 @@ export default function AgregarFacturaModal({
         valor: ocrData.valor || "",
         fechaFactura: ocrData.fecha || "",
         centroCostos: form.centroCostos,
+        voucherUrl: voucherUrl || undefined,
       };
 
       const res = await fetch("/api/gastos", {
@@ -163,6 +178,7 @@ export default function AgregarFacturaModal({
       onSaved(json.id);
       setStep("upload");
       setPreview(null);
+      setVoucherUrl("");
       setOcrData({ proveedor: null, nit: null, numFactura: null, concepto: null, valor: null, fecha: null });
       setForm({ motivo: "", fechaInicio: "", fechaFin: "", centroCostos: "" });
       onClose();
@@ -171,13 +187,14 @@ export default function AgregarFacturaModal({
     } finally {
       setSaving(false);
     }
-  }, [form, ocrData, responsable, cargo, cc, ciudad, onSaved, onClose]);
+  }, [form, ocrData, responsable, cargo, cc, ciudad, voucherUrl, onSaved, onClose]);
 
   const handleClose = () => {
     if (step === "edit") {
       setStep("upload");
     }
     setPreview(null);
+    setVoucherUrl("");
     setOcrData({ proveedor: null, nit: null, numFactura: null, concepto: null, valor: null, fecha: null });
     setForm({ motivo: "", fechaInicio: "", fechaFin: "", centroCostos: "" });
     setError("");

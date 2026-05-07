@@ -24,6 +24,7 @@ type GastoGeneralDb = {
   status: string | null;
   region: string | null;
   submitted_at: string | null;
+  voucher_url: string | null;
 };
 
 function dbToApi(r: GastoGeneralDb): Record<string, string> {
@@ -44,6 +45,7 @@ function dbToApi(r: GastoGeneralDb): Record<string, string> {
     Valor: r.amount != null ? String(r.amount) : "",
     Estado: r.status ?? "",
     Sector: r.region ?? "",
+    VoucherUrl: r.voucher_url ?? "",
   };
 }
 
@@ -59,7 +61,7 @@ export async function GET() {
     const { data, error } = await getSupabase()
       .from(TABLES.expenses)
       .select(
-        "id, expense_id, fecha, assignee, job_title, city, reason, start_date, end_date, concept, cost_center, nit, invoice_date, amount, status, region, submitted_at, created_at"
+        "id, expense_id, fecha, assignee, job_title, city, reason, start_date, end_date, concept, cost_center, nit, invoice_date, amount, status, region, submitted_at, voucher_url, created_at"
       )
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
     fechaFactura?: string;
     centroCostos?: string;
     sector?: string;
+    voucherUrl?: string;
   };
 
   const responsable = String(body.responsable || session.user.responsable || session.user.name || "").trim();
@@ -137,6 +140,7 @@ export async function POST(req: NextRequest) {
         cost_center: body.centroCostos || null,
         region: sector,
         status: "Pendiente",
+        voucher_url: body.voucherUrl || null,
       })
       .select("id")
       .single();

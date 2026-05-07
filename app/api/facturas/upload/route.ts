@@ -88,16 +88,11 @@ export async function POST(req: NextRequest) {
     const destino = String(formData.get("destino") || "").trim();
     const isReportes = destino === "reportes";
     const isEnvios = destino === "envios";
+    const isGastos = destino === "gastos";
 
     let sector = String(formData.get("sector") || "").trim();
-    if (!isReportes && !VALID_SECTORS.has(sector)) {
-      return NextResponse.json(
-        { error: 'sector debe ser "Bogota" o "Costa Caribe"' },
-        { status: 400 }
-      );
-    }
-
     const sessionSector = String(session?.user?.sector || "").trim();
+
     if (isReportes) {
       if (!session || String(session.user.rol || "").toLowerCase() !== "admin") {
         return NextResponse.json(
@@ -106,7 +101,17 @@ export async function POST(req: NextRequest) {
         );
       }
       sector = sessionSector && VALID_SECTORS.has(sessionSector) ? sessionSector : "Bogota";
-    } else if (!isInternal && session) {
+    } else if (isGastos) {
+      // Sector siempre viene de la sesión para gastos (el modal no lo envía explícitamente)
+      sector = sessionSector && VALID_SECTORS.has(sessionSector) ? sessionSector : "Bogota";
+    } else if (!VALID_SECTORS.has(sector)) {
+      return NextResponse.json(
+        { error: 'sector debe ser "Bogota" o "Costa Caribe"' },
+        { status: 400 }
+      );
+    }
+
+    if (!isReportes && !isGastos && !isInternal && session) {
       const rol = String(session.user.rol || "user").toLowerCase();
       if (rol === "user" || rol === "coordinador") {
         if (sessionSector && sector !== sessionSector) {
@@ -166,7 +171,9 @@ export async function POST(req: NextRequest) {
       ? `reportes/${sector}/${fileName}`
       : isEnvios
         ? `envios/${sector}/${yyyyMm}/${fileName}`
-        : `facturas/${sector}/${yyyyMm}/${fileName}`;
+        : isGastos
+          ? `gastos/${sector}/${yyyyMm}/${fileName}`
+          : `facturas/${sector}/${yyyyMm}/${fileName}`;
 
     const { path, publicUrl } = await uploadToStorage(storagePath, buffer, mime);
 
