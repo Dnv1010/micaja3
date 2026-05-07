@@ -17,7 +17,6 @@ export type FacturaDbRow = {
   billed_to_bia: boolean | null;
   notes: string | null;
   attachment_url: string | null;
-  url: string | null;
   status: string | null;
   verificado: boolean | null;
   city: string | null;
@@ -34,14 +33,14 @@ export type FacturaDbRow = {
 };
 
 const SELECT_COLUMNS =
-  "id, invoice_id, invoice_number, invoice_date, invoice_amount, assignee, service_type, invoice_type, vendor_tax_id, company_name, billed_to_bia, notes, attachment_url, url, status, verificado, city, region, cost_center, cost_center_info, submitted_at, ops, rejection_reason, drive_file_id, transfer_id, created_at";
+  "id, invoice_id, invoice_number, invoice_date, invoice_amount, assignee, service_type, invoice_type, vendor_tax_id, company_name, billed_to_bia, notes, attachment_url, status, verificado, city, region, cost_center, cost_center_info, submitted_at, ops, rejection_reason, drive_file_id, transfer_id, created_at";
 
 /** Convierte fila de DB → shape legacy de Sheet (múltiples alias por campo para compat UI). */
 export function facturaDbToApi(r: FacturaDbRow): FacturaRow {
   const estadoStr = r.status ?? "Pendiente";
   const nombreBiaStr = r.billed_to_bia ? "TRUE" : r.billed_to_bia === false ? "FALSE" : "";
   const verificadoStr = r.verificado === true ? "TRUE" : r.verificado === false ? "FALSE" : estadoStr;
-  const imagen = r.attachment_url ?? r.url ?? "";
+  const imagen = r.attachment_url ?? "";
   const row: Record<string, string | number | undefined> = {
     _rowIndex: 0,
     _id: r.id,
@@ -79,7 +78,7 @@ export function facturaDbToApi(r: FacturaDbRow): FacturaRow {
     // Imagen / URL
     Adjuntar_Factura: imagen,
     ImagenURL: imagen,
-    URL: r.url ?? imagen,
+    URL: imagen,
     DriveFileId: r.drive_file_id ?? "",
     // Estado (mismo valor en Legalizado/Estado/Verificado para compat UI)
     Estado: estadoStr,
@@ -180,7 +179,6 @@ export async function insertFactura(f: FacturaInsertFields): Promise<void> {
     billed_to_bia: f.aNombreBia ?? null,
     notes: f.observacion ?? f.concepto ?? null,
     attachment_url: f.imagenUrl || null,
-    url: f.imagenUrl || null,
     status: estado,
     verificado: estado === "Aprobada" || estado === "Completada",
     city: f.ciudad || null,
@@ -234,7 +232,6 @@ export async function updateFactura(
   if (u.imagenUrl !== undefined) {
     const v = u.imagenUrl.trim() || null;
     patch.attachment_url = v;
-    patch.url = v;
   }
   if (u.driveFileId !== undefined) patch.drive_file_id = u.driveFileId.trim() || null;
 
