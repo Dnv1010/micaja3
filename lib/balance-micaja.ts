@@ -43,9 +43,9 @@ export async function loadMicajaBalancesByResponsable(opts?: {
   }
 
   const [entData, facData] = await Promise.all([
-    fetchAll<{ assignee: string | null; delivered_amount: number | string | null }>(
-      () => sb.from(TABLES.deliveries),
-      "assignee, delivered_amount"
+    fetchAll<{ assignee: string | null; amount: number | string | null }>(
+      () => sb.from(TABLES.transfers),
+      "assignee, amount"
     ),
     fetchAll<{
       assignee: string | null;
@@ -74,7 +74,7 @@ export async function loadMicajaBalancesByResponsable(opts?: {
   for (const row of entData) {
     const r = String(row.assignee ?? "").trim();
     if (zonaSet && !zonaSet.has(r.toLowerCase())) continue;
-    const m = Number(row.delivered_amount ?? 0);
+    const m = Number(row.amount ?? 0);
     if (Number.isFinite(m)) bump(r, "recibido", m);
   }
 

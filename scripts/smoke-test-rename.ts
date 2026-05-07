@@ -62,7 +62,6 @@ async function main() {
     checkTable("users",          "id, email, role, is_active, region, document_number"),
     checkTable("invoices",       "id, invoice_id, invoice_date, invoice_amount, status, region, submitted_at"),
     checkTable("transfers",      "id, transfer_id, amount, region, voucher_number"),
-    checkTable("deliveries",     "id, delivery_id, delivery_date, transfer_id, delivered_amount, confirmed"),
     checkTable("expenseReports", "id, report_id, coordinator, region, status, period_start, period_end"),
     checkTable("expenses",       "id, expense_id, amount, status, region, submitted_at"),
     checkTable("expenseGroups",  "id, group_id, group_name, expense_ids, status"),
