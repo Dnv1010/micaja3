@@ -207,6 +207,7 @@ export function EnviosCoordinadorClient({
       form.append("sector", sectorUpload);
       form.append("responsable", responsableUpload);
       form.append("fecha", fecha);
+      form.append("destino", "envios");
 
       const uploadRes = await fetch("/api/facturas/upload", { method: "POST", body: form });
       if (!uploadRes.ok) {
