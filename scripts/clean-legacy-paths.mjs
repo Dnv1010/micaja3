@@ -52,29 +52,13 @@ async function main() {
   // Registros con attachment_url no-null que no son URLs reales (sin https://)
   const { data: byAttachment, error: e1 } = await supabase
     .from(TABLE)
-    .select('id, invoice_id, attachment_url, url, drive_file_id')
+    .select('id, invoice_id, attachment_url, drive_file_id')
     .not('attachment_url', 'is', null)
     .not('attachment_url', 'like', 'https://%');
 
   if (e1) { console.error('❌ Error DB:', e1.message); process.exit(1); }
 
-  // Registros donde attachment_url es null pero url tampoco es https://
-  const { data: byUrl, error: e2 } = await supabase
-    .from(TABLE)
-    .select('id, invoice_id, attachment_url, url, drive_file_id')
-    .is('attachment_url', null)
-    .not('url', 'is', null)
-    .not('url', 'like', 'https://%');
-
-  if (e2) { console.error('❌ Error DB:', e2.message); process.exit(1); }
-
-  // Dedup por id
-  const seen = new Set();
-  const rows = [...(byAttachment ?? []), ...(byUrl ?? [])].filter(r => {
-    if (seen.has(r.id)) return false;
-    seen.add(r.id);
-    return true;
-  });
+  const rows = byAttachment ?? [];
 
   console.log(`\n📊 Registros con ruta legacy irrecuperable: ${rows.length}`);
   if (rows.length === 0) {
@@ -92,7 +76,7 @@ async function main() {
   if (DRY_RUN) {
     console.log('\n📋 Primeros 15 registros a limpiar:');
     for (const r of rows.slice(0, 15)) {
-      const legacyPath = r.attachment_url || r.url;
+      const legacyPath = r.attachment_url;
       const fallback   = r.drive_file_id ? `✅ tiene drive_file_id` : `⚠️  sin fallback`;
       console.log(`  • ${r.invoice_id}  ${fallback}`);
       console.log(`      ruta: ${legacyPath}`);
@@ -113,7 +97,7 @@ async function main() {
 
     const { error: ue } = await supabase
       .from(TABLE)
-      .update({ attachment_url: null, url: null, updated_at: new Date().toISOString() })
+      .update({ attachment_url: null, updated_at: new Date().toISOString() })
       .in('id', ids);
 
     if (ue) {

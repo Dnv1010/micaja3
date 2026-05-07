@@ -211,7 +211,7 @@ async function main() {
   // 1. Cargar registros legacy de la DB
   const { data: rows1, error: e1 } = await supabase
     .from(TABLE)
-    .select('id, invoice_id, attachment_url, url, drive_file_id, assignee, region, invoice_date')
+    .select('id, invoice_id, attachment_url, drive_file_id, assignee, region, invoice_date')
     .not('attachment_url', 'is', null)
     .not('attachment_url', 'like', 'https://%');
 
@@ -219,10 +219,8 @@ async function main() {
 
   const { data: rows2 } = await supabase
     .from(TABLE)
-    .select('id, invoice_id, attachment_url, url, drive_file_id, assignee, region, invoice_date')
-    .is('attachment_url', null)
-    .not('url', 'is', null)
-    .not('url', 'like', 'https://%');
+    .select('id, invoice_id, attachment_url, drive_file_id, assignee, region, invoice_date')
+    .is('attachment_url', null);
 
   const legacy = [...(rows1 ?? []), ...(rows2 ?? [])];
   console.log(`\n📊 Registros con imagen legacy: ${legacy.length}`);
@@ -255,7 +253,7 @@ async function main() {
 
   // 4. Cruzar con registros DB (carpetas conocidas primero)
   let cruzados = legacy.map(row => {
-    const rawPath = row.attachment_url || row.url || '';
+    const rawPath = row.attachment_url || '';
     const filename = rawPath.split('/').pop() || '';
     const driveId  = driveMap[filename.toLowerCase()] ?? null;
     return { row, filename, driveId };
@@ -343,7 +341,6 @@ async function main() {
       .from(TABLE)
       .update({
         attachment_url: publicUrl,
-        url:            publicUrl,
         updated_at:     new Date().toISOString(),
       })
       .eq('invoice_id', row.invoice_id);

@@ -42,7 +42,7 @@ data.forEach(r => {
 // Leer Supabase
 const { data: supa } = await supabase
   .from('facturas')
-  .select('id_factura, num_factura, fecha_factura, monto_factura, estado, url')
+  .select('id_factura, num_factura, fecha_factura, monto_factura, estado, attachment_url')
   .in('id_factura', NEW_IDS);
 const supById = new Map(supa.map(r => [r.id_factura, r]));
 
@@ -60,7 +60,7 @@ console.table(NEW_IDS.map(id => {
     fecha_supabase: su?.fecha_factura || '(null)',
     en_supabase: su ? '✓' : '✗',
     estado: su?.estado || '',
-    tiene_url: su?.url ? '✓' : '✗',
+    tiene_url: su?.attachment_url ? '✓' : '✗',
   };
 }));
 
