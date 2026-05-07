@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
 
     const destino = String(formData.get("destino") || "").trim();
     const isReportes = destino === "reportes";
+    const isEnvios = destino === "envios";
 
     let sector = String(formData.get("sector") || "").trim();
     if (!isReportes && !VALID_SECTORS.has(sector)) {
@@ -163,7 +164,9 @@ export async function POST(req: NextRequest) {
 
     const storagePath = isReportes
       ? `reportes/${sector}/${fileName}`
-      : `facturas/${sector}/${yyyyMm}/${fileName}`;
+      : isEnvios
+        ? `envios/${sector}/${yyyyMm}/${fileName}`
+        : `facturas/${sector}/${yyyyMm}/${fileName}`;
 
     const { path, publicUrl } = await uploadToStorage(storagePath, buffer, mime);
 
