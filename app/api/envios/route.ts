@@ -147,7 +147,6 @@ export async function POST(req: NextRequest) {
 
     const ts = Date.now();
     const id = `ENV-${ts}`;
-    const idEntrega = `ENT-${ts}`;
     const sectorCanon =
       normalizeSector(String(body.sector ?? session.user.sector ?? "")) || "Bogota";
 
@@ -162,19 +161,6 @@ export async function POST(req: NextRequest) {
       observacion: String(body.observacion ?? "").trim() || null,
     });
     if (envErr) throw envErr;
-
-    const { error: entErr } = await sb.from(TABLES.deliveries).insert({
-      delivery_id: idEntrega,
-      delivery_date: fecha,
-      transfer_id: id,
-      assignee: responsable,
-      delivered_amount: montoNum,
-    });
-    if (entErr) {
-      // Entrega failed — roll back the envio to avoid orphan records
-      await sb.from(TABLES.transfers).delete().eq("transfer_id", id);
-      throw entErr;
-    }
 
     const coord = String(session.user.responsable || session.user.name || "").trim();
     const base = appPublicBaseUrl();
@@ -234,9 +220,6 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: "Envio fuera de su zona" }, { status: 403 });
       }
     }
-
-    const { error: delEnt } = await sb.from(TABLES.deliveries).delete().eq("transfer_id", id);
-    if (delEnt) throw delEnt;
 
     const { error: delEnv } = await sb.from(TABLES.transfers).delete().eq("transfer_id", id);
     if (delEnv) throw delEnv;
