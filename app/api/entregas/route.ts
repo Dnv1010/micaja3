@@ -11,18 +11,18 @@ import { responsablesEnZonaSheetSet } from "@/lib/usuarios-sheet";
 
 type TransferDb = {
   transfer_id: string | null;
-  fecha: string | null;
+  record_date: string | null;
   assignee: string | null;
   amount: number | string | null;
   region: string | null;
   voucher_number: string | null;
-  observacion: string | null;
+  notes: string | null;
 };
 
 function transferToEntregaApi(r: TransferDb): Record<string, string> {
   return {
     ID_Entrega: r.transfer_id ?? "",
-    Fecha_Entrega: r.fecha ?? "",
+    Fecha_Entrega: r.record_date ?? "",
     ID_Envio: r.transfer_id ?? "",
     Responsable: r.assignee ?? "",
     Monto_Entregado: r.amount != null ? String(r.amount) : "",
@@ -30,7 +30,7 @@ function transferToEntregaApi(r: TransferDb): Record<string, string> {
     Aceptar: "",
     Firma: "",
     ComprobanteEnvio: r.voucher_number ?? "",
-    Observacion: r.observacion ?? "",
+    Observacion: r.notes ?? "",
   };
 }
 
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     const sb = getSupabase();
     const { data: rows, error } = await sb
       .from(TABLES.transfers)
-      .select("transfer_id, fecha, assignee, amount, region, voucher_number, observacion, created_at")
+      .select("transfer_id, record_date, assignee, amount, region, voucher_number, notes, created_at")
       .order("created_at", { ascending: true });
 
     if (error) throw error;

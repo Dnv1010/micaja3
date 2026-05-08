@@ -15,7 +15,7 @@ export async function POST() {
 
   const { data: envios, error: eErr } = await sb
     .from("transfers")
-    .select("transfer_id, fecha, assignee, amount");
+    .select("transfer_id, record_date, assignee, amount");
   if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 });
 
   const { data: entregas, error: entErr } = await sb
@@ -27,7 +27,7 @@ export async function POST() {
 
   const faltantes = (envios ?? []).filter(
     (env: { transfer_id: string | null }) => env.transfer_id && !entregasPorEnvio.has(env.transfer_id)
-  ) as { transfer_id: string; fecha: string | null; assignee: string | null; amount: number | string | null }[];
+  ) as { transfer_id: string; record_date: string | null; assignee: string | null; amount: number | string | null }[];
 
   if (!faltantes.length) {
     return NextResponse.json({ ok: true, reparadas: 0, message: "No hay entregas faltantes" });
@@ -35,7 +35,7 @@ export async function POST() {
 
   const inserts = faltantes.map((env) => ({
     delivery_id: `ENT-REP-${env.transfer_id}`,
-    delivery_date: env.fecha,
+    delivery_date: env.record_date,
     transfer_id: env.transfer_id,
     assignee: env.assignee,
     delivered_amount: typeof env.amount === "number" ? env.amount : Number(String(env.amount ?? "0").replace(/[^\d]/g, "")),

@@ -9,7 +9,7 @@ import { TABLES } from "@/lib/db-tables";
 type GrupoDb = {
   id: string;
   group_id: string | null;
-  fecha: string | null;
+  record_date: string | null;
   submitted_at: string | null;
   assignee: string | null;
   job_title: string | null;
@@ -29,7 +29,7 @@ function dbToApi(r: GrupoDb): Record<string, string> {
   return {
     _rowIndex: r.id,
     ID_Grupo: r.group_id ?? "",
-    FechaCreacion: r.submitted_at ?? r.fecha ?? "",
+    FechaCreacion: r.submitted_at ?? r.record_date ?? "",
     Responsable: r.assignee ?? "",
     Cargo: r.job_title ?? "",
     Sector: r.region ?? "",
@@ -58,7 +58,7 @@ export async function GET() {
     const { data, error } = await getSupabase()
       .from(TABLES.expenseGroups)
       .select(
-        "id, group_id, fecha, submitted_at, assignee, job_title, region, reason, start_date, end_date, amount, status, expense_ids, pdf_url, signature, cost_center, created_at"
+        "id, group_id, record_date, submitted_at, assignee, job_title, region, reason, start_date, end_date, amount, status, expense_ids, pdf_url, signature, cost_center, created_at"
       )
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
 
     const payload = {
       group_id: id,
-      fecha: new Date().toISOString().slice(0, 10),
+      record_date: new Date().toISOString().slice(0, 10),
       submitted_at: new Date().toISOString(),
       assignee: body.responsable || null,
       job_title: body.cargo || null,
