@@ -11,24 +11,24 @@ import { limiteAprobacionZona } from "@/lib/coordinador-zona";
 
 type EnvioDb = {
   transfer_id: string | null;
-  fecha: string | null;
+  record_date: string | null;
   assignee: string | null;
   amount: number | string | null;
   region: string | null;
   voucher_number: string | null;
-  observacion: string | null;
+  notes: string | null;
 };
 
 function envioDbToApi(r: EnvioDb): Record<string, string> {
   return {
     IDEnvio: r.transfer_id ?? "",
     ID: r.transfer_id ?? "",
-    Fecha: r.fecha ?? "",
+    Fecha: r.record_date ?? "",
     Monto: r.amount != null ? String(r.amount) : "",
     Responsable: r.assignee ?? "",
     Comprobante: r.voucher_number ?? "",
     Sector: r.region ?? "",
-    Observacion: r.observacion ?? "",
+    Observacion: r.notes ?? "",
   };
 }
 
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     const { data: rows, error } = await getSupabase()
       .from(TABLES.transfers)
-      .select("transfer_id, fecha, assignee, amount, region, voucher_number, observacion, created_at")
+      .select("transfer_id, record_date, assignee, amount, region, voucher_number, notes, created_at")
       .order("created_at", { ascending: true });
     if (error) throw error;
 
@@ -153,12 +153,12 @@ export async function POST(req: NextRequest) {
     const sb = getSupabase();
     const { error: envErr } = await sb.from(TABLES.transfers).insert({
       transfer_id: id,
-      fecha,
+      record_date: fecha,
       assignee: responsable,
       amount: montoNum,
       region: sectorCanon,
       voucher_number: comprobante || null,
-      observacion: String(body.observacion ?? "").trim() || null,
+      notes: String(body.observacion ?? "").trim() || null,
     });
     if (envErr) throw envErr;
 

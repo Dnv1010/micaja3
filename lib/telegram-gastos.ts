@@ -319,26 +319,25 @@ function parseFechaISO(raw: string): string | null {
 
 async function guardarGastosEnSupabase(s: any): Promise<void> {
   const sectorCanon = normalizeSector(String(s.sector || "")) || "Bogota";
-  const fechaCreacion = new Date().toISOString();
+  const now = new Date().toISOString();
   const rows = s.facturas.map((f: any, i: number) => ({
-    id_gasto: `GG-${Date.now()}-${i}`,
-    fecha: new Date().toISOString().slice(0, 10),
-    fecha_creacion: fechaCreacion,
-    responsable: s.nombre,
-    cargo: s.cargo || null,
-    cedula: s.cc || null,
-    ciudad: s.ciudad || null,
-    motivo: s.motivo || null,
-    fecha_inicio: parseFechaISO(s.fechaInicio),
-    fecha_fin: parseFechaISO(s.fechaFin),
-    concepto: f.concepto || null,
-    centro_costos: f.centroCostos || null,
+    expense_id: `GG-${Date.now()}-${i}`,
+    record_date: now.slice(0, 10),
+    submitted_at: now,
+    assignee: s.nombre,
+    job_title: s.cargo || null,
+    city: s.ciudad || null,
+    reason: s.motivo || null,
+    start_date: parseFechaISO(s.fechaInicio),
+    end_date: parseFechaISO(s.fechaFin),
+    concept: f.concepto || null,
+    cost_center: f.centroCostos || null,
     nit: f.nit || null,
-    fecha_factura: parseFechaISO(f.fecha),
-    monto: Number(String(f.valor).replace(/[^0-9]/g, "")) || 0,
-    comprobante: f.urlImagen || null,
-    sector: sectorCanon,
-    estado: "Aprobada",
+    invoice_date: parseFechaISO(f.fecha),
+    amount: Number(String(f.valor).replace(/[^0-9]/g, "")) || 0,
+    voucher_url: f.urlImagen || null,
+    region: sectorCanon,
+    status: "Aprobada",
   }));
   const { error } = await getSupabase().from(TABLES.expenses).insert(rows);
   if (error) console.error("guardarGastosEnSupabase:", error);

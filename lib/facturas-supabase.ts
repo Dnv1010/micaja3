@@ -18,7 +18,7 @@ export type FacturaDbRow = {
   notes: string | null;
   attachment_url: string | null;
   status: string | null;
-  verificado: boolean | null;
+  is_verified: boolean | null;
   city: string | null;
   region: string | null;
   cost_center: string | null;
@@ -33,13 +33,13 @@ export type FacturaDbRow = {
 };
 
 const SELECT_COLUMNS =
-  "id, invoice_id, invoice_number, invoice_date, invoice_amount, assignee, service_type, invoice_type, vendor_tax_id, company_name, billed_to_bia, notes, attachment_url, status, verificado, city, region, cost_center, cost_center_info, submitted_at, ops, rejection_reason, drive_file_id, transfer_id, created_at";
+  "id, invoice_id, invoice_number, invoice_date, invoice_amount, assignee, service_type, invoice_type, vendor_tax_id, company_name, billed_to_bia, notes, attachment_url, status, is_verified, city, region, cost_center, cost_center_info, submitted_at, ops, rejection_reason, drive_file_id, transfer_id, created_at";
 
 /** Convierte fila de DB → shape legacy de Sheet (múltiples alias por campo para compat UI). */
 export function facturaDbToApi(r: FacturaDbRow): FacturaRow {
   const estadoStr = r.status ?? "Pendiente";
   const nombreBiaStr = r.billed_to_bia ? "TRUE" : r.billed_to_bia === false ? "FALSE" : "";
-  const verificadoStr = r.verificado === true ? "TRUE" : r.verificado === false ? "FALSE" : estadoStr;
+  const verificadoStr = r.is_verified === true ? "TRUE" : r.is_verified === false ? "FALSE" : estadoStr;
   const imagen = r.attachment_url ?? "";
   const row: Record<string, string | number | undefined> = {
     _rowIndex: 0,
@@ -180,7 +180,7 @@ export async function insertFactura(f: FacturaInsertFields): Promise<void> {
     notes: f.observacion ?? f.concepto ?? null,
     attachment_url: f.imagenUrl || null,
     status: estado,
-    verificado: estado === "Aprobada" || estado === "Completada",
+    is_verified: estado === "Aprobada" || estado === "Completada",
     city: f.ciudad || null,
     region: sectorCanon,
     ops: f.tipoOperacion || null,
@@ -249,7 +249,7 @@ export async function updateFacturaEstado(
 ): Promise<void> {
   const patch: Record<string, unknown> = {
     status: estado,
-    verificado: estado === "Aprobada" || estado === "Completada",
+    is_verified: estado === "Aprobada" || estado === "Completada",
     rejection_reason: estado === "Rechazada" ? motivoRechazo || null : null,
     updated_at: new Date().toISOString(),
   };
@@ -278,7 +278,7 @@ export async function updateFacturasEstadoMasivo(
   if (idsFactura.length === 0) return;
   const patch: Record<string, unknown> = {
     status: estado,
-    verificado: estado === "Aprobada",
+    is_verified: estado === "Aprobada",
     rejection_reason: estado === "Rechazada" ? motivoRechazo || null : null,
     updated_at: new Date().toISOString(),
   };
@@ -295,7 +295,7 @@ export async function marcarFacturasCompletadas(idsFactura: string[]): Promise<v
     .from(TABLES.invoices)
     .update({
       status: "Completada",
-      verificado: true,
+      is_verified: true,
       updated_at: new Date().toISOString(),
     })
     .in("invoice_id", idsFactura);

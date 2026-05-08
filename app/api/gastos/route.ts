@@ -9,7 +9,7 @@ import { TABLES } from "@/lib/db-tables";
 type GastoGeneralDb = {
   id: string;
   expense_id: string | null;
-  fecha: string | null;
+  record_date: string | null;
   assignee: string | null;
   job_title: string | null;
   city: string | null;
@@ -31,7 +31,7 @@ function dbToApi(r: GastoGeneralDb): Record<string, string> {
   return {
     _rowIndex: r.id,
     ID_Gasto: r.expense_id ?? "",
-    FechaCreacion: r.submitted_at ?? r.fecha ?? "",
+    FechaCreacion: r.submitted_at ?? r.record_date ?? "",
     Responsable: r.assignee ?? "",
     Cargo: r.job_title ?? "",
     Ciudad: r.city ?? "",
@@ -61,7 +61,7 @@ export async function GET() {
     const { data, error } = await getSupabase()
       .from(TABLES.expenses)
       .select(
-        "id, expense_id, fecha, assignee, job_title, city, reason, start_date, end_date, concept, cost_center, nit, invoice_date, amount, status, region, submitted_at, voucher_url, created_at"
+        "id, expense_id, record_date, assignee, job_title, city, reason, start_date, end_date, concept, cost_center, nit, invoice_date, amount, status, region, submitted_at, voucher_url, created_at"
       )
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       .from(TABLES.expenses)
       .insert({
         expense_id: id,
-        fecha: new Date().toISOString().slice(0, 10),
+        record_date: new Date().toISOString().slice(0, 10),
         submitted_at: new Date().toISOString(),
         assignee: responsable,
         job_title: body.cargo || null,

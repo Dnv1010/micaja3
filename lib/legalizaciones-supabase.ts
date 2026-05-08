@@ -5,7 +5,7 @@ import { TABLES } from "@/lib/db-tables";
 export type LegalizacionDbRow = {
   id: string;
   report_id: string | null;
-  fecha: string | null;
+  record_date: string | null;
   submitted_at: string | null;
   coordinator: string | null;
   region: string | null;
@@ -25,14 +25,14 @@ export type LegalizacionDbRow = {
 };
 
 const SELECT_COLUMNS =
-  "id, report_id, fecha, submitted_at, coordinator, region, total, approved_total, status, notes, report_url, period_start, period_end, invoice_ids, coordinator_signature, admin_signature, ai_summary, created_at";
+  "id, report_id, record_date, submitted_at, coordinator, region, total, approved_total, status, notes, report_url, period_start, period_end, invoice_ids, coordinator_signature, admin_signature, ai_summary, created_at";
 
 /** Convierte DB → forma que espera la UI (claves Sheet-style). */
 export function legalizacionDbToApi(r: LegalizacionDbRow): Record<string, string> {
   return {
     ID_Reporte: r.report_id ?? "",
     ID: r.report_id ?? "",
-    Fecha_Creacion: r.submitted_at ?? r.fecha ?? "",
+    Fecha_Creacion: r.submitted_at ?? r.record_date ?? "",
     Coordinador: r.coordinator ?? "",
     Sector: r.region ?? "",
     Periodo_Desde: r.period_start ?? "",
@@ -82,7 +82,7 @@ export async function insertLegalizacion(f: LegalizacionInsertFields): Promise<v
   const sectorCanon = normalizeSector(f.sector) || "Bogota";
   const payload = {
     report_id: f.idReporte,
-    fecha: new Date().toISOString().slice(0, 10),
+    record_date: new Date().toISOString().slice(0, 10),
     submitted_at: new Date().toISOString(),
     coordinator: f.coordinador,
     region: sectorCanon,
