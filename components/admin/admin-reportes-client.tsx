@@ -213,6 +213,7 @@ export function AdminReportesClient() {
 
   async function confirmarFirmaAdmin() {
     if (!activo || !firmaAdmin.trim()) return;
+    console.log("[admin firma] build: direct-supabase-upload-v1");
     setProcesando(true);
     setErrorMsg("");
     setSuccessMsg("");
