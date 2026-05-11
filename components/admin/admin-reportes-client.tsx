@@ -73,15 +73,16 @@ function urlParaProxyFactura(f: FacturaPdf): string | null {
 }
 
 /**
- * Recomprime una data URL de imagen a JPEG con dimensiones máximas para
- * mantener el PDF por debajo del límite de body de Vercel (~4.5MB).
+ * Recomprime una data URL solo si la imagen es mucho más grande de lo
+ * que se necesita para leerla en el PDF. El upload va directo a Supabase
+ * Storage, así que privilegiamos calidad de las facturas.
  */
 async function compressDataUrlImage(
   dataUrl: string,
   opts: { maxDim?: number; quality?: number } = {}
 ): Promise<string> {
-  const maxDim = opts.maxDim ?? 1400;
-  const quality = opts.quality ?? 0.72;
+  const maxDim = opts.maxDim ?? 3000;
+  const quality = opts.quality ?? 0.92;
   if (!dataUrl.startsWith("data:image/")) return dataUrl;
   // PDFs convertidos a imagen por el proxy ya vienen como image/*; los dejamos.
   return new Promise<string>((resolve) => {
@@ -213,7 +214,7 @@ export function AdminReportesClient() {
 
   async function confirmarFirmaAdmin() {
     if (!activo || !firmaAdmin.trim()) return;
-    console.log("[admin firma] build: direct-supabase-upload-v1");
+    console.log("[admin firma] build: hi-quality-images-v2");
     setProcesando(true);
     setErrorMsg("");
     setSuccessMsg("");
