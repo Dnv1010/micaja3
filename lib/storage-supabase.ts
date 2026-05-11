@@ -46,6 +46,22 @@ export async function deleteFromStorage(path: string): Promise<void> {
   if (error) console.error("[storage] delete:", error);
 }
 
+/**
+ * Crea una URL firmada para subir un archivo desde el navegador.
+ * Saltea el límite de 4.5MB de las funciones Vercel.
+ * El cliente hace `fetch(signedUrl, { method: "PUT", body: blob })`.
+ */
+export async function createSignedUploadUrlForPath(
+  path: string
+): Promise<{ signedUrl: string; token: string; path: string }> {
+  const safePath = sanitizePath(path);
+  const { data, error } = await getSupabase()
+    .storage.from(BUCKET)
+    .createSignedUploadUrl(safePath);
+  if (error) throw error;
+  return { signedUrl: data.signedUrl, token: data.token, path: safePath };
+}
+
 /** Descarga un archivo como buffer (para adjuntar en emails, etc.). */
 export async function downloadFromStorage(path: string): Promise<Buffer | null> {
   const safePath = sanitizePath(path);

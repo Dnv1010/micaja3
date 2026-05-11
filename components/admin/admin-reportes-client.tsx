@@ -321,26 +321,37 @@ export function AdminReportesClient() {
       const blob = await pdf(doc).toBlob();
       console.log("[admin firma] PDF blob:", { size: blob.size, type: blob.type });
 
-      stage = "subiendo PDF";
+      stage = "obteniendo URL de subida";
       const idRep = reporteId(activo);
       const sectorUpload = isMicajaSector(sectorRep) ? sectorRep : adminSector;
-      const fd = new FormData();
-      fd.append(
-        "file",
-        blob,
-        `Reporte_${coordNombre.replace(/\s+/g, "_")}_Firmado_${Date.now()}.pdf`
-      );
-      fd.append("sector", sectorUpload);
-      fd.append("responsable", coordNombre || "admin");
-      fd.append("fecha", new Date().toISOString().slice(0, 7));
-
-      const upRes = await fetch("/api/facturas/upload", { method: "POST", body: fd });
-      const upJson = await upRes.json().catch(() => ({}));
-      if (!upRes.ok) {
-        throw new Error(String(upJson.error || `Upload fallo HTTP ${upRes.status}`));
+      const urlRes = await fetch("/api/facturas/upload-reporte-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sector: sectorUpload,
+          responsable: coordNombre || "admin",
+        }),
+      });
+      const urlJson = (await urlRes.json().catch(() => ({}))) as {
+        signedUrl?: string;
+        publicUrl?: string;
+        error?: string;
+      };
+      if (!urlRes.ok || !urlJson.signedUrl || !urlJson.publicUrl) {
+        throw new Error(String(urlJson.error || `URL fallo HTTP ${urlRes.status}`));
       }
-      const url = String(upJson.url || "").trim();
-      if (!url) throw new Error("Storage no devolvió URL");
+
+      stage = "subiendo PDF a Storage";
+      const putRes = await fetch(urlJson.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
+        body: blob,
+      });
+      if (!putRes.ok) {
+        const txt = await putRes.text().catch(() => "");
+        throw new Error(`Storage upload fallo HTTP ${putRes.status} ${txt}`.trim());
+      }
+      const url = urlJson.publicUrl;
 
       stage = "guardando firma";
       const patchRes = await fetch(`/api/legalizaciones/${encodeURIComponent(idRep)}`, {
