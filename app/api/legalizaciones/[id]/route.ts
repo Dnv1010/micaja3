@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { applyFacturaEstadoById } from "@/lib/factura-estado-server";
+import { extractIdsFromReporteFacturasCell } from "@/lib/legalizacion-factura-pdf-map";
 import { formatCOP, parseCOPString } from "@/lib/format";
 import {
   deleteLegalizacion,
@@ -131,9 +133,18 @@ export async function DELETE(
       }
     }
 
+    const facturasIds = extractIdsFromReporteFacturasCell(String(row.invoice_ids ?? ""));
+
     const ok = await deleteLegalizacion(reportId);
     if (!ok) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    return NextResponse.json({ ok: true });
+
+    if (facturasIds.length) {
+      await Promise.allSettled(
+        facturasIds.map((fid) => applyFacturaEstadoById(fid, "Aprobada", ""))
+      );
+    }
+
+    return NextResponse.json({ ok: true, facturasReabiertas: facturasIds.length });
   } catch (e) {
     console.error("legalizaciones DELETE:", e);
     return NextResponse.json({ error: "Error al eliminar" }, { status: 500 });

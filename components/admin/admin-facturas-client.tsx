@@ -56,6 +56,10 @@ export function AdminFacturasClient() {
   const [usuariosOpciones, setUsuariosOpciones] = useState<{ responsable: string; email: string }[]>([]);
   const [editar, setEditar] = useState<FacturaRow | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [seleccionReabrir, setSeleccionReabrir] = useState<Set<string>>(new Set());
+  const [reabriendo, setReabriendo] = useState(false);
+  const [confirmReabrir, setConfirmReabrir] = useState(false);
+  const [avisoReabrir, setAvisoReabrir] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +163,71 @@ export function AdminFacturasClient() {
     if (res.ok) await load();
   }
 
+  function toggleSeleccionReabrir(id: string) {
+    setSeleccionReabrir((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const completadasFiltradasIds = useMemo(
+    () =>
+      filtradas
+        .filter((f) => facturaEstado(f).toLowerCase() === "completada")
+        .map((f) => String(getCellCaseInsensitive(f, "ID_Factura", "ID"))),
+    [filtradas]
+  );
+
+  function toggleSeleccionarTodas() {
+    setSeleccionReabrir((prev) => {
+      const todas = completadasFiltradasIds.length > 0 &&
+        completadasFiltradasIds.every((id) => prev.has(id));
+      if (todas) {
+        const next = new Set(prev);
+        for (const id of completadasFiltradasIds) next.delete(id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const id of completadasFiltradasIds) next.add(id);
+      return next;
+    });
+  }
+
+  async function confirmarReabrir() {
+    const ids = Array.from(seleccionReabrir);
+    if (!ids.length) return;
+    setReabriendo(true);
+    setAvisoReabrir("");
+    try {
+      const res = await fetch("/api/facturas/reabrir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAvisoReabrir(String(json.error || "Error al reabrir"));
+        return;
+      }
+      const reabiertas = Number(json.reabiertas || 0);
+      const omitidas = Array.isArray(json.omitidas) ? json.omitidas.length : 0;
+      setAvisoReabrir(
+        omitidas
+          ? `Reabiertas ${reabiertas}. Omitidas ${omitidas} (no estaban en Completada).`
+          : `Reabiertas ${reabiertas} factura(s).`
+      );
+      setSeleccionReabrir(new Set());
+      await load();
+    } catch (e) {
+      setAvisoReabrir(e instanceof Error ? e.message : "Error al reabrir");
+    } finally {
+      setReabriendo(false);
+      setConfirmReabrir(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <FacturaEditDialog
@@ -181,6 +250,14 @@ export function AdminFacturasClient() {
             void eliminar(id);
           }}
           onCancelar={() => setConfirmEliminarId(null)}
+        />
+      ) : null}
+      {confirmReabrir ? (
+        <BiaConfirm
+          mensaje={`¿Reabrir ${seleccionReabrir.size} factura(s) Completadas para volver a Aprobadas?`}
+          confirmLabel="Reabrir"
+          onConfirmar={() => void confirmarReabrir()}
+          onCancelar={() => setConfirmReabrir(false)}
         />
       ) : null}
 
@@ -267,11 +344,60 @@ export function AdminFacturasClient() {
         </CardContent>
       </Card>
 
+      {(seleccionReabrir.size > 0 || completadasFiltradasIds.length > 0 || avisoReabrir) && (
+        <Card className="border-bia-aqua/30 bg-bia-blue-mid text-white">
+          <CardContent className="flex flex-wrap items-center gap-3 pt-4">
+            {completadasFiltradasIds.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 border-bia-gray/40 px-3 text-xs"
+                onClick={toggleSeleccionarTodas}
+              >
+                {completadasFiltradasIds.every((id) => seleccionReabrir.has(id))
+                  ? "Deseleccionar todas las Completadas"
+                  : `Seleccionar todas las Completadas (${completadasFiltradasIds.length})`}
+              </Button>
+            ) : null}
+            <span className="text-xs text-bia-gray-light">
+              {seleccionReabrir.size} factura(s) seleccionada(s) para reabrir
+            </span>
+            {seleccionReabrir.size > 0 ? (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 bg-bia-aqua px-3 text-xs font-semibold text-bia-blue hover:bg-[#06C4A8]"
+                  disabled={reabriendo}
+                  onClick={() => setConfirmReabrir(true)}
+                >
+                  ↺ Reabrir seleccionadas
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-bia-gray/40 px-3 text-xs"
+                  onClick={() => setSeleccionReabrir(new Set())}
+                >
+                  Limpiar selección
+                </Button>
+              </>
+            ) : null}
+            {avisoReabrir ? (
+              <span className="text-xs text-bia-aqua">{avisoReabrir}</span>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-bia-gray/20 bg-bia-blue-mid text-white">
         <CardContent className="overflow-x-auto pt-6">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Responsable</TableHead>
                 <TableHead>Zona</TableHead>
@@ -288,7 +414,7 @@ export function AdminFacturasClient() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11}>
+                  <TableCell colSpan={12}>
                     <div className="h-6 animate-pulse rounded bg-bia-blue-mid" />
                   </TableCell>
                 </TableRow>
@@ -304,6 +430,17 @@ export function AdminFacturasClient() {
                   );
                   return (
                     <TableRow key={`${id}-${i}`}>
+                      <TableCell className="px-2">
+                        {est === "completada" ? (
+                          <input
+                            type="checkbox"
+                            checked={seleccionReabrir.has(id)}
+                            onChange={() => toggleSeleccionReabrir(id)}
+                            className="h-4 w-4 cursor-pointer accent-bia-aqua"
+                            aria-label={`Seleccionar factura ${id} para reabrir`}
+                          />
+                        ) : null}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap text-xs">{facturaFecha(f) || "—"}</TableCell>
                       <TableCell className="text-sm">{getCellCaseInsensitive(f, "Responsable")}</TableCell>
                       <TableCell className="text-sm">{etiquetaZona(sector)}</TableCell>
@@ -388,7 +525,7 @@ export function AdminFacturasClient() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-bia-gray">
+                  <TableCell colSpan={12} className="text-bia-gray">
                     Sin resultados con los filtros actuales
                   </TableCell>
                 </TableRow>
