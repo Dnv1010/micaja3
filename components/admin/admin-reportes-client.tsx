@@ -170,6 +170,7 @@ export function AdminReportesClient() {
     setProcesando(true);
     setErrorMsg("");
     setSuccessMsg("");
+    let stage = "init";
     try {
       const sectorRep = String(activo.Sector || adminSector);
       const limite = limiteAprobacionZona(sectorRep);
@@ -235,13 +236,17 @@ export function AdminReportesClient() {
 
       console.log("[admin firma] Facturas parseadas:", facturasPdf.length, facturasPdf);
 
+      stage = "resolviendo imágenes";
       const facturasConImagenes = await resolveFacturaImages(facturasPdf);
+      console.log("[admin firma] imágenes resueltas:", facturasConImagenes.length);
 
+      stage = "cargando módulo PDF";
       const [{ pdf }, { LegalizacionPdf }] = await Promise.all([
         import("@react-pdf/renderer"),
         import("@/components/pdf/legalizacion-pdf"),
       ]);
 
+      stage = "renderizando PDF";
       const doc = (
         <LegalizacionPdf
           coordinador={{
@@ -259,7 +264,9 @@ export function AdminReportesClient() {
         />
       );
       const blob = await pdf(doc).toBlob();
+      console.log("[admin firma] PDF blob:", { size: blob.size, type: blob.type });
 
+      stage = "subiendo PDF";
       const idRep = reporteId(activo);
       const sectorUpload = isMicajaSector(sectorRep) ? sectorRep : adminSector;
       const fd = new FormData();
@@ -275,11 +282,12 @@ export function AdminReportesClient() {
       const upRes = await fetch("/api/facturas/upload", { method: "POST", body: fd });
       const upJson = await upRes.json().catch(() => ({}));
       if (!upRes.ok) {
-        throw new Error(String(upJson.error || "Error al subir PDF"));
+        throw new Error(String(upJson.error || `Upload fallo HTTP ${upRes.status}`));
       }
       const url = String(upJson.url || "").trim();
-      if (!url) throw new Error("Drive no devolvió URL");
+      if (!url) throw new Error("Storage no devolvió URL");
 
+      stage = "guardando firma";
       const patchRes = await fetch(`/api/legalizaciones/${encodeURIComponent(idRep)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -287,7 +295,7 @@ export function AdminReportesClient() {
       });
       if (!patchRes.ok) {
         const pj = await patchRes.json().catch(() => ({}));
-        throw new Error(String(pj.error || "Error al guardar firma"));
+        throw new Error(String(pj.error || `PATCH firma fallo HTTP ${patchRes.status}`));
       }
 
       setActivo(null);
@@ -295,7 +303,20 @@ export function AdminReportesClient() {
       await cargar();
       setSuccessMsg("Reporte firmado y PDF generado correctamente");
     } catch (e: unknown) {
-      setErrorMsg(e instanceof Error ? e.message : "Error al generar el PDF. Intenta de nuevo.");
+      console.error(`[admin firma] error en stage "${stage}":`, e);
+      const detalle =
+        e instanceof Error && e.message
+          ? e.message
+          : typeof e === "string" && e
+          ? e
+          : (() => {
+              try {
+                return JSON.stringify(e);
+              } catch {
+                return String(e);
+              }
+            })();
+      setErrorMsg(`Falló en "${stage}": ${detalle || "sin detalle"}`);
     } finally {
       setProcesando(false);
     }
