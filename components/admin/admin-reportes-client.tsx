@@ -72,20 +72,66 @@ function urlParaProxyFactura(f: FacturaPdf): string | null {
   return null;
 }
 
+/**
+ * Recomprime una data URL de imagen a JPEG con dimensiones máximas para
+ * mantener el PDF por debajo del límite de body de Vercel (~4.5MB).
+ */
+async function compressDataUrlImage(
+  dataUrl: string,
+  opts: { maxDim?: number; quality?: number } = {}
+): Promise<string> {
+  const maxDim = opts.maxDim ?? 1400;
+  const quality = opts.quality ?? 0.72;
+  if (!dataUrl.startsWith("data:image/")) return dataUrl;
+  // PDFs convertidos a imagen por el proxy ya vienen como image/*; los dejamos.
+  return new Promise<string>((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      try {
+        const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * ratio));
+        const h = Math.max(1, Math.round(img.height * ratio));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const out = canvas.toDataURL("image/jpeg", quality);
+        resolve(out.length < dataUrl.length ? out : dataUrl);
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 async function resolveFacturaImages(facturas: FacturaPdf[]): Promise<FacturaPdf[]> {
   return Promise.all(
     facturas.map(async (f) => {
       const target = urlParaProxyFactura(f);
-      if (!target) return f;
-      try {
-        const res = await fetch(`/api/proxy-imagen-base64?url=${encodeURIComponent(target)}`);
-        if (!res.ok) return f;
-        const j = (await res.json()) as { dataUrl?: string };
-        if (!j.dataUrl) return f;
-        return { ...f, imagenUrl: j.dataUrl };
-      } catch {
-        return f;
+      let dataUrl = f.imagenUrl?.startsWith("data:image/") ? f.imagenUrl : "";
+      if (!dataUrl && target) {
+        try {
+          const res = await fetch(`/api/proxy-imagen-base64?url=${encodeURIComponent(target)}`);
+          if (res.ok) {
+            const j = (await res.json()) as { dataUrl?: string };
+            if (j.dataUrl) dataUrl = j.dataUrl;
+          }
+        } catch {
+          /* mantener f tal cual */
+        }
       }
+      if (!dataUrl) return f;
+      const compressed = await compressDataUrlImage(dataUrl);
+      return { ...f, imagenUrl: compressed };
     })
   );
 }
@@ -238,7 +284,16 @@ export function AdminReportesClient() {
 
       stage = "resolviendo imágenes";
       const facturasConImagenes = await resolveFacturaImages(facturasPdf);
-      console.log("[admin firma] imágenes resueltas:", facturasConImagenes.length);
+      const pesoEstimado = facturasConImagenes.reduce((acc, f) => {
+        const u = f.imagenUrl || "";
+        return acc + (u.startsWith("data:") ? Math.round((u.length * 3) / 4) : 0);
+      }, 0);
+      console.log(
+        "[admin firma] imágenes resueltas:",
+        facturasConImagenes.length,
+        "peso estimado total:",
+        `${(pesoEstimado / 1024 / 1024).toFixed(2)} MB`
+      );
 
       stage = "cargando módulo PDF";
       const [{ pdf }, { LegalizacionPdf }] = await Promise.all([
