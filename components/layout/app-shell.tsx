@@ -13,13 +13,17 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col md:flex-row pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="h-screen flex flex-col md:flex-row overflow-hidden">
       <aside className="hidden md:block shrink-0">
         <SidebarNav session={session} />
       </aside>
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 min-h-0">
         <Header serverSession={session} />
-        <main className="mx-auto w-full max-w-6xl flex-1 bg-background p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-background">
+          <div className="mx-auto w-full max-w-6xl p-4 pb-[calc(1rem+52px+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
+            {children}
+          </div>
+        </main>
       </div>
       <MobileBottomNav session={session} />
     </div>
