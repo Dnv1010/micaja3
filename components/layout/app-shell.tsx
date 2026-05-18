@@ -13,18 +13,19 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-screen flex flex-col md:flex-row overflow-hidden">
-      <aside className="hidden md:block shrink-0">
+    <div className="min-h-screen bg-background">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 shrink-0 md:block">
         <SidebarNav session={session} />
       </aside>
-      <div className="flex flex-1 flex-col min-w-0 min-h-0">
+
+      <div className="fixed left-0 right-0 top-0 z-40 md:left-64">
         <Header serverSession={session} />
-        <main className="flex-1 overflow-y-auto bg-background">
-          <div className="mx-auto w-full max-w-6xl p-4 pb-[calc(1rem+52px+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
-            {children}
-          </div>
-        </main>
       </div>
+
+      <main className="pt-14 pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0 md:pl-64">
+        <div className="mx-auto w-full max-w-6xl p-4 md:p-6">{children}</div>
+      </main>
+
       <MobileBottomNav session={session} />
     </div>
   );
