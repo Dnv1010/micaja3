@@ -52,6 +52,7 @@ export function ReporteCoordinadorClient() {
   const [repLoading, setRepLoading] = useState(true);
   const [reportes, setReportes] = useState<ReporteRow[]>([]);
   const [confirmEliminarId, setConfirmEliminarId] = useState<string | null>(null);
+  const [errEliminar, setErrEliminar] = useState("");
   const [resumenIA, setResumenIA] = useState("");
   const [cargandoResumen, setCargandoResumen] = useState(false);
   const [fxReporte, setFxReporte] = useState<ReporteRow | null>(null);
@@ -220,11 +221,17 @@ export function ReporteCoordinadorClient() {
 
   async function eliminarReporteConfirmado(id: string) {
     if (!id) return;
+    setErrEliminar("");
     try {
       const res = await fetch(`/api/legalizaciones/${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (res.ok) await cargarReportes();
+      if (res.ok) {
+        await cargarReportes();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setErrEliminar(body?.error || `Error al eliminar (${res.status})`);
+      }
     } catch {
-      /* noop */
+      setErrEliminar("Error de red al eliminar el reporte");
     }
   }
 
@@ -262,6 +269,7 @@ export function ReporteCoordinadorClient() {
           }}
         />
       ) : null}
+      {errEliminar ? <p className="text-sm text-red-400">{errEliminar}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
@@ -554,15 +562,17 @@ export function ReporteCoordinadorClient() {
                             ) : (
                               <span className="text-xs text-amber-300">⏳ Pendiente firma del admin</span>
                             )}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="border-red-500/30 text-red-400"
-                              onClick={() => setConfirmEliminarId(id)}
-                            >
-                              🗑️ Eliminar
-                            </Button>
+                            {est.toLowerCase() === "pendiente admin" ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="border-red-500/30 text-red-400"
+                                onClick={() => setConfirmEliminarId(id)}
+                              >
+                                🗑️ Eliminar
+                              </Button>
+                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>

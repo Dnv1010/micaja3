@@ -394,9 +394,14 @@ export function AdminReportesClient() {
     if (!id) return;
     try {
       const res = await fetch(`/api/legalizaciones/${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (res.ok) await cargar();
+      if (res.ok) {
+        await cargar();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setErrorMsg(body?.error || `Error al eliminar (${res.status})`);
+      }
     } catch {
-      /* noop */
+      setErrorMsg("Error de red al eliminar el reporte");
     }
   }
 
